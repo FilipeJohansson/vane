@@ -1,0 +1,75 @@
+package pages
+
+import (
+	"fmt"
+	"github.com/filipejohansson/vane/core"
+	"github.com/filipejohansson/vane/core/router"
+	"github.com/filipejohansson/vane/examples/fullstack-app/src/api"
+	"github.com/filipejohansson/vane/examples/fullstack-app/src/store"
+)
+
+func userRow(u api.User) core.Node {
+	return (
+		<tr key={u.ID}>
+			<td>{u.Name}</td>
+			<td>{u.Email}</td>
+			<td>{u.JoinedDate()}</td>
+			<td>{router.Link(router.LinkProps{To: fmt.Sprintf("/dashboard/users/%d", u.ID)}, "View")}</td>
+		</tr>
+	)
+}
+
+func Users() core.Node {
+	users := core.NewSignal([]api.User{})
+	loading := core.NewSignal(true)
+	errMsg := core.NewSignal("")
+
+	core.Effect(func() func() {
+		token := store.Token.Get()
+		go func() {
+			list, err := api.ListUsers(token)
+			if err != nil {
+				errMsg.Set(err.Error())
+				loading.Set(false)
+				return
+			}
+			users.Set(list)
+			loading.Set(false)
+		}()
+		return nil
+	})
+
+	rows := func() []core.Node {
+		list := users.Get()
+		nodes := make([]core.Node, len(list))
+		for i, u := range list {
+			nodes[i] = userRow(u)
+		}
+		return nodes
+	}
+
+	body := func() core.Node {
+		if loading.Get() {
+			return (<p className="status">Loading…</p>)
+		}
+		if errMsg.Get() != "" {
+			return (<p className="auth-error">{errMsg.Get()}</p>)
+		}
+		return (
+			<table className="table">
+				<thead>
+					<tr><th>Name</th><th>Email</th><th>Joined</th><th></th></tr>
+				</thead>
+				<tbody>{rows()...}</tbody>
+			</table>
+		)
+	}
+
+	return (
+		<div className="page">
+			<h1 className="page-title">Users</h1>
+			<p className="page-desc">Everyone registered in this instance.</p>
+			{body()}
+		</div>
+	)
+}

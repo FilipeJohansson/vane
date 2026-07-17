@@ -1,0 +1,21 @@
+package pages
+
+import (
+	"github.com/filipejohansson/vane/core"
+	"github.com/filipejohansson/vane/core/router"
+	"github.com/filipejohansson/vane/examples/fullstack-app/src/store"
+)
+
+// Home is the "/" gateway: it never renders real content, just routes to
+// the right place once the restored session (if any) is known.
+func Home() core.Node {
+	core.Effect(func() func() {
+		if store.LoggedIn() {
+			router.Navigate("/dashboard")
+		} else {
+			router.Navigate("/login")
+		}
+		return nil
+	})
+	return (<p className="status">Loading…</p>)
+}

@@ -1,0 +1,152 @@
+package docs
+
+import (
+	"github.com/filipejohansson/vane/core"
+
+	"vane-page/src/components"
+)
+
+const a11yAriaSnippet = `return (
+    <button
+        aria-label="Close dialog"
+        aria-expanded={open.Get()}
+        onClick={func(core.MouseEvent) { open.Set(false) }}
+    >
+        <i data-lucide="x" />
+    </button>
+)`
+
+const a11yFocusSnippet = `var inputEl core.Node
+return (
+    <input ref={&inputEl} className="field" />
+)
+// elsewhere, e.g. an onClick handler:
+core.Focus(inputEl)`
+
+const a11yFocusTrapSnippet = `func Modal(ctrl *ModalCtrl) core.Node {
+    return (
+        <div
+            ref={func(el core.Node) {
+                var untrap func()
+                core.OnDispose(func() {
+                    if untrap != nil { untrap() }
+                })
+                core.NextTick(func() {
+                    untrap = core.FocusTrap(el)
+                })
+            }}
+            role="dialog" aria-modal="true"
+        >
+            ...
+        </div>
+    )
+}`
+
+const a11yPortalModalSnippet = `func Modal(ctrl *ModalCtrl) core.Node {
+    return core.Portal("#modal-root", func() core.Node {
+        if !ctrl.open.Get() {
+            return nil
+        }
+        return (
+            <div
+                ref={func(el core.Node) {
+                    var untrap func()
+                    core.OnDispose(func() {
+                        if untrap != nil { untrap() }
+                    })
+                    core.NextTick(func() {
+                        untrap = core.FocusTrap(el)
+                    })
+                }}
+                role="dialog" aria-modal="true" className="modal"
+            >
+                <h2>{ctrl.title.Get()}</h2>
+                <button onClick={func(core.MouseEvent) { ctrl.Close() }}>Close</button>
+            </div>
+        )
+    })
+}`
+
+const a11yAnnounceSnippet = `core.Announce("3 items added to cart")`
+
+func Accessibility() core.Node {
+	core.Head(func() core.HeadConfig {
+		return core.HeadConfig{
+			Title:       "Accessibility | Vane Docs",
+			Description: "aria-*/role/tabIndex as ordinary props, core.Focus and core.FocusTrap for keyboard focus, and core.Announce for live regions.",
+		}
+	})
+
+	items := accessibilityTOCItems
+
+	return (
+		<div className="docs-page">
+			<article className="docs-article">
+				{docsHeader(
+					"Best Practices",
+					"Accessibility",
+					"aria-*/role/tabIndex as ordinary props, core.Focus and core.FocusTrap for keyboard focus, and core.Announce for live regions.",
+				)}
+
+				<h2 className="docs-h2" id="aria-and-roles">ARIA attributes and roles</h2>
+				<p className="docs-p">
+					<code>aria-*</code>, <code>role</code>, and <code>tabIndex</code> need no
+					special syntax, they're ordinary props, static or reactive like any other:
+				</p>
+				{components.CodeBlock("CloseButton.vane", a11yAriaSnippet)}
+				{callout("tip", "Tip", "aria-*/data-* go through setAttribute (so they show up in getAttribute/dev tools inspection); role and tabIndex are real reflected DOM properties, so plain property assignment already produces the correct attribute. No special-casing needed either way. Role and TabIndex are also two of the fields on core.HTMLProps, see Components for the full field table.")}
+
+				<h2 className="docs-h2" id="focus-management">Focus management</h2>
+				<p className="docs-p">
+					<code>core.Focus(el)</code> moves keyboard focus to an element:
+				</p>
+				{components.CodeBlock("FocusInput.vane", a11yFocusSnippet)}
+
+				<h2 className="docs-h2" id="focus-trap">Focus trap for modals</h2>
+				<p className="docs-p">
+					<code>core.FocusTrap(el)</code> confines Tab/Shift+Tab cycling to{" "}
+					<code>el</code>'s focusable descendants, for modals, dialogs, and other
+					overlays that must not leak keyboard focus to the rest of the page. It moves
+					focus to the first focusable descendant immediately, and returns a cleanup
+					function: call it when the overlay closes to remove the trap and restore
+					focus to whatever was focused before it engaged, the standard "return focus
+					to the trigger button" pattern.
+				</p>
+				<p className="docs-p">
+					Engage it from a <code>callback ref</code>, deferred a tick since the
+					element isn't attached to the document yet at that exact point (see Refs & DOM):
+				</p>
+				{components.CodeBlock("Modal.vane", a11yFocusTrapSnippet)}
+				{callout("important", "Important", "core.OnDispose must be registered synchronously inside the ref callback, right there, not from inside the NextTick closure. It has to attach to the component's own dispose scope before that scope finishes setting up; registering it later attaches to whatever scope happens to be active at that point instead, which is not guaranteed to be this one.")}
+
+				<h2 className="docs-h2" id="accessible-modal-portal">Accessible modal, with Portal</h2>
+				<p className="docs-p">
+					Combining the pattern above with <code>core.Portal</code> needs the same
+					synchronous-<code>OnDispose</code> rule, now inside Portal's own render
+					function instead of a plain component body:
+				</p>
+				{components.CodeBlock("Modal.vane", a11yPortalModalSnippet)}
+				<p className="docs-p">
+					<code>core.FocusTrap</code> moves focus into the dialog and returns a cleanup
+					closure; the <code>OnDispose</code> wrapper calls it once Portal disposes this
+					render's scope (<code>ctrl.open</code> going false, or a re-open replacing it),
+					which both removes the trap's keydown listener and restores focus to whatever
+					triggered the modal open.
+				</p>
+				{callout("tip", "Tip", "One timing wrinkle specific to Portal: its very first render for a given target is deferred to a goroutine (target resolution needs the parent already mounted), so right after the signal flip that first opens the modal, signal.WaitEffects alone doesn't guarantee the content has mounted yet in a test. Every render after the first is synchronous.")}
+
+				<h2 className="docs-h2" id="live-regions">Live regions</h2>
+				<p className="docs-p">
+					<code>core.Announce(msg)</code> speaks <code>msg</code> to screen readers via
+					a shared, visually-hidden <code>aria-live="polite"</code> region, created
+					lazily on first use and reused across calls:
+				</p>
+				{components.CodeBlock("Cart.vane", a11yAnnounceSnippet)}
+				{callout("tip", "Tip", "Safe to call repeatedly with the same message. The region's text is cleared, then set again 50ms later, so screen readers register an actual content change and re-announce it even when the message is identical to last time, an aria-live region only fires on a real mutation, so setting the same text twice in a row without clearing first would only announce once.")}
+
+				{pageNav("accessibility")}
+			</article>
+			{toc(items)}
+		</div>
+	)
+}

@@ -1,0 +1,341 @@
+package components
+
+import (
+	"fmt"
+	"io"
+	"math/rand"
+	"net/http"
+	"strings"
+	"time"
+
+	"github.com/filipejohansson/vane/core"
+)
+
+const componentSnippet = `func Greeting() core.Node {
+    name := core.NewSignal("")
+
+    return (
+        <div>
+            <input
+                value={name.Get()}
+                onInput={func(e core.InputEvent) {
+                    name.Set(e.Value)
+                }}
+            />
+            {if name.Get() != "" {
+                <p>Hello, {name.Get()}!</p>
+            }}
+        </div>
+    )
+}`
+
+const signalsSnippet = `func Counter() core.Node {
+    count := core.NewSignal(0)
+
+    return (
+        <div>
+            <button onClick={func(core.MouseEvent) {
+                count.Set(count.Get() + 1)
+            }}>+1</button>
+            <p>Count: {count.Get()}</p>
+        </div>
+    )
+}`
+
+const dataFetchingSnippet = `func Quote() core.Node {
+    quote := core.NewSignal("")
+
+    go func() {
+        resp, _ := http.Get("https://api.github.com/zen")
+        defer resp.Body.Close()
+
+        body, _ := io.ReadAll(resp.Body)
+        quote.Set(string(body))
+    }()
+
+    return (<p>{quote.Get()}</p>)
+}`
+
+const routerSnippet = `func App() core.Node {
+    return router.Router(
+        router.Route("/", Home, "Home"),
+        router.Route("/users/:id", UserPage, "User"),
+        router.Route("*", NotFound),
+    )
+}`
+
+type featureTabInfo struct {
+	id    string
+	label string
+}
+
+var featureTabsList = []featureTabInfo{
+	{"signals", "Signals"},
+	{"components", "Components"},
+	{"data", "Data Fetching"},
+	{"router", "Router"},
+}
+
+func featureTabButton(active *core.Signal[string], t featureTabInfo) core.Node {
+	cls := "feature-tab"
+	if active.Get() == t.id {
+		cls = "feature-tab feature-tab--active"
+	}
+	return (
+		<button
+			className={cls}
+			type="button"
+			role="tab"
+			aria-selected={active.Get() == t.id}
+			onClick={func(core.MouseEvent) { active.Set(t.id) }}
+		>
+			{t.label}
+		</button>
+	)
+}
+
+// codeColumn wraps the shared CodeBlock in the sticky column used by the
+// split feature-tab panels. HighlightGoHTML/CodeBlock live in highlight.vane
+// so the docs pages can reuse the same highlighter and visual chrome.
+func codeColumn(filename, snippet string) core.Node {
+	return (
+		<div className="feature-panel-code">
+			{CodeBlock(filename, snippet)}
+		</div>
+	)
+}
+
+// signalsPanel proves fine-grained reactivity instead of describing it:
+// mountID is computed once, when the panel mounts. If the whole panel ever
+// re-rendered, it would change. It never does, because count is its own
+// signal-driven binding and nothing else is.
+func signalsPanel() core.Node {
+	count := core.NewSignal(0)
+	pulsing := core.NewSignal(false)
+	mountID := fmt.Sprintf("%04d", rand.Intn(10000))
+
+	onClick := func() {
+		count.Set(count.Get() + 1)
+		pulsing.Set(true)
+		go func() {
+			time.Sleep(500 * time.Millisecond)
+			pulsing.Set(false)
+		}()
+	}
+
+	return (
+		<div className="feature-panel">
+			<div className="feature-panel-info">
+				<h3 className="feature-panel-title">Signals: Fine-Grained Reactivity</h3>
+				<p className="feature-panel-desc">
+					Click the button. Only <code>count</code> updates. The mount id
+					below never changes, because this card never re-renders as a
+					whole, it never did in the first place.
+				</p>
+				<div className="demo-visual">
+					<div className="demo-node demo-node--static">
+						<span className="demo-node-label">mount id</span>
+						<span className="demo-node-value">#{mountID}</span>
+					</div>
+					<div className={func() string {
+						if pulsing.Get() {
+							return "demo-wire demo-wire--pulse"
+						}
+						return "demo-wire"
+					}()} />
+					<div className="demo-node demo-node--live">
+						<span className="demo-node-label">count</span>
+						<span className="demo-node-value demo-node-value--live">{count.Get()}</span>
+					</div>
+				</div>
+				<div className="spin-border">
+					{Button(ButtonProps{Variant: "primary", OnClick: func(core.MouseEvent) { onClick() }}, "Trigger update")}
+				</div>
+				{Button(ButtonProps{
+					Variant: "ghost",
+					Class:   "feature-panel-link",
+					Href:    "https://filipejohansson.github.io/vane/#/docs/signals",
+					Target:  "_blank",
+					Rel:     "noopener noreferrer",
+				}, "Learn more about signals")}
+			</div>
+			{codeColumn("Counter.vane", signalsSnippet)}
+		</div>
+	)
+}
+
+func componentsPanel() core.Node {
+	name := core.NewSignal("")
+
+	return (
+		<div className="feature-panel">
+			<div className="feature-panel-info">
+				<h3 className="feature-panel-title">Components: Plain Go Functions</h3>
+				<p className="feature-panel-desc">
+					A component is a Go function returning <code>core.Node</code>.
+					Type your name, the greeting below updates reactively.
+				</p>
+				<div className="demo-form">
+					<label className="demo-label" htmlFor="name-input">Your name</label>
+					<div className="spin-border">
+						<input
+							id="name-input"
+							className="input"
+							placeholder="Type here"
+							value={name.Get()}
+							onInput={func(e core.InputEvent) { name.Set(e.Value) }}
+						/>
+					</div>
+					{if name.Get() != "" {
+						<p className="greeting">Hello, {name.Get()}!</p>
+					}}
+				</div>
+				{Button(ButtonProps{
+					Variant: "ghost",
+					Class:   "feature-panel-link",
+					Href:    "https://filipejohansson.github.io/vane/#/docs/components",
+					Target:  "_blank",
+					Rel:     "noopener noreferrer",
+				}, "Learn more about components")}
+			</div>
+			{codeColumn("Greeting.vane", componentSnippet)}
+		</div>
+	)
+}
+
+// dataFetchingPanel calls a real endpoint with a goroutine and net/http
+// directly, no fetch wrapper, no async library. api.github.com/zen returns
+// a different line each time, so re-fetching visibly proves it's a live
+// network call, not a canned value.
+func dataFetchingPanel() core.Node {
+	status := core.NewSignal("idle")
+	quote := core.NewSignal("")
+
+	fetchQuote := func() {
+		status.Set("loading")
+		go func() {
+			resp, err := http.Get("https://api.github.com/zen")
+			if err != nil {
+				status.Set("error")
+				return
+			}
+			defer resp.Body.Close()
+
+			if resp.StatusCode != http.StatusOK {
+				status.Set("error")
+				return
+			}
+
+			body, err := io.ReadAll(resp.Body)
+			if err != nil {
+				status.Set("error")
+				return
+			}
+			quote.Set(strings.TrimSpace(string(body)))
+			status.Set("done")
+		}()
+	}
+	fetchQuote()
+
+	quoteText := func() string {
+		switch status.Get() {
+		case "error":
+			return "Couldn't reach the API, try again."
+		case "done":
+			return "“" + quote.Get() + "”"
+		default:
+			return ""
+		}
+	}
+
+	return (
+		<div className="feature-panel">
+			<div className="feature-panel-info">
+				<h3 className="feature-panel-title">Data Fetching: Real Go, net/http</h3>
+				<p className="feature-panel-desc">
+					No fetch wrapper, no async library. A goroutine calls{" "}
+					<code>net/http</code> directly from WASM and sets a signal when it
+					resolves. This is a real request, live, to GitHub's Zen API.
+				</p>
+				<div className="demo-quote-card">
+					{if status.Get() == "loading" {
+						<div className="spinner" role="status" aria-label="Fetching" />
+					} else {
+						<p className="demo-quote">{quoteText()}</p>
+					}}
+					<span className="demo-quote-attribution">api.github.com/zen</span>
+				</div>
+				<div className="hero-actions">
+					{Button(ButtonProps{Variant: "primary", OnClick: func(core.MouseEvent) { fetchQuote() }}, "Fetch another")}
+					{Button(ButtonProps{
+						Variant: "ghost",
+						Class:   "feature-panel-link",
+						Href:    "https://filipejohansson.github.io/vane/#/docs/data-fetching",
+						Target:  "_blank",
+						Rel:     "noopener noreferrer",
+					}, "Learn more about async fetch")}
+				</div>
+			</div>
+			{codeColumn("Quote.vane", dataFetchingSnippet)}
+		</div>
+	)
+}
+
+func routerPanel() core.Node {
+	return (
+		<div className="feature-panel">
+			<div className="feature-panel-info">
+				<h3 className="feature-panel-title">Router: Layouts, Params, Nested Routes</h3>
+				<p className="feature-panel-desc">
+					Hash-based routing with layouts, URL params, and nested routes.
+					Components run once on mount, the previous route's effects are
+					disposed on navigation.
+				</p>
+				{Button(ButtonProps{
+					Variant: "ghost",
+					Class:   "feature-panel-link",
+					Href:    "https://filipejohansson.github.io/vane/#/docs/routing",
+					Target:  "_blank",
+					Rel:     "noopener noreferrer",
+				}, "Learn more about routing")}
+			</div>
+			{codeColumn("App.vane", routerSnippet)}
+		</div>
+	)
+}
+
+func FeatureTabs() core.Node {
+	active := core.NewSignal("signals")
+
+	tabButtons := func() []core.Node {
+		nodes := make([]core.Node, len(featureTabsList))
+		for i, t := range featureTabsList {
+			nodes[i] = featureTabButton(active, t)
+		}
+		return nodes
+	}
+
+	return (
+		<section className="section" id="reactivity">
+			<div className="section-header">
+				<span className="eyebrow">See it, don't just read about it</span>
+				<h2 className="section-title">Features that actually work</h2>
+			</div>
+			<div className="feature-tabs">
+				<div className="feature-tab-list" role="tablist">
+					{tabButtons()...}
+				</div>
+				{switch active.Get() {
+				case "components":
+					<>{componentsPanel()}</>
+				case "data":
+					<>{dataFetchingPanel()}</>
+				case "router":
+					<>{routerPanel()}</>
+				default:
+					<>{signalsPanel()}</>
+				}}
+			</div>
+		</section>
+	)
+}

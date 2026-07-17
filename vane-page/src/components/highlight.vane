@@ -1,0 +1,198 @@
+package components
+
+import (
+	"html"
+	"regexp"
+	"strings"
+
+	"github.com/filipejohansson/vane/core"
+)
+
+// goTokenPattern is a best-effort Go/JSX highlighter for the hardcoded code
+// snippets on this site (FeatureTabs' interactive demos and the docs pages),
+// not a full grammar. Each alternative below carries its colored span(s) in
+// its own capturing group(s); any context an alternative consumes around
+// those groups (e.g. the "={" after a prop name) is left as plain text by
+// HighlightGoHTML.
+var goTokenPattern = regexp.MustCompile(
+	`(//[^` + "\n" + `]*)` + // 1: line comment
+		`|("(?:[^"\\]|\\.)*")` + // 2: double-quoted string
+		"|(`[^`]*`)" + // 3: backtick string
+		`|\)\s+([A-Za-z_][\w.]*)\s*\{` + // 4: return type
+		`|\b(func)\s+([A-Z]\w*)\s*\(` + // 5: func keyword, 6: component/function decl name
+		`|\bcore\.(NewSignal)\b` + // 7: NewSignal
+		`|\.([A-Z]\w*)\s*\(` + // 8: method/function call, e.g. .Get( / .Set( / http.Get(
+		`|\b(func|return|if|else|for|range|var|const|go|defer|switch|case|default)\b` + // 9: keyword
+		`|</?([a-zA-Z][\w-]*)` + // 10: JSX tag name
+		`|\b([a-zA-Z][\w-]*)=\{` + // 11: JSX prop name
+		`|[(,]\s*([A-Z]\w*)\s*[,)]` + // 12: bare component/value reference, e.g. Route(.., Home, ..)
+		`|>([^<>{}` + "\n" + `]*[^<>{}\s][^<>{}` + "\n" + `]*)[<{]` + // 13: JSX text after '>'
+		`|\}([^<>{}` + "\n" + `]*[^<>{}\s][^<>{}` + "\n" + `]*)<` + // 14: JSX text after '}'
+			`|\b(type)\s+([A-Z]\w*)\b`, // 15: type keyword, 16: declared type name, e.g. "type ButtonProps struct"
+)
+
+type tokenDef struct {
+	group int
+	class string
+}
+
+// tokenDefs maps each capturing group in goTokenPattern to its CSS class,
+// in group order. A single regex match can carry more than one non-empty
+// group (e.g. alternative 5/6 colors "func" and the decl name separately),
+// so highlightHTML walks this list per match instead of picking one.
+var tokenDefs = []tokenDef{
+	{1, "tok-com"},
+	{2, "tok-str"},
+	{3, "tok-str"},
+	{4, "tok-type"},
+	{5, "tok-kw"},
+	{6, "tok-fn"},
+	{7, "tok-signal"},
+	{8, "tok-call"},
+	{9, "tok-kw"},
+	{10, "tok-tag"},
+	{11, "tok-prop"},
+	{12, "tok-fn"},
+	{13, "tok-text"},
+	{14, "tok-text"},
+	{15, "tok-kw"},
+	{16, "tok-type"},
+}
+
+// highlightHTML escapes src for safe HTML insertion and wraps each
+// matched, non-empty capturing group in pattern with a colored span per
+// defs. Runs only against our own hardcoded snippet consts, never user
+// input.
+//
+// It scans manually (rather than FindAllStringSubmatchIndex) so that after
+// coloring a span it can resume right after that span, not after the whole
+// regex match. Some alternatives match trailing context they don't color
+// (e.g. the JSX text alternatives in goTokenPattern require a trailing '<'
+// or '{' to avoid matching plain Go code, but that delimiter must stay
+// available for the next token, e.g. a closing "</button>" right after a
+// text node).
+func highlightHTML(src string, pattern *regexp.Regexp, defs []tokenDef) string {
+	var out strings.Builder
+	cursor := 0
+	for cursor < len(src) {
+		loc := pattern.FindStringSubmatchIndex(src[cursor:])
+		if loc == nil {
+			break
+		}
+		for i := range loc {
+			if loc[i] != -1 {
+				loc[i] += cursor
+			}
+		}
+
+		matched := false
+		for _, td := range defs {
+			gs, ge := loc[2*td.group], loc[2*td.group+1]
+			if gs == -1 {
+				continue
+			}
+			matched = true
+			out.WriteString(html.EscapeString(src[cursor:gs]))
+			out.WriteString(`<span class="` + td.class + `">`)
+			out.WriteString(html.EscapeString(src[gs:ge]))
+			out.WriteString(`</span>`)
+			cursor = ge
+		}
+		if !matched {
+			cursor = loc[1]
+		}
+	}
+	out.WriteString(html.EscapeString(src[cursor:]))
+	return out.String()
+}
+
+// HighlightGoHTML colors comment/string/keyword/JSX tokens in a Go/JSX
+// snippet. See highlightHTML.
+func HighlightGoHTML(src string) string {
+	return highlightHTML(src, goTokenPattern, tokenDefs)
+}
+
+// cliTokenPattern colors the parts of a shell command line that carry
+// meaning at a glance: the binary being invoked, "&&" chaining, flags, and
+// an "@version" suffix (e.g. "@latest"). Everything else (subcommands,
+// paths, arguments) is left as plain text, same trade-off as
+// goTokenPattern: a best-effort highlighter for our own hardcoded install
+// commands, not a shell grammar.
+//
+// The binary-name alternative requires start-of-string or preceding
+// whitespace (not just \b) so it only fires where a command actually
+// starts, e.g. the "vane" in "go install .../vane@latest" is a module path
+// segment, not an invocation, and RE2 has no lookbehind to express that
+// any other way.
+var cliTokenPattern = regexp.MustCompile(
+	`(&&)` + // 1: command chain operator
+		`|(@[\w.]+)` + // 2: version suffix, e.g. @latest
+		`|(--?[\w-]+)` + // 3: flag, e.g. -y / --force
+		`|(?:^|\s)(go|vane|npm|npx|yarn|pnpm|git|cd)\b`, // 4: known binary name, at a command start
+)
+
+var cliTokenDefs = []tokenDef{
+	{1, "tok-kw"},
+	{2, "tok-com"},
+	{3, "tok-signal"},
+	{4, "tok-call"},
+}
+
+// HighlightCLIHTML colors the binary name, flags, "&&" chaining, and
+// "@version" suffixes in a shell command snippet. See highlightHTML.
+func HighlightCLIHTML(cmd string) string {
+	return highlightHTML(cmd, cliTokenPattern, cliTokenDefs)
+}
+
+// CodeBlock renders a titled, syntax-highlighted code panel. Shared by the
+// homepage's interactive demos and the docs pages so every snippet on the
+// site looks the same.
+func CodeBlock(filename, snippet string) core.Node {
+	return (
+		<div className="code-block">
+			<div className="code-block-bar">
+				<span className="code-block-dot" />
+				<span className="code-block-dot" />
+				<span className="code-block-dot" />
+				<span className="code-block-filename">{filename}</span>
+			</div>
+			<pre className="code-block-pre"><code>{core.DangerousInnerHTML(HighlightGoHTML(snippet))}</code></pre>
+		</div>
+	)
+}
+
+// TerminalBlock is CodeBlock's shell-command counterpart: same panel chrome,
+// colored with HighlightCLIHTML instead of the Go/JSX highlighter. cmd may
+// be multiple lines, one command per line.
+func TerminalBlock(filename, cmd string) core.Node {
+	return (
+		<div className="code-block">
+			<div className="code-block-bar">
+				<span className="code-block-dot" />
+				<span className="code-block-dot" />
+				<span className="code-block-dot" />
+				<span className="code-block-filename">{filename}</span>
+			</div>
+			<pre className="code-block-pre"><code>{core.DangerousInnerHTML(HighlightCLIHTML(cmd))}</code></pre>
+		</div>
+	)
+}
+
+// PlainBlock is CodeBlock's unhighlighted counterpart: same panel chrome,
+// no tokenizing. Use it for content that isn't Go/JSX or a shell command
+// (e.g. a directory tree), where HighlightGoHTML/HighlightCLIHTML would
+// produce false-positive matches on incidental substrings (e.g. the
+// "go" keyword pattern matching inside the filename "main.go").
+func PlainBlock(filename, content string) core.Node {
+	return (
+		<div className="code-block">
+			<div className="code-block-bar">
+				<span className="code-block-dot" />
+				<span className="code-block-dot" />
+				<span className="code-block-dot" />
+				<span className="code-block-filename">{filename}</span>
+			</div>
+			<pre className="code-block-pre"><code>{content}</code></pre>
+		</div>
+	)
+}

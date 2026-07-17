@@ -1,0 +1,15 @@
+//go:build js && wasm
+
+package pages
+
+import (
+	"github.com/filipejohansson/vane/core"
+)
+
+func Users() core.Node {
+	return (
+		<div className="users-empty">
+			<p>Select a team member from the sidebar.</p>
+		</div>
+	)
+}

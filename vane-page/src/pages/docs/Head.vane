@@ -1,0 +1,123 @@
+package docs
+
+import (
+	"github.com/filipejohansson/vane/core"
+
+	"vane-page/src/components"
+)
+
+const headBasicSnippet = `core.Head(func() core.HeadConfig {
+    return core.HeadConfig{
+        Title:       "Home",
+        Description: "Welcome to My App",
+        OGImage:     "/img/og-home.png",
+    }
+})`
+
+const headReactiveSnippet = `// src/pages/docs/Stub.vane
+func stubContent(slug string) core.Node {
+    t, ok := TopicBySlug(slug)
+    if !ok {
+        return NotFound()
+    }
+
+    core.Head(func() core.HeadConfig {
+        return core.HeadConfig{
+            Title:       t.Title + " | Vane Docs",
+            Description: t.Summary,
+        }
+    })
+
+    return (/* ... */)
+}`
+
+const headExtraSnippet = `core.Head(func() core.HeadConfig {
+    return core.HeadConfig{
+        Meta: map[string]string{"robots": "noindex"},
+        Link: map[string]string{"alternate": "/feed.xml"},
+    }
+})`
+
+func Head() core.Node {
+	core.Head(func() core.HeadConfig {
+		return core.HeadConfig{
+			Title:       "Head Management | Vane Docs",
+			Description: "core.Head updates document.title and meta tags reactively, scoped so nested components never clobber each other.",
+		}
+	})
+
+	items := headTOCItems
+
+	return (
+		<div className="docs-page">
+			<article className="docs-article">
+				{docsHeader(
+					"Advanced",
+					"Head Management",
+					"core.Head updates document.title and meta tags reactively, scoped so nested components never clobber each other.",
+				)}
+
+				<h2 className="docs-h2" id="basic-usage">Basic usage</h2>
+				<p className="docs-p">
+					Call <code>core.Head</code> with a function returning{" "}
+					<code>core.HeadConfig</code>. Every field is optional, an empty field is
+					simply skipped rather than clearing the existing value:
+				</p>
+				{components.CodeBlock("Home.vane", headBasicSnippet)}
+				{callout("tip", "Tip", "Call core.Head during component setup, same as Effect, not conditionally or inside a loop. It's fine to call it once per component, the function you pass is what makes it reactive.")}
+				{callout("important", "Important", "Don't call core.Head from inside a core.Effect. core.Head registers its own internal Effect and cleanup on whatever scope is active when it runs; nested inside another Effect, every rerun of that outer Effect registers a new one that never gets cleaned up until the whole component unmounts, instead of exactly once at setup.")}
+
+				<h2 className="docs-h2" id="reactive-updates">Reactive updates</h2>
+				<p className="docs-p">
+					Signal reads inside the function make it reactive, same as any other Effect.
+					This site's own catch-all docs page reads the current topic (derived from the
+					route param) and updates the tab title and meta description on every
+					navigation, without remounting:
+				</p>
+				{components.CodeBlock("Stub.vane", headReactiveSnippet)}
+				{callout("tip", "Tip", "Navigating between two topics that both fall through to this same component (e.g. Troubleshooting → Analyze Bundle Size) updates document.title and the description meta tag in place, no duplicate <meta> tags left behind.")}
+
+				<h2 className="docs-h2" id="scoping">Scoping and router.Route's title</h2>
+				<p className="docs-p">
+					Each <code>core.Head</code> call remembers what it changed and restores the
+					previous value on unmount, or right before its own next reactive run. That
+					makes it safe for a layout and its child route to both call{" "}
+					<code>Head</code>: a layout can set a default <code>Description</code> for the
+					whole section, and a child page overriding just <code>Title</code> doesn't
+					wipe it out.
+				</p>
+				<p className="docs-p">
+					<code>router.Route</code>'s optional third argument (see Routing) is a
+					shorthand for exactly this: internally it's its own{" "}
+					<code>core.Head(func() core.HeadConfig {"{ return core.HeadConfig{Title: t} }"})</code>{" "}
+					call, scoped to the router. When a page component also calls{" "}
+					<code>core.Head</code> with its own <code>Title</code>, as every hand-written
+					page on this site does, the page's own call runs after and wins. The route
+					argument still matters as a fallback for stub-style pages that don't call{" "}
+					<code>Head</code> themselves.
+				</p>
+				{callout("important", "Important", "Description/OGTitle/OGImage/OGType only exist as page-level core.Head calls, router.Route's title argument only ever sets Title. A page that cares about social previews or SEO description needs its own core.Head call regardless of what its route registration passes.")}
+
+				<h2 className="docs-h2" id="field-reference">Field reference</h2>
+				{docsTable(
+					[]string{"Field", "DOM effect"},
+					[][]core.Node{
+						{code("Title"), code("document.title")},
+						{code("Description"), code(`<meta name="description">`)},
+						{code("OGTitle"), code(`<meta property="og:title">`)},
+						{code("OGImage"), code(`<meta property="og:image">`)},
+						{code("OGType"), code(`<meta property="og:type">`)},
+						{code("Canonical"), code(`<link rel="canonical">`)},
+						{code("Meta"), core.Fragment(code("map[string]string"), core.Text(", arbitrary "), code(`<meta name=...>`))},
+						{code("Link"), core.Fragment(code("map[string]string"), core.Text(", arbitrary "), code(`<link rel=...>`))},
+					},
+				)}
+				{components.CodeBlock("robots.go", headExtraSnippet)}
+				{callout("tip", "Tip", "OGTitle/OGImage/OGType write property, not name, setAttribute under the hood rather than a JS property assignment. \"property\" is an Open Graph convention with no browser IDL reflection, so el.Set(\"property\", ...) would silently create an inert JS expando that social crawlers never see.")}
+
+				{pageNav("head")}
+			</article>
+			{toc(items)}
+		</div>
+	)
+}

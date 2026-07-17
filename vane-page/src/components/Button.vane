@@ -1,0 +1,45 @@
+package components
+
+import "github.com/filipejohansson/vane/core"
+
+type ButtonProps struct {
+	Variant string // "primary" or "ghost"
+	Class   string // extra classes, e.g. "feature-panel-link nav-mobile-docs"
+	Href    string // renders <a> when set, <button> otherwise
+	Target  string
+	Rel     string
+	OnClick func(core.MouseEvent)
+}
+
+// Button is the single source of truth for every CTA/link styled as a
+// button on this page. Change the markup or classes here once, every
+// call site picks it up. children accepts plain strings and core.Node
+// (e.g. an icon) mixed, same convention as core.Nodes/core.Spread.
+func Button(p ButtonProps, children ...any) core.Node {
+	cls := "btn"
+	if p.Variant != "" {
+		cls += " btn-" + p.Variant
+	}
+	if p.Class != "" {
+		cls += " " + p.Class
+	}
+
+	onClick := p.OnClick
+	if onClick == nil {
+		onClick = func(core.MouseEvent) {}
+	}
+
+	if p.Href != "" {
+		return (
+			<a className={cls} href={p.Href} target={p.Target} rel={p.Rel} onClick={onClick}>
+				{core.Spread(children)...}
+			</a>
+		)
+	}
+
+	return (
+		<button className={cls} type="button" onClick={onClick}>
+			{core.Spread(children)...}
+		</button>
+	)
+}

@@ -1,0 +1,31 @@
+//go:build js && wasm
+
+package pages
+
+import (
+	"github.com/filipejohansson/vane/core"
+	"github.com/filipejohansson/vane/core/router"
+)
+
+func UsersLayout() core.Node {
+	outlet := router.Outlet()
+
+	return (
+		<div className="users-shell">
+			<aside className="users-sidebar">
+				<p className="sidebar-label">Team</p>
+				<ul className="sidebar-nav">
+					{for _, p := range People {
+						<li>
+							{router.ActiveLink(router.ActiveLinkProps{
+								LinkProps:   router.LinkProps{To: "/users/"+p.ID, HTMLProps: core.HTMLProps{Class: "sidebar-link"}},
+								ActiveClass: "sidebar-link--active",
+							}, p.Name)}
+						</li>
+					}}
+				</ul>
+			</aside>
+			<div className="users-main">{outlet}</div>
+		</div>
+	)
+}

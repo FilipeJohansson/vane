@@ -1,0 +1,66 @@
+.code-block {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.code-block-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.6rem 1rem;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface-2);
+}
+
+.code-block-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+}
+
+.code-block-dot:nth-child(1) { background: #ff5f57; }
+.code-block-dot:nth-child(2) { background: #febc2e; }
+.code-block-dot:nth-child(3) { background: #28c840; }
+
+.code-block-filename {
+  margin-left: 0.5rem;
+  font-family: var(--mono);
+  font-size: 0.78rem;
+  color: var(--accent);
+}
+
+.code-block-pre {
+  padding: 1.5rem;
+  overflow-x: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border-2) transparent;
+}
+
+.code-block-pre::-webkit-scrollbar { height: 6px; }
+.code-block-pre::-webkit-scrollbar-track { background: transparent; }
+.code-block-pre::-webkit-scrollbar-thumb { background: var(--border-2); border-radius: 3px; }
+.code-block-pre::-webkit-scrollbar-thumb:hover { background: var(--hint); }
+
+.code-block-pre code {
+  background: none;
+  padding: 0;
+  color: var(--text);
+  font-size: 0.85rem;
+  line-height: 1.6;
+  white-space: pre;
+}
+
+/* Token colors for HighlightGoHTML's spans. tok-str and tok-text share a
+   color: string literals and JSX text children are the same kind of "plain
+   content" to a reader, unlike code structure. */
+.tok-kw { color: var(--accent); }
+.tok-str, .tok-text { color: var(--accent-2); }
+.tok-com { color: var(--hint); font-style: italic; }
+.tok-fn { color: var(--tok-fn); font-weight: 600; }
+.tok-type { color: var(--tok-type); }
+.tok-signal { color: var(--tok-signal); font-weight: 600; }
+.tok-call { color: var(--tok-call); }
+.tok-tag { color: var(--tok-tag); }
+.tok-prop { color: var(--tok-prop); }

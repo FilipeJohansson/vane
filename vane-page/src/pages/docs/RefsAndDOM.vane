@@ -1,0 +1,182 @@
+package docs
+
+import (
+	"github.com/filipejohansson/vane/core"
+
+	"vane-page/src/components"
+)
+
+const refsPointerSnippet = `func FocusInput() core.Node {
+    var inputEl core.Node
+
+    return (
+        <div>
+            <input ref={&inputEl} className="field" placeholder="Type here" />
+            <button onClick={func(core.MouseEvent) { core.Focus(inputEl) }}>Focus</button>
+        </div>
+    )
+}`
+
+const refsUnwrapSnippet = `core.Unwrap(inputEl).Call("select") // select the input's text`
+
+const refsWindowDocSnippet = `// no core wrapper for the Page Visibility API yet
+core.Document().Call("addEventListener", "visibilitychange", handler)
+hidden := core.Document().Get("hidden").Bool()`
+
+const refsCallbackSnippet = `<input
+    ref={func(el core.Node) {
+        core.Unwrap(el).Call("addEventListener", "keydown", handleShortcut)
+    }}
+    className="field"
+/>`
+
+const refsScrollSpySnippet = `// src/pages/docs/widgets.vane
+func setupScrollSpy(items []tocItem, active *core.Signal[string]) {
+    update := func() {
+        // ...find which heading is scrolled past core.BoundingRect's
+        // Top, active.Set(id)
+    }
+
+    // Headings aren't attached to the document yet at ref-callback time,
+    // so core.BoundingRect would see stale/zeroed layout on the first
+    // call. Defer it a tick; the scroll listener itself only ever fires
+    // later, once layout is live, so it doesn't need the same deferral.
+    core.NextTick(update)
+
+    core.OnWindowEvent("scroll", func(core.Event) { update() }, core.ListenerOpts{Passive: true})
+}
+
+// <aside ref={func(el core.Node) { setupScrollSpy(items, active) }}>`
+
+const refsWindowEventSnippet = `// src/components/Weathervane.vane
+core.OnWindowMouseMove(func(e core.MouseEvent) {
+    w, h := core.Viewport()
+    tiltY.Set(((e.ClientX / w) - 0.5) * 18)
+    tiltX.Set(((e.ClientY / h) - 0.5) * -18)
+})
+
+core.OnWindowEvent("scroll", func(core.Event) {
+    scrollTilt.Set(math.Min(core.ScrollY()*0.06, 28))
+})`
+
+func RefsAndDOM() core.Node {
+	core.Head(func() core.HeadConfig {
+		return core.HeadConfig{
+			Title:       "Refs & DOM | Vane Docs",
+			Description: "Capturing DOM nodes with ref={&var} and ref={func(el core.Node){...}}, window-level events and geometry reads, the core.Unwrap escape hatch, and NextTick for code that needs a live DOM connection.",
+		}
+	})
+
+	items := refsAndDomTOCItems
+
+	return (
+		<div className="docs-page">
+			<article className="docs-article">
+				{docsHeader(
+					"Data & Navigation",
+					"Refs & DOM",
+					"Capturing real DOM nodes with ref, window-level events and geometry reads, the core.Unwrap escape hatch, and NextTick for code that needs the element actually attached to the page.",
+				)}
+
+				<h2 className="docs-h2" id="pointer-refs">Pointer refs</h2>
+				<p className="docs-p">
+					<code>ref={"{&myVar}"}</code> captures the element into a <code>core.Node</code>{" "}
+					variable declared before the <code>return</code>. It's assigned synchronously
+					the moment the element is created, before later children are appended and
+					before the function returns, so callbacks and effects that run afterward
+					always see the correct value:
+				</p>
+				{components.CodeBlock("FocusInput.vane", refsPointerSnippet)}
+				{callout("tip", "Tip", "core.Focus(el) moves keyboard focus, a no-op if el is nil or empty. It's the most common thing to do with a captured ref.")}
+
+				<h2 className="docs-h2" id="escape-hatch">The Unwrap escape hatch</h2>
+				<p className="docs-p">
+					Every <code>core</code> DOM helper (<code>Focus</code>, <code>SetProp</code>,{" "}
+					<code>DynStyle</code>, the event helpers) takes a <code>core.Node</code>,
+					Vane's own sealed node type, not a raw <code>js.Value</code>. For a DOM call
+					with no <code>core</code> helper, <code>core.Unwrap</code> reaches the
+					underlying <code>js.Value</code> directly:
+				</p>
+				{components.CodeBlock("scroll.go", refsUnwrapSnippet)}
+				{callout("important", "Important", "Reach for Unwrap only when the specific DOM/JS call genuinely has no core wrapper, third-party libraries, less common Web APIs. Most of an app's DOM interaction already goes through core's typed helpers above.")}
+				<p className="docs-p">
+					<code>window</code> and <code>document</code> themselves are never part of the
+					tree Vane mounts into, so there's no <code>core.Node</code> for <code>Unwrap</code>{" "}
+					to reach either. <code>core.Window()</code> and <code>core.Document()</code>{" "}
+					are the same escape hatch for those two, a raw <code>js.Value</code> for
+					whatever window/document-level call doesn't have a typed wrapper below:
+				</p>
+				{components.CodeBlock("visibility.go", refsWindowDocSnippet)}
+
+				<h2 className="docs-h2" id="browser-apis">Browser API wrappers</h2>
+				<p className="docs-p">
+					A handful of common browser APIs have no natural home on an element's{" "}
+					<code>core.Node</code>, either because they're window/document-level (no
+					single element to attach to) or because they need to reach an element by
+					id instead of a live ref. These are typed wrappers over exactly those, so
+					reaching for <code>Unwrap</code> stays the exception rather than the default:
+				</p>
+				{docsTable(
+					[]string{"Function", "For"},
+					[][]core.Node{
+						{code("OnWindowEvent(event, fn, opts...)"), core.Text("A window-level listener (scroll, resize, ...), cleaned up automatically via OnDispose")},
+						{code("OnWindowMouseMove(fn)"), core.Text("Pointer position across the whole viewport, not one element")},
+						{code("OnWindowKeyDown(fn)"), core.Text("Global keyboard shortcuts (e.g. Ctrl/Cmd+K), fn checks e.Key/e.Ctrl/e.Meta itself")},
+						{code("BoundingRect(el) Rect"), core.Text("getBoundingClientRect, as a typed Top/Right/Bottom/Left/Width/Height struct")},
+						{code("Viewport() (w, h float64)"), core.Text("window.innerWidth/innerHeight")},
+						{code("ScrollY() float64"), core.Text("How far the page has scrolled vertically")},
+						{code("DocumentHeight() (scrollH, clientH float64)"), core.Text("The document's full and visible height, for a scroll percentage")},
+						{code("ScrollIntoView(el, smooth)"), core.Text("Scroll an element into view")},
+						{code("ScrollTo(top, smooth)"), core.Text("Scroll the window to a vertical position")},
+						{code("GetElementByID(id) (Node, bool)"), core.Text("Look up an element Vane rendered but never captured a ref for")},
+						{code("WriteClipboardText(s) error"), core.Text("Copy text to the clipboard")},
+						{code("SetRootAttribute(name, value)"), core.Text("Set an attribute on <html> itself, outside Vane's mounted tree")},
+						{code("SetRootStyle(prop, value)"), core.Text("Set one inline CSS property on <html>, e.g. locking scroll while a menu is open")},
+						{code("LocalStorage().Get(key) (string, bool)"), core.Text("Read a localStorage value, ok is false if the key isn't set")},
+						{code("LocalStorage().Set(key, value)"), core.Text("Write a localStorage value")},
+					},
+				)}
+				<p className="docs-p">
+					This site's own brand mark ties several of these together, a scroll listener
+					and a window-wide pointer tracker driving a CSS transform:
+				</p>
+				{components.CodeBlock("Weathervane.vane", refsWindowEventSnippet)}
+				{callout("tip", "Tip", "See the Global store page's theme-persistence example for LocalStorage() used end to end, package-level state loaded once at init and written back on every change.")}
+
+				<h2 className="docs-h2" id="callback-refs">Callback refs</h2>
+				<p className="docs-p">
+					<code>ref={"{func(el core.Node){...}}"}</code> runs the function immediately,
+					synchronously, at that same construction point, passing the node directly
+					instead of assigning it to a variable:
+				</p>
+				{components.CodeBlock("Shortcut.vane", refsCallbackSnippet)}
+				<p className="docs-p">
+					Reach for it over the pointer form when code needs to <em>run</em> at the exact
+					moment the element is constructed: registering a native listener, wiring up a
+					third-party widget, or kicking off the <code>NextTick</code>-deferred work below
+					for anything that needs the element actually connected first, like moving focus
+					or engaging a focus trap. A pointer ref plus a separate <code>Effect</code>{" "}
+					checking the variable can't observe "the ref was just assigned" reliably,{" "}
+					<code>Effect</code> only reacts to signal reads, not plain variable mutation.
+				</p>
+
+				<h2 className="docs-h2" id="nexttick">NextTick and the live-DOM problem</h2>
+				<p className="docs-p">
+					The element still isn't attached to the document at ref-callback time,
+					Vane builds each subtree fully in memory before inserting it in one shot,
+					so a ref callback always fires before its element is connected. Anything
+					needing a <em>live</em> DOM connection, measuring layout, moving focus into a
+					newly-open dialog, has to defer past that with <code>core.NextTick</code>,
+					a plain <code>queueMicrotask</code> deferral. This site's own table-of-contents
+					scroll-spy hits exactly this:
+				</p>
+				{components.CodeBlock("widgets.vane", refsScrollSpySnippet)}
+				{callout("tip", "Tip", "NextTick is not a lifecycle hook: no first-mount-vs-rerun tracking, and it doesn't cancel fn if the component is disposed before the microtask fires, it always runs. Pair it with core.OnDispose for anything that also needs cleanup, core.OnWindowEvent above already does this internally for its own listener.")}
+				{callout("important", "Important", "Calling a signal's .Set() synchronously inside a ref callback, before deferring, is a common way to trigger an infinite reactive loop: measuring layout against an unattached element returns stale/zeroed values, so a Set based on that can retrigger the same ref/effect on every run. If that happens, the effect scheduler aborts the runaway flush and logs \"vane: aborted after N effect runs in a single flush, likely an infinite update loop...\" to the console instead of hanging the app, treat that message as a signal to wrap the offending call in NextTick.")}
+
+				{pageNav("refs-and-dom")}
+			</article>
+			{toc(items)}
+		</div>
+	)
+}

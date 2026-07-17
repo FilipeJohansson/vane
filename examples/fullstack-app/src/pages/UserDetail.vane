@@ -1,0 +1,134 @@
+package pages
+
+import (
+	"fmt"
+	"strconv"
+	"github.com/filipejohansson/vane/core"
+	"github.com/filipejohansson/vane/core/router"
+	"github.com/filipejohansson/vane/examples/fullstack-app/src/api"
+	"github.com/filipejohansson/vane/examples/fullstack-app/src/components/ui"
+	"github.com/filipejohansson/vane/examples/fullstack-app/src/store"
+)
+
+func UserDetail() core.Node {
+	params := router.Params()
+
+	user := core.NewSignal(api.User{})
+	name := core.NewSignal("")
+	loading := core.NewSignal(true)
+	saving := core.NewSignal(false)
+	errMsg := core.NewSignal("")
+	notFound := core.NewSignal(false)
+
+	core.Effect(func() func() {
+		idStr := params.Get()["id"]
+		token := store.Token.Get()
+		loading.Set(true)
+		notFound.Set(false)
+		go func() {
+			id, err := strconv.Atoi(idStr)
+			if err != nil {
+				notFound.Set(true)
+				loading.Set(false)
+				return
+			}
+			u, err := api.GetUser(token, id)
+			if err != nil {
+				notFound.Set(true)
+				loading.Set(false)
+				return
+			}
+			user.Set(u)
+			name.Set(u.Name)
+			loading.Set(false)
+		}()
+		return nil
+	})
+
+	handleSave := func() {
+		errMsg.Set("")
+		saving.Set(true)
+		token := store.Token.Get()
+		id := user.Get().ID
+		nameVal := name.Get()
+		go func() {
+			defer saving.Set(false)
+			u, err := api.UpdateUser(token, id, nameVal)
+			if err != nil {
+				errMsg.Set(err.Error())
+				return
+			}
+			user.Set(u)
+			store.CurrentUser.Set(u)
+		}()
+	}
+
+	handleDelete := func() {
+		token := store.Token.Get()
+		id := user.Get().ID
+		go func() {
+			if err := api.DeleteUser(token, id); err != nil {
+				errMsg.Set(err.Error())
+				return
+			}
+			store.Logout()
+			router.Navigate("/login")
+		}()
+	}
+
+	isSelf := func() bool {
+		return user.Get().ID == store.CurrentUser.Get().ID
+	}
+
+	body := func() core.Node {
+		if loading.Get() {
+			return (<p className="status">Loading…</p>)
+		}
+		if notFound.Get() {
+			return (<p className="auth-error">User not found.</p>)
+		}
+		if isSelf() {
+			return (
+				<div className="detail-card">
+					{ui.Field(ui.FieldProps{Label: "Name", ID: "edit-name", Required: true}, name)}
+					<p className="field-static"><span className="field-label">Email</span>{user.Get().Email}</p>
+					<p className="field-static"><span className="field-label">Joined</span>{user.Get().JoinedDate()}</p>
+
+					{if errMsg.Get() != "" {
+						<p className="auth-error">{errMsg.Get()}</p>
+					}}
+
+					<div className="detail-actions">
+						{ui.Button(ui.ButtonProps{Disabled: saving.Get(), OnClick: func(core.MouseEvent) { handleSave() }}, "Save changes")}
+						{ui.Button(ui.ButtonProps{Variant: "danger", OnClick: func(core.MouseEvent) { handleDelete() }}, "Delete account")}
+						{router.Link(router.LinkProps{
+							To:        fmt.Sprintf("/dashboard/users/%d/notes", user.Get().ID),
+							HTMLProps: core.HTMLProps{Class: "btn btn-secondary"},
+						}, "View notes")}
+					</div>
+				</div>
+			)
+		}
+		return (
+			<div className="detail-card">
+				<p className="field-static"><span className="field-label">Name</span>{user.Get().Name}</p>
+				<p className="field-static"><span className="field-label">Email</span>{user.Get().Email}</p>
+				<p className="field-static"><span className="field-label">Joined</span>{user.Get().JoinedDate()}</p>
+				<div className="detail-actions">
+					{router.Link(router.LinkProps{
+						To:        fmt.Sprintf("/dashboard/users/%d/notes", user.Get().ID),
+						HTMLProps: core.HTMLProps{Class: "btn btn-secondary"},
+					}, "View notes")}
+				</div>
+			</div>
+		)
+	}
+
+	return (
+		<div className="page">
+			<h1 className="page-title">User detail</h1>
+			{router.Link(router.LinkProps{To: "/dashboard/users", HTMLProps: core.HTMLProps{Class: "back-link"}}, "← Back to Users")}
+			{body()}
+		</div>
+	)
+}

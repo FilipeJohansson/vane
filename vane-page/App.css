@@ -1,0 +1,12 @@
+.app {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  background-image:
+    linear-gradient(var(--border) 1px, transparent 1px),
+    linear-gradient(90deg, var(--border) 1px, transparent 1px);
+  background-size: 48px 48px;
+  background-position: center top;
+}
+
+.main { flex: 1; }

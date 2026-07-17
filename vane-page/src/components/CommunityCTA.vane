@@ -1,0 +1,30 @@
+package components
+
+import (
+	"github.com/filipejohansson/vane/core"
+	"github.com/filipejohansson/vane/core/router"
+)
+
+func CommunityCTA() core.Node {
+	return (
+		<section className="cta-section">
+			<h2 className="cta-title">Built in the open.</h2>
+			<p className="cta-sub">Star it, break it, send a PR.</p>
+			<div className="cta-buttons">
+				<div className="spin-border">
+					{Button(ButtonProps{
+						Variant: "primary",
+						Href:    githubHref,
+						Target:  "_blank",
+						Rel:     "noopener noreferrer",
+					}, "Star on GitHub")}
+				</div>
+				{router.Link(router.LinkProps{
+					To:        "/docs",
+					HTMLProps: core.HTMLProps{Class: "btn btn-ghost"},
+				}, "Read the docs")}
+			</div>
+			<span className="cta-license">MIT License</span>
+		</section>
+	)
+}

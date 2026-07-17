@@ -1,0 +1,178 @@
+package docs
+
+import (
+	"github.com/filipejohansson/vane/core"
+
+	"vane-page/src/components"
+)
+
+const storeDefSnippet = `// src/store/auth.go
+package store
+
+import "github.com/filipejohansson/vane/core"
+
+var User = core.NewSignal("")`
+
+const storeWriteSnippet = `// src/components/Login.vane
+package components
+
+import (
+    "github.com/filipejohansson/vane/core"
+    "myapp/src/store"
+)
+
+func Login() core.Node {
+    name := core.NewSignal("")
+
+    return (
+        <div>
+            <input value={name.Get()} onInput={func(e core.InputEvent) { name.Set(e.Value) }} />
+            <button onClick={func(core.MouseEvent) { store.User.Set(name.Get()) }}>Login</button>
+        </div>
+    )
+}`
+
+const storeReadSnippet = `// src/components/Navbar.vane
+package components
+
+import (
+    "github.com/filipejohansson/vane/core"
+    "myapp/src/store"
+)
+
+func Navbar() core.Node {
+    label := func() string {
+        if store.User.Get() == "" { return "Not logged in" }
+        return store.User.Get()
+    }
+
+    return (<span>User: {label()}</span>)
+}`
+
+const storeEffectSnippet = `// src/store/theme.go
+package store
+
+import "github.com/filipejohansson/vane/core"
+
+var Theme = core.NewSignal(loadStoredTheme())
+
+func loadStoredTheme() string {
+    if stored, ok := core.LocalStorage().Get("theme"); ok && stored != "" {
+        return stored
+    }
+    return "dark"
+}
+
+func PersistTheme(t string) {
+    core.LocalStorage().Set("theme", t)
+}`
+
+const storeEffectComponentSnippet = `// src/components/ThemeToggle.vane
+core.Effect(func() func() {
+    t := store.Theme.Get()
+    core.SetRootAttribute("data-theme", t)
+    store.PersistTheme(t)
+    return nil
+})`
+
+const storeComputedSnippet = `// src/store/auth.go
+var User = core.NewSignal("")
+
+var IsLoggedIn = core.ComputedOf(func(prev bool) bool {
+    return User.Get() != ""
+})`
+
+func Store() core.Node {
+	core.Head(func() core.HeadConfig {
+		return core.HeadConfig{
+			Title:       "Global Store | Vane Docs",
+			Description: "Package-level signals as the idiomatic way to share reactive state across components, with real Login/Navbar and theme-persistence examples.",
+		}
+	})
+
+	items := storeTOCItems
+
+	return (
+		<div className="docs-page">
+			<article className="docs-article">
+				{docsHeader(
+					"Data & Navigation",
+					"Global Store",
+					"Package-level signals, the idiomatic way to share reactive state across components. No separate store API, just core.NewSignal at package scope.",
+				)}
+
+				<h2 className="docs-h2" id="the-pattern">The pattern</h2>
+				<p className="docs-p">
+					Vane has no dedicated store type, no <code>Provider</code>, no context API.
+					A <code>core.Signal</code> declared as a package-level <code>var</code> already
+					does the job: any file that imports the package can read and write it, and every
+					binding that calls <code>.Get()</code> on it subscribes independently, the same
+					fine-grained reactivity described in Signals & Reactivity, just at package scope
+					instead of inside one component.
+				</p>
+				{components.CodeBlock("auth.go", storeDefSnippet)}
+				{callout("tip", "Tip", "vane init scaffolds exactly this: src/store/user.go with a single var Name = core.NewSignal(\"\"). Add more files under src/store/ as the app grows, one per concern (auth.go, cart.go, theme.go) rather than one giant store file.")}
+
+				<h2 className="docs-h2" id="reading-and-writing">Reading and writing</h2>
+				<p className="docs-p">
+					Import the store package from wherever the state is needed. A form component
+					writes to it:
+				</p>
+				{components.CodeBlock("Login.vane", storeWriteSnippet)}
+				<p className="docs-p">
+					A completely unrelated component reads it, no prop drilling, no event bubbling
+					up to a common ancestor:
+				</p>
+				{components.CodeBlock("Navbar.vane", storeReadSnippet)}
+				{callout("important", "Important", "store.User.Get() only subscribes the binding that calls it. Navbar re-renders its own <span> when User changes; Login is untouched. There's no store-level \"anything changed, re-render everything\" step to opt out of.")}
+
+				<h2 className="docs-h2" id="effects-in-the-store">Effects in the store</h2>
+				<p className="docs-p">
+					A store file can hold more than a signal: initialization logic and side effects
+					that should happen once per app, not once per component instance, belong there
+					too. This site's own dark/light theme works this way. The signal loads its
+					initial value from <code>localStorage</code> at package init:
+				</p>
+				{components.CodeBlock("theme.go", storeEffectSnippet)}
+				<p className="docs-p">
+					The component that toggles it doesn't touch <code>localStorage</code> directly,
+					it just flips the signal. A single <code>core.Effect</code> reacts to{" "}
+					<code>Theme</code> and owns both the DOM sync and the persistence:
+				</p>
+				{components.CodeBlock("ThemeToggle.vane", storeEffectComponentSnippet)}
+				{callout("tip", "Tip", "This is the real code behind this site's own theme toggle, see ThemeToggle.vane and store/theme.go in this site's source for the full version.")}
+
+				<h2 className="docs-h2" id="derived-state">Derived state</h2>
+				<p className="docs-p">
+					<code>core.ComputedOf</code> works at package scope exactly like it does inside
+					a component, a derived signal other files can import and read like any other:
+				</p>
+				{components.CodeBlock("auth.go", storeComputedSnippet)}
+				<p className="docs-p">
+					Any component reading <code>store.IsLoggedIn.Get()</code> subscribes to the
+					computed, not to <code>User</code> directly, so it only re-runs when the
+					derived boolean actually flips, not on every keystroke of an unrelated{" "}
+					<code>User</code> update.
+				</p>
+
+				<h2 className="docs-h2" id="when-to-use-it">When to use it</h2>
+				{docsTable(
+					[]string{"State", "Where it belongs"},
+					[][]core.Node{
+						{core.Text("An input's current value, a dropdown's open/closed flag"), core.Text("Local signal inside the component")},
+						{core.Text("Logged-in user, cart contents, theme, anything read by 3+ unrelated components"), core.Text("Package-level signal in src/store/")},
+						{core.Text("A value derived from other store signals"), core.Text("core.ComputedOf in the same store file")},
+					},
+				)}
+				<p className="docs-p">
+					A package-level signal is global for the lifetime of the WASM module, it never
+					unmounts. Reach for it when state genuinely outlives any single component, not
+					as a default for everything, most state is local.
+				</p>
+
+				{pageNav("store")}
+			</article>
+			{toc(items)}
+		</div>
+	)
+}

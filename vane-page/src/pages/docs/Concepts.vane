@@ -1,0 +1,128 @@
+package docs
+
+import (
+	"github.com/filipejohansson/vane/core"
+
+	"vane-page/src/components"
+)
+
+const conceptsCounterSnippet = `func Counter() core.Node {
+    count := core.NewSignal(0)
+
+    return (
+        <div>
+            <button onClick={func(core.MouseEvent) { count.Set(count.Get() + 1) }}>+1</button>
+            <p>Count: {count.Get()}</p>
+        </div>
+    )
+}`
+
+func Concepts() core.Node {
+	core.Head(func() core.HeadConfig {
+		return core.HeadConfig{
+			Title:       "Concepts | Vane Docs",
+			Description: "The mental model behind Vane.",
+		}
+	})
+
+	items := conceptsTOCItems
+
+	return (
+		<div className="docs-page">
+			<article className="docs-article">
+				{docsHeader(
+					"Getting Started",
+					"Concepts",
+					"Understanding these ideas first will make the rest of the documentation much easier to follow.",
+				)}
+
+				<h2 className="docs-h2" id="vane-syntax">Vane syntax, not JSX</h2>
+				<p className="docs-p">
+					The HTML-like syntax inside <code>.vane</code> files intentionally feels familiar to
+					anyone coming from React, Solid, or Preact.
+				</p>
+				<p className="docs-p">
+					Despite the similarity, it is <strong>not JSX</strong>. Vane has its own parser,
+					compiler, and language rules. It doesn't generate JavaScript, doesn't build a virtual
+					DOM, and doesn't try to emulate React.
+				</p>
+				{callout("tip", "Tip", "Think of Vane as Go with HTML syntax, not React written in Go.")}
+
+				<h2 className="docs-h2" id="compiler">Vane is a compiler</h2>
+				<p className="docs-p">
+					Vane's biggest job happens <em>before</em> your application starts. During{" "}
+					<code>vane build</code> or <code>vane run</code>, every <code>.vane</code> file is
+					translated into ordinary Go, using Go's <code>-overlay</code> flag so the generated
+					files never touch your source tree. From there, the standard toolchain takes over:
+				</p>
+				{pipeline(
+					".vane files compile to ordinary Go",
+					"go build (GOOS=js GOARCH=wasm) produces app.wasm",
+					"wasm_exec.js loads, then fetches and starts app.wasm",
+					"core.Mount(\"root\", App) runs, App() executes once",
+				)}
+				<p className="docs-p">
+					Your own <code>.go</code> files are never modified. Controllers, stores, helper
+					packages, and <code>main.go</code> remain completely ordinary Go code.
+				</p>
+				{callout("important", "Important", "Compiler errors and panic stack traces still point to your original .vane files, thanks to //line directives.")}
+
+				<h2 className="docs-h2" id="runtime">Running in the browser</h2>
+				<p className="docs-p">
+					Vane targets the standard Go WebAssembly platform: <code>GOOS=js</code> and{" "}
+					<code>GOARCH=wasm</code>. The framework talks to the browser through Go's standard{" "}
+					<code>syscall/js</code> package. <code>core.Node</code> is simply a typed wrapper
+					around <code>js.Value</code>, making DOM operations feel natural from Go.
+				</p>
+				<p className="docs-p">
+					If you ever need to reach a browser API Vane doesn't expose yet,{" "}
+					<code>core.Unwrap()</code> gives you the underlying <code>js.Value</code>.
+				</p>
+				{callout("tip", "Tip", "Binary size and current debugging limitations come from Go's js/wasm implementation, not from Vane.")}
+				<p className="docs-p">
+					Once <code>app.wasm</code> is downloaded, Go starts your program exactly like any
+					other Go application. Your application has exactly one root: <code>core.Mount()</code>.
+					Everything else grows from there.
+				</p>
+				{callout("tip", "Tip", "Unlike many frontend frameworks, Vane applications only call core.Mount() once.")}
+
+				<h2 className="docs-h2" id="lifecycle">Component lifecycle</h2>
+				<p className="docs-p">
+					This is probably the most important idea in Vane: <strong>components don't
+					re-render.</strong> The component function runs exactly once. Reactive updates come
+					from signals and Effects inside it, not from calling the function again.
+				</p>
+				{components.CodeBlock("Counter.vane", conceptsCounterSnippet)}
+				<p className="docs-p">
+					If <code>count</code> changes, <code>Counter()</code> is not called again. Vane
+					updates only the text node bound to <code>count.Get()</code>.
+				</p>
+
+				{docsTable(
+					[]string{"Phase", "What happens"},
+					[][]core.Node{
+						{code("Creation"), core.Text("The component function executes once.")},
+						{code("Update"), core.Text("Only bindings that depend on changed signals update.")},
+						{code("Dispose"), core.Text("Cleanup callbacks run before the component disappears.")},
+					},
+				)}
+				{callout("important", "Important", "Think about bindings reacting to signals, not components rendering again.")}
+
+				<h2 className="docs-h2" id="rules">Rules of thumb</h2>
+				{docsTable(
+					[]string{"I want to...", "Use"},
+					[][]core.Node{
+						{core.Text("Run code once"), core.Text("Function body")},
+						{core.Text("React to state changes"), code("core.Effect")},
+						{core.Text("Update the DOM"), core.Text("JSX bindings")},
+						{core.Text("Clean up on unmount"), code("core.OnDispose")},
+						{core.Text("Clean up before an Effect runs again"), core.Fragment(core.Text("Return a cleanup function from "), code("core.Effect"))},
+					},
+				)}
+
+				{pageNav("concepts")}
+			</article>
+			{toc(items)}
+		</div>
+	)
+}

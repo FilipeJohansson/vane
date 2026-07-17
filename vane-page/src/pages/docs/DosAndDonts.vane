@@ -1,0 +1,129 @@
+package docs
+
+import (
+	"github.com/filipejohansson/vane/core"
+
+	"vane-page/src/components"
+)
+
+const dndSyntaxSnippet = `// ✗ won't compile: Vane syntax only compiles inside return(...)
+nodes[i] = (<li>{t}</li>)
+
+// ✓ extract to a named function
+func listItem(t string) core.Node {
+    return (<li>{t}</li>)
+}
+nodes[i] = listItem(t)
+
+// ✗ compile error: func literal is never called
+{func() core.Node {
+    return (<span>hi</span>)
+}}
+
+// ✓ call it immediately
+{func() core.Node {
+    return (<span>hi</span>)
+}()}`
+
+const dndSnapshotSnippet = `func Counter() core.Node {
+    // ✗ read before return: a plain value, frozen at mount
+    n := count.Get()
+    return (<p>{n}</p>)
+}
+
+func Counter() core.Node {
+    // ✓ read inside the binding: this {expr} re-runs when count changes
+    return (<p>{count.Get()}</p>)
+}`
+
+const dndUntrackLeakSnippet = `// A hand-rolled switcher, calling component functions directly
+// instead of {if ...}/{switch ...}.
+{func() core.Node {
+    switch view.Get() {
+    case "list":
+        return TodoList() // reads its own signals during setup
+    default:
+        return TodoDetail()
+    }
+}()}`
+
+const dndUntrackFixSnippet = `func untrackedMount(fn func() core.Node) core.Node {
+    var result core.Node
+    core.Untrack(func() { result = fn() })
+    return result
+}
+
+{func() core.Node {
+    switch view.Get() {
+    case "list":
+        return untrackedMount(TodoList)
+    default:
+        return untrackedMount(TodoDetail)
+    }
+}()}`
+
+func DosAndDonts() core.Node {
+	core.Head(func() core.HeadConfig {
+		return core.HeadConfig{
+			Title:       "Do's and Don'ts | Vane Docs",
+			Description: "Where Vane syntax is allowed to appear, reading signals where they'll actually re-run, and wrapping manual component calls in Untrack.",
+		}
+	})
+
+	items := dosAndDontsTOCItems
+
+	return (
+		<div className="docs-page">
+			<article className="docs-article">
+				{docsHeader(
+					"Best Practices",
+					"Do's and Don'ts",
+					"Where Vane syntax is allowed to appear, reading signals where they'll actually re-run, and wrapping manual component calls in Untrack.",
+				)}
+
+				<h2 className="docs-h2" id="vane-syntax-placement">Where Vane syntax compiles</h2>
+				<p className="docs-p">
+					Vane syntax only compiles inside a <code>{"return (...)"}</code>{" "}
+					statement. Assigning it to a variable, or leaving an inline{" "}
+					<code>{"func() core.Node {...}"}</code> uncalled, are the two patterns
+					that look valid but aren't:
+				</p>
+				{components.CodeBlock("snippets.go", dndSyntaxSnippet)}
+				{callout("tip", "Tip", "Full rules, including return nil and the inline for/if/switch forms, are on the JSX Syntax page.")}
+
+				<h2 className="docs-h2" id="signal-read-timing">Read signals where they'll re-run</h2>
+				<p className="docs-p">
+					A component function body runs once, at mount. A signal read there is a
+					plain value from then on, it doesn't update. Reading the same signal
+					inside a <code>{"{expr}"}</code> binding closes over it instead, that
+					binding re-runs on every change:
+				</p>
+				{components.CodeBlock("Counter.vane", dndSnapshotSnippet)}
+				{callout("important", "Important", "This applies to any Go variable assigned from .Get() before the return, not just top-level ones, the same rule holds for a value computed midway through a longer setup function.")}
+
+				<h2 className="docs-h2" id="untrack-setup-reads">Untrack for manual component calls</h2>
+				<p className="docs-p">
+					Calling a component function directly from inside an already-reactive{" "}
+					<code>{"{expr}"}</code> binding, instead of through <code>{"{if ...}"}</code>{" "}
+					or <code>{"{switch ...}"}</code>, runs that component's setup while the
+					outer binding is the active reactive scope. Any signal the component
+					reads during its own setup becomes a dependency of the outer binding
+					too, not just of the component's internal bindings:
+				</p>
+				{components.CodeBlock("Panel.vane", dndUntrackLeakSnippet)}
+				{callout("important", "Important", "Concretely: TodoList reading one of its own signals during setup now also re-runs this entire switcher, tearing down and rebuilding whichever component is mounted, on a change that has nothing to do with view.")}
+				<p className="docs-p">
+					Wrap the call in <code>core.Untrack</code> so the component's own setup
+					reads stay its own. This is the same pattern <code>router.Route</code>{" "}
+					uses internally to mount page components without the router's own
+					path-tracking effect picking up every signal a page reads at setup:
+				</p>
+				{components.CodeBlock("Panel.vane", dndUntrackFixSnippet)}
+				{callout("tip", "Tip", "core.Untrack itself doesn't return a value, wrap it in a small helper like untrackedMount above when you need the core.Node it produced. See Signals & Reactivity for Untrack's general behavior inside an Effect.")}
+
+				{pageNav("dos-and-donts")}
+			</article>
+			{toc(items)}
+		</div>
+	)
+}

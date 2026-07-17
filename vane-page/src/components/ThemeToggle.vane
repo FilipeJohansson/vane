@@ -1,0 +1,58 @@
+package components
+
+import (
+	"vane-page/src/store"
+	"github.com/filipejohansson/vane/core"
+)
+
+// Icon renders a Lucide glyph: <i data-lucide="name">, filled in by
+// lucide.createIcons() (loaded via CDN in index.html) once it's attached
+// to the document. Wrap it in a stable element when it sits in a reactive
+// {if}/{switch} branch, so Vane's own add/remove tracks that wrapper, not
+// the <i> lucide swaps out for an <svg> underneath it.
+func Icon(name string) core.Node {
+	return (<i data-lucide={name} />)
+}
+
+// RefreshIcons asks Lucide to scan the document for <i data-lucide> that
+// haven't been swapped for an <svg> yet. Deferred a microtask out so the
+// node is already attached when Lucide's querySelectorAll runs.
+func RefreshIcons() {
+	core.NextTick(func() {
+		lucide := core.Window().Get("lucide")
+		if lucide.IsUndefined() {
+			return
+		}
+		lucide.Call("createIcons")
+	})
+}
+
+// ThemeToggle switches the dark/light design tokens by flipping a
+// data-theme attribute on <html>, persisted via store.Theme.
+func ThemeToggle() core.Node {
+	core.Effect(func() func() {
+		t := store.Theme.Get()
+		core.SetRootAttribute("data-theme", t)
+		store.PersistTheme(t)
+		RefreshIcons()
+		return nil
+	})
+
+	toggle := func() {
+		if store.Theme.Get() == "dark" {
+			store.Theme.Set("light")
+		} else {
+			store.Theme.Set("dark")
+		}
+	}
+
+	return (
+		<button className="theme-toggle" type="button" aria-label="Toggle color theme" onClick={func(core.MouseEvent) { toggle() }}>
+			{if store.Theme.Get() == "dark" {
+				<span aria-hidden="true">{Icon("moon")}</span>
+			} else {
+				<span aria-hidden="true">{Icon("sun")}</span>
+			}}
+		</button>
+	)
+}

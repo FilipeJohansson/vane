@@ -1,0 +1,132 @@
+package docs
+
+import (
+	"github.com/filipejohansson/vane/core"
+
+	"vane-page/src/components"
+)
+
+const dataFetchingBasicSnippet = `quote := core.NewSignal("")
+
+func fetchQuote() {
+    go func() {
+        resp, err := http.Get("https://api.github.com/zen")
+        if err != nil {
+            return
+        }
+        defer resp.Body.Close()
+
+        body, err := io.ReadAll(resp.Body)
+        if err != nil {
+            return
+        }
+        quote.Set(string(body))
+    }()
+}`
+
+const dataFetchingStatesSnippet = `status := core.NewSignal("loading") // "loading" | "done" | "error"
+quote := core.NewSignal("")
+
+func fetchQuote() {
+    status.Set("loading")
+    go func() {
+        resp, err := http.Get("https://api.github.com/zen")
+        if err != nil {
+            status.Set("error")
+            return
+        }
+        defer resp.Body.Close()
+
+        body, err := io.ReadAll(resp.Body)
+        if err != nil {
+            status.Set("error")
+            return
+        }
+        quote.Set(string(body))
+        status.Set("done")
+    }()
+}
+fetchQuote() // kick off the first request on mount
+
+return (
+    <div>
+        {if status.Get() == "loading" {
+            <p>Fetching…</p>
+        } else if status.Get() == "error" {
+            <p>Couldn't reach the API, try again.</p>
+        } else {
+            <p>{quote.Get()}</p>
+        }}
+    </div>
+)`
+
+func DataFetching() core.Node {
+	core.Head(func() core.HeadConfig {
+		return core.HeadConfig{
+			Title:       "Data Fetching | Vane Docs",
+			Description: "Fetch data with a goroutine and net/http, no async library or special signal type needed.",
+		}
+	})
+
+	items := dataFetchingTOCItems
+
+	return (
+		<div className="docs-page">
+			<article className="docs-article">
+				{docsHeader(
+					"How-to Patterns",
+					"Data Fetching",
+					"A goroutine calling net/http directly, and a signal to carry the result back. No fetch wrapper, no async library, no special signal type.",
+				)}
+
+				<h2 className="docs-h2" id="fetch-with-goroutine-and-signal">Fetch with a goroutine and a signal</h2>
+				<p className="docs-p">
+					<code>net/http</code> works from WASM like anywhere else in Go. Call it
+					from a goroutine so the request doesn't block the event loop, and set a
+					signal when the response arrives. Any binding reading that signal updates
+					on its own, no callback wiring needed.
+				</p>
+				{components.CodeBlock("quote.go", dataFetchingBasicSnippet)}
+				{callout("important", "Important", "core.Node/DOM APIs aren't safe to call from a goroutine other than the one WASM's event loop runs on. Set a signal instead of touching the DOM directly from inside go func() { ... }.")}
+
+				<h2 className="docs-h2" id="loading-and-error-state">Loading and error state</h2>
+				<p className="docs-p">
+					A second signal for status turns a bare fetch into the loading/error/done
+					states every real fetch needs. This is the same shape used by{" "}
+					<a href="#/docs/routing">Routing</a>'s examples elsewhere in these docs,
+					just with <code>net/http</code> instead of a mocked delay:
+				</p>
+				{components.CodeBlock("Quote.vane", dataFetchingStatesSnippet)}
+
+				<h2 className="docs-h2" id="why-no-asyncsignal">Why there's no AsyncSignal</h2>
+				<p className="docs-p">
+					Some frameworks ship a dedicated async/resource signal type that bundles
+					loading/error/data into one object. Vane doesn't, on purpose: a goroutine
+					plus a plain signal already is the idiomatic Go answer, and wrapping it
+					would just be a second way to spell the same three lines above.
+				</p>
+
+				<h2 className="docs-h2" id="cleanup">What happens if the component unmounts before the fetch resolves</h2>
+				<p className="docs-p">
+					A goroutine started this way keeps running even if the component unmounts
+					before the response arrives, it just sets a signal nobody reads anymore.
+					For a fetch that fires once per user action (a button click, this page's
+					own live demo) that's harmless. For anything longer-lived, tickers,
+					subscriptions, polling, see <a href="#/docs/patterns">Patterns</a>'
+					"Goroutines and cleanup" section for the <code>core.OnDispose</code> version.
+				</p>
+
+				<p className="docs-p">
+					The full working example, including a real GitHub API request and the
+					loading spinner shown on the homepage, lives in{" "}
+					<a href="https://github.com/filipejohansson/vane/tree/master/examples/async-fetch" target="_blank" rel="noopener noreferrer">
+						examples/async-fetch
+					</a>.
+				</p>
+
+				{pageNav("data-fetching")}
+			</article>
+			{toc(items)}
+		</div>
+	)
+}

@@ -1,0 +1,44 @@
+package ui
+
+import (
+	"github.com/filipejohansson/vane/core"
+)
+
+type FieldProps struct {
+	Label       string
+	Type        string // input type: "text" (default), "email", "password"
+	ID          string
+	Placeholder string
+	Required    bool
+	Error       string
+}
+
+// Field takes the backing signal directly (not its resolved value) so the
+// <input>'s value binding stays scoped to this component's own JSX attribute,
+// reading value.Get() at the call site instead would make the parent's
+// {ui.Field(...)} slot re-run on every keystroke and rebuild the input,
+// dropping focus/cursor position.
+func Field(props FieldProps, value *core.Signal[string]) core.Node {
+	typ := props.Type
+	if typ == "" {
+		typ = "text"
+	}
+
+	return (
+		<div className="field">
+			<label className="field-label" htmlFor={props.ID}>{props.Label}</label>
+			<input
+				id={props.ID}
+				type={typ}
+				className="input"
+				placeholder={props.Placeholder}
+				value={value.Get()}
+				onInput={func(e core.InputEvent) { value.Set(e.Value) }}
+				required={props.Required}
+			/>
+			{if props.Error != "" {
+				<p className="field-error">{props.Error}</p>
+			}}
+		</div>
+	)
+}

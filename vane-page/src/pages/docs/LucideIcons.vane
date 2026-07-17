@@ -1,0 +1,139 @@
+package docs
+
+import (
+	"github.com/filipejohansson/vane/core"
+
+	"vane-page/src/components"
+)
+
+const lucideScriptSnippet = `<!-- public/index.html, before wasm_exec.js -->
+<script src="https://unpkg.com/lucide@^1/dist/umd/lucide.js"></script>`
+
+const lucideHelperSnippet = `package components
+
+import "github.com/filipejohansson/vane/core"
+
+// Icon renders a Lucide glyph: <i data-lucide="name">, filled in by
+// lucide.createIcons() once it's attached to the document. Wrap it in a
+// stable element when it sits in a reactive {if}/{switch} branch, so
+// Vane's own add/remove tracks that wrapper, not the <i> lucide swaps
+// out for an <svg> underneath it.
+func Icon(name string) core.Node {
+    return (<i data-lucide={name} />)
+}
+
+// RefreshIcons asks Lucide to scan the document for <i data-lucide> that
+// haven't been swapped for an <svg> yet. Deferred a microtask out so the
+// node is already attached when Lucide's querySelectorAll runs.
+func RefreshIcons() {
+    core.NextTick(func() {
+        lucide := core.Window().Get("lucide")
+        if lucide.IsUndefined() {
+            return
+        }
+        lucide.Call("createIcons")
+    })
+}`
+
+const lucideStaticSnippet = `// Footer.vane: the shield icon never changes and Footer never remounts,
+// so RefreshIcons only ever needs to run once. core.Effect's func reads no
+// signal, so it fires at mount and never again, exactly enough.
+func Footer() core.Node {
+    core.Effect(func() func() {
+        RefreshIcons()
+        return nil
+    })
+
+    return (
+        <footer>
+            <span aria-hidden="true">{Icon("shield")}</span>
+            <span>Vane</span>
+        </footer>
+    )
+}`
+
+const lucideReactiveSnippet = `// Nav.vane: Nav itself mounts once, for the app's whole lifetime. The
+// mobile panel isn't a separate component remounting, it's a {if} binding
+// inside Nav's own return, added and removed without Nav's body or its
+// Effect ever running again. Reading menuOpen.Get() is what forces this
+// Effect to fire again on every toggle, so the panel's fresh <i> gets
+// picked up each time it reappears.
+core.Effect(func() func() {
+    if menuOpen.Get() {
+        documentEl().Get("style").Set("overflow", "hidden")
+        RefreshIcons()
+    } else {
+        documentEl().Get("style").Set("overflow", "")
+    }
+    return nil
+})`
+
+func LucideIcons() core.Node {
+	core.Head(func() core.HeadConfig {
+		return core.HeadConfig{
+			Title:       "Add Lucide Icons | Vane Docs",
+			Description: "Wire up the Lucide icon library the same way this site's own Nav does: a data-lucide element plus a RefreshIcons helper, no Go-native port required.",
+		}
+	})
+
+	items := lucideIconsTOCItems
+
+	return (
+		<div className="docs-page">
+			<article className="docs-article">
+				{docsHeader(
+					"How-to Patterns",
+					"Add Lucide Icons",
+					"Vane has no icon library of its own. This site wires up Lucide the same way any plain JS-interop library works: a global script tag plus a couple of syscall/js calls, no Go-native port required.",
+				)}
+
+				<h2 className="docs-h2" id="load-the-script">Load the script</h2>
+				<p className="docs-p">
+					Lucide ships as a UMD bundle, loaded once as a plain <code>{"<script>"}</code>{" "}
+					tag in <code>public/index.html</code>, before <code>wasm_exec.js</code>. It
+					attaches itself to <code>window</code> as <code>lucide</code>, no bundler or
+					Go module involved:
+				</p>
+				{components.CodeBlock("index.html", lucideScriptSnippet)}
+				{callout("tip", "Tip", "Any plain JS library that only needs a global script tag works the same way, wire it up once in index.html and reach it from Go with syscall/js. Only libraries needing their own module graph or a build step are actually out of reach today.")}
+
+				<h2 className="docs-h2" id="render-an-icon">Render an icon</h2>
+				<p className="docs-p">
+					Lucide looks for <code>{"<i data-lucide=\"name\">"}</code> elements and
+					swaps each one for an inline <code>{"<svg>"}</code>. It never scans the
+					document on its own, something has to call <code>createIcons()</code>{" "}
+					after the element is attached. A small helper renders the placeholder and
+					makes that call:
+				</p>
+				{components.CodeBlock("icons.go", lucideHelperSnippet)}
+				<p className="docs-p">
+					Calling <code>RefreshIcons()</code> once, in a <code>core.Effect</code>{" "}
+					that reads no signal, is already enough for most icons. The Effect fires at
+					mount and never again, but that's exactly right: an icon that's static, or
+					one that lives in a component that only ever mounts once, needs the scan
+					exactly once too. A component that gets torn down and remounted as a whole
+					(a different route, an unmounted-then-remounted panel) gets a fresh call to
+					this same Effect on every fresh mount, no extra code needed:
+				</p>
+				{components.CodeBlock("Footer.vane", lucideStaticSnippet)}
+				{callout("tip", "Tip", "Icon() returns a stable <i>, not the <svg> Lucide swaps it for. Inside a reactive {if}/{switch} branch that keeps Vane's own add/remove tracking the wrapper, instead of fighting Lucide over a node it mutated underneath Vane.")}
+
+				<h2 className="docs-h2" id="icons-behind-a-binding">Icons behind a reactive binding</h2>
+				<p className="docs-p">
+					One case the mount-only Effect doesn't cover: an icon behind an{" "}
+					<code>{"{if}"}</code>/<code>{"{switch}"}</code> inside a component that
+					itself only mounts once and stays mounted. The branch is its own reactive
+					binding, added and removed independently, without the component's body or
+					its <code>core.Effect</code> ever running again. Reading the same signal the
+					binding depends on, inside the Effect, is what forces a fresh{" "}
+					<code>RefreshIcons()</code> call each time the branch flips:
+				</p>
+				{components.CodeBlock("Nav.vane", lucideReactiveSnippet)}
+				{callout("important", "Important", "RefreshIcons defers through core.NextTick, not calling lucide.createIcons() directly. The <i> has to actually be in the DOM before Lucide's own querySelectorAll runs, and an Effect body runs before Vane finishes attaching the nodes it just built.")}
+
+				{pageNav("lucide-icons")}
+			</article>
+			{toc(items)}
+		</div>
+	)
+}

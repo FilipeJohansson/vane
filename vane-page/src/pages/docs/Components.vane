@@ -1,0 +1,231 @@
+package docs
+
+import (
+	"github.com/filipejohansson/vane/core"
+
+	"vane-page/src/components"
+)
+
+const basicComponentSnippet = `func App() core.Node {
+    return (
+        <div className="card">
+            <h1>Hello, Vane!</h1>
+        </div>
+    )
+}`
+
+const componentCallSnippet = `// ✗ not how to call a component, <Card> isn't an HTML element
+return (<Card title="Hello" />)
+
+// ✓ correct: call the function inside a {expr} binding
+return (
+    <div>{Card("Hello")}</div>
+)`
+
+const childrenComponentSnippet = `func Card(title string, children ...core.Node) core.Node {
+    return (
+        <div className="card">
+            <h2>{title}</h2>
+            {children...}
+        </div>
+    )
+}
+
+func App() core.Node {
+    return (
+        <div>
+            {components.Card("Profile",
+                components.Avatar(user),
+                components.Bio(user),
+            )}
+        </div>
+    )
+}`
+
+const signaturesSnippet = `func Icon() core.Node                                    { ... }
+func Tooltip(text string) core.Node                      { ... }
+func Wrapper(children ...core.Node) core.Node            { ... }
+func Card(title string, children ...core.Node) core.Node { ... }`
+
+const htmlPropsSnippet = `type ButtonProps struct {
+    core.HTMLProps
+    Label string
+}
+
+func Button(p ButtonProps) core.Node {
+    return core.ElWithProps("button", p.HTMLProps, core.Text(p.Label))
+}`
+
+const htmlPropsApplyFallbackSnippet = `type ButtonProps struct {
+    core.HTMLProps
+    Label string
+    Width string // e.g. "120px"
+}
+
+func Button(p ButtonProps) core.Node {
+    el := core.El("button")
+    core.SetStyle(el, core.Style{Width: p.Width})
+    p.HTMLProps.Apply(el)
+    core.AppendText(el, p.Label)
+    return el
+}`
+
+const controllerSnippet = `type ModalCtrl struct {
+    open  *core.Signal[bool]
+    title *core.Signal[string]
+    body  *core.Signal[string]
+}
+
+func NewModalCtrl() *ModalCtrl {
+    return &ModalCtrl{
+        open:  core.NewSignal(false),
+        title: core.NewSignal(""),
+        body:  core.NewSignal(""),
+    }
+}
+
+func (m *ModalCtrl) Open(title, body string) { ... }
+func (m *ModalCtrl) Close()                  { m.open.Set(false) }`
+
+const modalSnippet = `func Modal(ctrl *ModalCtrl) core.Node {
+    if !ctrl.open.Get() {
+        return nil
+    }
+
+    return (
+        <div className="modal">
+            ...
+        </div>
+    )
+}
+
+func App() core.Node {
+    modal := components.NewModalCtrl()
+
+    return (
+        <div>
+            <button onClick={func(core.MouseEvent) {
+                modal.Open("Delete?", "This cannot be undone.")
+            }}>
+                Delete
+            </button>
+
+            {components.Modal(modal)}
+        </div>
+    )
+}`
+
+func Components() core.Node {
+	core.Head(func() core.HeadConfig {
+		return core.HeadConfig{
+			Title:       "Components | Vane Docs",
+			Description: "Building reusable UI with components, children, HTMLProps, and controller/view APIs.",
+		}
+	})
+
+	items := componentsTOCItems
+
+	return (
+		<div className="docs-page">
+			<article className="docs-article">
+				{docsHeader(
+					"Build Your UI",
+					"Components",
+					"Components are plain Go functions returning core.Node. JSX is compiled into direct DOM operations before the Go compiler ever sees your code.",
+				)}
+
+				<h2 className="docs-h2" id="basic-components">Basic components</h2>
+				<p className="docs-p">
+					A component is just a Go function returning <code>core.Node</code>. JSX inside
+					the <code>return</code> statement compiles into direct DOM creation calls.
+				</p>
+				{components.CodeBlock("App.vane", basicComponentSnippet)}
+				<p className="docs-p">
+					Only <code>.vane</code> files are transformed. Any regular <code>.go</code> file you
+					write, such as <code>main.go</code>, helpers, or controllers, passes through the Go
+					compiler unchanged.
+				</p>
+				{callout("tip", "Tip", "Components execute once when mounted. Reactive updates come from signals and Effects inside the component, not from re-running the function.")}
+				<p className="docs-p">
+					Components are called like any other Go function, from inside a{" "}
+					<code>{"{expr}"}</code> binding. Vane syntax tags are for HTML
+					elements only, there's no tag-call sugar for invoking your own
+					components.
+				</p>
+				{components.CodeBlock("snippet.go", componentCallSnippet)}
+
+				<h2 className="docs-h2" id="children">Children</h2>
+				<p className="docs-p">
+					Accept child content with a variadic <code>...core.Node</code> parameter.
+					Callers pass children as ordinary Go function calls.
+				</p>
+				{components.CodeBlock("Card.vane", childrenComponentSnippet)}
+				<p className="docs-p">
+					Use <code>{"{children...}"}</code> to spread the slice into the parent
+					element. Each child keeps its own independent reactivity. If no children are
+					passed, the spread is simply ignored.
+				</p>
+				{components.CodeBlock("signatures.go", signaturesSnippet)}
+				{callout("tip", "Tip", "Children always come last, following normal Go variadic parameter rules.")}
+
+				<h2 className="docs-h2" id="htmlprops">HTMLProps</h2>
+				<p className="docs-p">
+					Embed <code>core.HTMLProps</code> into your props struct instead of
+					redeclaring common HTML attributes on every component.
+				</p>
+				{components.CodeBlock("Button.vane", htmlPropsSnippet)}
+				<p className="docs-p">
+					<code>core.ElWithProps</code> covers the common case, an element with no
+					attrs beyond <code>p</code>. Attrs with no dedicated <code>HTMLProps</code>
+					field, like an anchor's <code>href</code>, go through <code>Extra</code>
+					instead of needing a different pattern: <code>router.Link</code> builds
+					its <code>href</code>/<code>target</code>/<code>rel</code> into a copy
+					of <code>Extra</code> before calling <code>ElWithProps</code>. Drop to
+					the plain <code>core.El</code> + <code>.Apply(el)</code> sequence it
+					wraps only when something has to run between creation and prop
+					application, e.g. a typed <code>core.SetStyle</code> call, or wiring a
+					ref before children are appended. Say <code>Button</code> also takes a
+					typed <code>Width</code>, that needs its own <code>core.SetStyle</code>
+					call before <code>Apply</code> runs so it doesn't collide with
+					<code>HTMLProps.Style</code>'s plain string:
+				</p>
+				{components.CodeBlock("Button.vane", htmlPropsApplyFallbackSnippet)}
+				{callout("important", "Important", "Vane syntax has no spread-props sugar yet, so applying a shared props struct onto a tag directly (<button {...p}>) isn't possible today. core.ElWithProps (composing HTMLProps.Extra for attrs with no dedicated field) and core.El + .Apply(el) are the current, intentional patterns. router.Link and router.ActiveLink both use core.ElWithProps internally.")}
+
+				{docsTable(
+					[]string{"Field", "Type", "DOM effect"},
+					[][]core.Node{
+						{code("Class"), code("string"), code("className")},
+						{code("ID"), code("string"), code("id")},
+						{code("Style"), code("string"), core.Text("inline style")},
+						{code("Role"), code("string"), code("role")},
+						{code("TabIndex"), code("int"), code("tabIndex")},
+						{code("Hidden"), code("bool"), code("hidden")},
+						{core.Fragment(code("OnClick"), core.Text(", "), code("OnMouseEnter"), core.Text(", "), code("OnMouseLeave"), core.Text(", "), code("OnDblClick")), code("func(core.MouseEvent)"), core.Text("Event listeners")},
+						{core.Fragment(code("OnFocus"), core.Text(", "), code("OnBlur")), code("func(core.Event)"), core.Text("Event listeners")},
+						{core.Fragment(code("OnKeyDown"), core.Text(", "), code("OnKeyUp")), code("func(core.KeyEvent)"), core.Text("Event listeners")},
+						{code("Extra"), code("map[string]string"), core.Fragment(core.Text("Arbitrary attributes ("), code("data-*"), core.Text(", "), code("aria-*"), core.Text(", ...)"))},
+					},
+				)}
+				{callout("important", "Important", "router.LinkProps embeds core.HTMLProps too, so links automatically support the same HTML attributes.")}
+
+				<h2 className="docs-h2" id="component-api">Component API pattern</h2>
+				<p className="docs-p">
+					For components requiring imperative control, such as modals, drawers, or
+					toasters, keep the controller separate from the rendered view. This lets the
+					state outlive individual renders.
+				</p>
+				{components.CodeBlock("modal.go", controllerSnippet)}
+				{components.CodeBlock("Modal.vane", modalSnippet)}
+				<p className="docs-p">
+					The controller is created once and can be used from anywhere. The view is
+					rendered once and reacts automatically to signal changes.
+				</p>
+				{callout("tip", "Tip", "Separating controller and view avoids prop drilling and keeps imperative APIs easy to expose while preserving Vane's fine-grained reactivity.")}
+
+				{pageNav("components")}
+			</article>
+			{toc(items)}
+		</div>
+	)
+}

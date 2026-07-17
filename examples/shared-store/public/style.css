@@ -1,0 +1,135 @@
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg: #0f1117;
+  --surface: #1e2130;
+  --surface-2: #2d3348;
+  --surface-3: #363d56;
+  --surface-5: #2a3050;
+  --border: #3d4566;
+  --border-2: #4a5275;
+
+  --text: #e2e8f0;
+  --muted: #94a3b8;
+  --hint: #64748b;
+
+  --primary: #00ADD8;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+}
+
+/** Layout */
+
+.app {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+.navbar {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  padding: 0 2rem;
+  height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+.nav-brand {
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  color: var(--primary);
+}
+
+.nav-user {
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.nav-user strong {
+  color: var(--text);
+}
+
+.main {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 3rem 1.5rem;
+}
+
+/** Login card */
+
+.login-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 2rem;
+  width: 100%;
+  max-width: 380px;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.login-title {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.login-hint {
+  font-size: 0.82rem;
+  color: var(--hint);
+}
+
+/** Controls */
+
+.btn {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  color: var(--text);
+  border-radius: 8px;
+  padding: 0.55rem 1.25rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.1s, border-color 0.1s;
+}
+
+.btn:hover  { background: var(--surface-3); border-color: var(--border-2); }
+.btn:active { background: var(--surface-5); }
+
+.btn-primary {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: #fff;
+}
+
+.btn-primary:hover  { background: #ea6c0a; border-color: #ea6c0a; }
+.btn-primary:active { background: #d4610a; }
+
+.input {
+  width: 100%;
+  background: #151821;
+  border: 1px solid var(--surface-2);
+  border-radius: 8px;
+  color: var(--text);
+  padding: 0.55rem 0.75rem;
+  font-size: 0.9rem;
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.input:focus { border-color: var(--border-2); }
+.input::placeholder { color: var(--hint); }

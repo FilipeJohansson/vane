@@ -1,0 +1,170 @@
+package main
+
+import (
+	"strconv"
+	"time"
+
+	"github.com/filipejohansson/vane/core"
+)
+
+// flashOn subscribes to read() and pulses el's border on every change after mount.
+// Returns a cleanup that cancels any in-flight timer when the effect re-runs.
+func flashOn(el core.Node, read func()) {
+	raw := core.Unwrap(el)
+	first := true
+	core.Effect(func() func() {
+		read()
+		if first {
+			first = false
+			return nil
+		}
+		// Remove → reflow → re-add restarts the CSS animation even on rapid changes.
+		raw.Get("classList").Call("remove", "flash")
+		_ = raw.Get("offsetWidth") // force reflow
+		raw.Get("classList").Call("add", "flash")
+		timer := time.AfterFunc(700*time.Millisecond, func() {
+			raw.Get("classList").Call("remove", "flash")
+		})
+		return func() { timer.Stop() }
+	})
+}
+
+// rv ("reactive value") creates a <span> that displays the result of read()
+// and flashes its border whenever the underlying signal changes.
+func rv(read func() string) core.Node {
+	el := core.El("span")
+	core.SetProp(el, "className", "rv")
+	core.DynText(el, read)
+	flashOn(el, func() { read() })
+	return el
+}
+
+func App() core.Node {
+	count := core.NewSignal(0)
+	name  := core.NewSignal("")
+	tick  := core.NewSignal(0)
+	hue   := core.NewSignal(200)
+
+	// Derived: count × 2, recomputed whenever count changes.
+	doubled := core.ComputedOf(func(_ int) int { return count.Get() * 2 })
+
+	// Auto-ticker: increments every second.
+	core.Effect(func() func() {
+		ticker := time.NewTicker(time.Second)
+		go func() {
+			for range ticker.C {
+				tick.Set(tick.Get() + 1)
+			}
+		}()
+		return func() { ticker.Stop() }
+	})
+
+	//* Reactive value nodes
+
+	countRV   := rv(func() string { return strconv.Itoa(count.Get()) })
+	doubledRV := rv(func() string { return strconv.Itoa(doubled.Get()) })
+	greetRV   := rv(func() string {
+		n := name.Get()
+		if n == "" {
+			return "Hello, stranger!"
+		}
+		return "Hello, " + n + "!"
+	})
+	tickRV := rv(func() string { return strconv.Itoa(tick.Get()) + "s" })
+
+	//* Color swatch: reactive style prop + flash
+
+	swatch := core.El("div")
+	core.SetProp(swatch, "className", "swatch")
+	core.DynProp(swatch, "style", func() any {
+		return "background: hsl(" + strconv.Itoa(hue.Get()) + ", 75%, 55%)"
+	})
+	flashOn(swatch, func() { _ = hue.Get() })
+
+	//* Shared: same signal, two independent DOM nodes
+
+	sharedA := rv(func() string { return strconv.Itoa(count.Get()) })
+	sharedB := rv(func() string { return strconv.Itoa(count.Get()) })
+
+	return (
+		<div className="showcase">
+			<header className="hero">
+				<h1>Vane - Reactive Showcase</h1>
+				<p>
+					Fine-grained reactivity: each highlighted value has its own Effect.
+					When a signal changes, <strong>only that binding re-runs</strong> - the
+					orange flash shows you exactly what updated.
+				</p>
+			</header>
+
+			<div className="grid">
+
+				<div className="card">
+					<div className="card-title">Counter</div>
+					<div className="card-hint">Click ± - only the number flashes.</div>
+					<div className="row gap">
+						<button className="btn" onClick={func(core.MouseEvent) { count.Set(count.Get() - 1) }}>-</button>
+						{countRV}
+						<button className="btn" onClick={func(core.MouseEvent) { count.Set(count.Get() + 1) }}>+</button>
+					</div>
+				</div>
+
+				<div className="card">
+					<div className="card-title">Derived (count × 2)</div>
+					<div className="card-hint">Same counter above. Flashes independently.</div>
+					<div className="row">
+						{doubledRV}
+					</div>
+				</div>
+
+				<div className="card">
+					<div className="card-title">Text echo</div>
+					<div className="card-hint">Type below - only the greeting flashes.</div>
+					<input
+						className="input"
+						placeholder="Your name…"
+						value={name.Get()}
+						onInput={func(e core.InputEvent) { name.Set(e.Value) }}
+					/>
+					<div className="row">{greetRV}</div>
+				</div>
+
+				<div className="card">
+					<div className="card-title">Auto-timer</div>
+					<div className="card-hint">Flashes every second with no user input.</div>
+					<div className="row">{tickRV}</div>
+				</div>
+
+				<div className="card">
+					<div className="card-title">Color hue</div>
+					<div className="card-hint">Drag the slider - only the swatch flashes.</div>
+					<input
+						className="slider"
+						type="range"
+						min="0"
+						max="360"
+						value={strconv.Itoa(hue.Get())}
+						onInput={func(e core.InputEvent) {
+							if n, err := strconv.Atoi(e.Value); err == nil {
+								hue.Set(n)
+							}
+						}}
+					/>
+					{swatch}
+				</div>
+
+				<div className="card">
+					<div className="card-title">Shared signal</div>
+					<div className="card-hint">
+						Two nodes reading the same counter. Both flash together.
+					</div>
+					<div className="row gap">
+						<span className="label">A:</span>{sharedA}
+						<span className="label">B:</span>{sharedB}
+					</div>
+				</div>
+
+			</div>
+		</div>
+	)
+}

@@ -1,0 +1,57 @@
+name: Deploy vane-page
+
+on:
+  push:
+    branches: [master]
+    paths: ['vane-page/**', 'core/**', 'internal/**']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Only one Pages deploy in flight at a time; a newer push supersedes
+# whatever's still building instead of queuing behind it.
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version: '1.24.x'
+
+      - name: Install binaryen (wasm-opt)
+        run: sudo apt-get update && sudo apt-get install -y binaryen
+
+      - name: Build CLI
+        run: go build -o vane .
+
+      # No tagged vane release exists yet (pre-0.1.0), so there's no real
+      # version for vane-page/go.mod's `require` to resolve to. Deploy the
+      # site against this same push's own core/internal instead, same
+      # mechanism ci.yml uses to test against a branch. Once real vX.Y.Z
+      # tags start getting published, switch this to `go get
+      # github.com/filipejohansson/vane@latest` (or a pinned tag) and drop
+      # this replace so the site tracks releases, not main.
+      - name: Point vane-page at this checkout's vane module
+        run: (cd vane-page && go mod edit -replace github.com/filipejohansson/vane=../)
+
+      - name: Build vane-page (release)
+        run: ./vane build vane-page --release
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: vane-page/dist
+
+      - uses: actions/deploy-pages@v4
+        id: deployment

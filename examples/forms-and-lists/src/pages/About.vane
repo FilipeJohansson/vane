@@ -1,0 +1,72 @@
+package pages
+
+import (
+	"strconv"
+	"github.com/filipejohansson/vane/core"
+)
+
+type aboutSection struct {
+	title string
+	body  string
+}
+
+var faqSections = []aboutSection{
+	{
+		title: "What is vane?",
+		body:  "vane is a Go WebAssembly frontend framework with JSX-like syntax. Write components in .vane files, run vane build, and ship a single app.wasm with zero JavaScript dependencies.",
+	},
+	{
+		title: "How does reactivity work?",
+		body:  "vane uses signals for reactive state. Any signal read inside a component automatically subscribes to it - when Set() is called, only the affected binding re-runs.",
+	},
+	{
+		title: "How does routing work?",
+		body:  "vane has a built-in hash router. Declare routes with router.Router and router.Route, navigate with router.Link or router.Navigate. URL params are extracted via router.UseParams.",
+	},
+	{
+		title: "Can I use CSS and static assets?",
+		body:  "Yes. Place files in public/ and they are copied to dist/ on every vane build. Link them in public/index.html. Use the className prop on any element.",
+	},
+}
+
+func faqItem(s aboutSection, idx int, isOpen bool, onToggle func()) core.Node {
+	headerCls := "accordion-header"
+	bodyCls := "accordion-body"
+	if isOpen {
+		headerCls = "accordion-header open"
+		bodyCls = "accordion-body open"
+	}
+	return (
+		<div
+			className="accordion-item"
+			id={"section-" + strconv.Itoa(idx)}
+		>
+			<button className={headerCls} onClick={func(core.MouseEvent) { onToggle() }}>{s.title}</button>
+			<div className={bodyCls}>
+				<p>{s.body}</p>
+			</div>
+		</div>
+	)
+}
+
+func About() core.Node {
+	openIdx := core.NewSignal(-1)
+
+	return (
+		<div className="page about">
+			<h1>About vane</h1>
+			<div className="accordion">
+				{for i, s := range faqSections {
+					idx := i
+					faqItem(s, idx, openIdx.Get() == idx, func() {
+						if openIdx.Get() == idx {
+							openIdx.Set(-1)
+						} else {
+							openIdx.Set(idx)
+						}
+					})
+				}}
+			</div>
+		</div>
+	)
+}

@@ -1,0 +1,196 @@
+package docs
+
+import (
+	"github.com/filipejohansson/vane/core"
+
+	"vane-page/src/components"
+)
+
+const psTreeSnippet = `├── go.mod
+├── .gitignore
+├── main.go
+├── App.vane
+├── public/
+│   ├── index.html
+│   ├── boot.js
+│   ├── style.css
+│   └── wasm_exec.js
+└── src/
+    ├── pages/
+    │   ├── Home.vane
+    │   └── About.vane
+    ├── components/
+    │   └── NavLink.vane
+    └── store/
+        └── user.go`
+
+const psMainGoSnippet = `//go:build js && wasm
+
+package main
+
+import (
+    "github.com/filipejohansson/vane/core"
+)
+
+func main() {
+    core.Mount("root", App)
+    select {}
+}`
+
+const psAppVaneSnippet = `package main
+
+import (
+    "github.com/filipejohansson/vane/core"
+    "github.com/filipejohansson/vane/core/router"
+    "example.com/myapp/src/components"
+    "example.com/myapp/src/pages"
+)
+
+func App() core.Node {
+    return (
+        <div className="app">
+            <nav className="nav">
+                {components.NavLink("/", "Home")}
+                {components.NavLink("/about", "About")}
+            </nav>
+            <main className="main">
+                {router.Router(
+                    router.Route("/", pages.Home, "Home"),
+                    router.Route("/about", pages.About, "About"),
+                )}
+            </main>
+        </div>
+    )
+}`
+
+const psNavLinkSnippet = `package components
+
+import (
+    "github.com/filipejohansson/vane/core"
+    "github.com/filipejohansson/vane/core/router"
+)
+
+func NavLink(to, label string) core.Node {
+    return router.ActiveLink(
+        router.ActiveLinkProps{
+            LinkProps:   router.LinkProps{To: to, HTMLProps: core.HTMLProps{Class: "nav-link"}},
+            ActiveClass: "nav-link--active",
+        },
+        label,
+    )
+}`
+
+const psStoreUserSnippet = `//go:build js && wasm
+
+package store
+
+import "github.com/filipejohansson/vane/core"
+
+var Name = core.NewSignal("")`
+
+const psCSSImportSnippet = `/* public/style.css: @import must be at the top */
+@import 'NavLink.css';`
+
+func ProjectStructure() core.Node {
+	core.Head(func() core.HeadConfig {
+		return core.HeadConfig{
+			Title:       "Project Structure | Vane Docs",
+			Description: "What vane init scaffolds, and where application code, static assets, and co-located styles live.",
+		}
+	})
+
+	items := projectStructureTOCItems
+
+	return (
+		<div className="docs-page">
+			<article className="docs-article">
+				{docsHeader(
+					"Start a New Project",
+					"Project Structure",
+					"What vane init scaffolds, and where application code, static assets, and co-located styles live.",
+				)}
+
+				<h2 className="docs-h2" id="the-tree">The scaffolded tree</h2>
+				<p className="docs-p">
+					<code>vane init</code> creates the following in the current directory,
+					then runs <code>go mod tidy</code> to resolve the <code>vane</code> dependency:
+				</p>
+				{components.PlainBlock("./", psTreeSnippet)}
+				{callout("tip", "Tip", "dist/ doesn't exist yet. It's created by vane run or vane build, and the generated .gitignore already excludes it from version control.")}
+
+				<h2 className="docs-h2" id="root-files">Root files</h2>
+				{docsTable(
+					[]string{"File", "What it is"},
+					[][]core.Node{
+						{code("go.mod"), core.Text("Standard Go module file")},
+						{code(".gitignore"), core.Fragment(core.Text("Excludes "), code("dist/"), core.Text(" and "), code("*_vane.go"), core.Text(", the compiler's generated output"))},
+						{code("main.go"), core.Text("Bootstrap entrypoint, plain Go")},
+						{code("App.vane"), core.Text("The root component, compiled like any other .vane file")},
+					},
+				)}
+				<p className="docs-p">
+					<code>main.go</code> is intentionally minimal: mount the root component, block forever.
+				</p>
+				{components.CodeBlock("main.go", psMainGoSnippet)}
+				<p className="docs-p">
+					<code>App.vane</code> lives at the project root instead of under <code>src/</code>,
+					it's the single entry point the router and every page hang off of:
+				</p>
+				{components.CodeBlock("App.vane", psAppVaneSnippet)}
+
+				<h2 className="docs-h2" id="public">public/</h2>
+				<p className="docs-p">
+					Everything under <code>public/</code> is copied to <code>dist/</code> as-is on
+					every build, nothing here is compiled.
+				</p>
+				{docsTable(
+					[]string{"File", "What it is"},
+					[][]core.Node{
+						{code("index.html"), core.Text("The single HTML page that loads the WASM bundle")},
+						{code("boot.js"), core.Text("Same-origin script index.html loads: rewrites deep-link pathnames to a hash, then instantiates app.wasm")},
+						{code("style.css"), core.Fragment(core.Text("Global reset, CSS custom properties, and every co-located "), code("@import"))},
+						{code("wasm_exec.js"), core.Text("Go's WASM glue code, copied from GOROOT at scaffold time")},
+					},
+				)}
+				{callout("important", "Important", "boot.js runs before wasm_exec.js loads: if the page was reached via a path-based deep link (e.g. /about, no hash) it rewrites the URL to /#/about before the router ever sees it. Without it, refreshing on a deep link would always land on the home route. It's a same-origin <script src> rather than inline, so the app's CSP can use script-src 'self' instead of 'unsafe-inline'.")}
+				<p className="docs-p">
+					Anything else static (favicon, robots.txt, fonts, images) belongs here too,
+					it's copied to <code>dist/</code> untouched, same as the three files above.
+				</p>
+
+				<h2 className="docs-h2" id="src">src/</h2>
+				<p className="docs-p">
+					Application code, organized by convention rather than a framework requirement,
+					nothing under <code>src/</code> is special-cased by the compiler.
+				</p>
+				{docsTable(
+					[]string{"Directory", "Package", "What goes here"},
+					[][]core.Node{
+						{code("src/pages/"), code("pages"), core.Fragment(core.Text("One component per route, wired up in "), code("App.vane"), core.Text("'s "), code("router.Router"))},
+						{code("src/components/"), code("components"), core.Text("Reusable pieces shared across pages")},
+						{code("src/store/"), code("store"), core.Text("Package-level signals for state shared across the app")},
+					},
+				)}
+				<p className="docs-p">
+					Here's exactly what <code>vane init</code> writes for the last two:
+				</p>
+				{components.CodeBlock("NavLink.vane", psNavLinkSnippet)}
+				{components.CodeBlock("user.go", psStoreUserSnippet)}
+
+				<h2 className="docs-h2" id="co-located-css">Co-located CSS</h2>
+				<p className="docs-p">
+					<code>.css</code> files anywhere in the source tree (outside <code>public/</code>{" "}
+					and <code>dist/</code>) are automatically copied to <code>dist/</code>, flattened
+					to a single level, on every <code>vane build</code>. Place a{" "}
+					<code>Component.css</code> next to <code>Component.vane</code> and reference it
+					from <code>public/style.css</code> via <code>@import</code>:
+				</p>
+				{components.PlainBlock("public/style.css", psCSSImportSnippet)}
+				{callout("tip", "Tip", "@import statements must stay at the top of public/style.css, that's a CSS rule, not a Vane one. See Styles and CSS for the full core.Style reference.")}
+
+				{pageNav("project-structure")}
+			</article>
+			{toc(items)}
+		</div>
+	)
+}

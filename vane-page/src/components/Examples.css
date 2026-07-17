@@ -1,0 +1,39 @@
+.examples-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1.1rem;
+}
+
+.example-card {
+  display: block;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 1.4rem;
+  text-decoration: none;
+  transition: border-color 0.15s, transform 0.15s;
+}
+
+.example-card:hover { border-color: var(--accent); transform: translateY(-2px); }
+
+.example-card-desc {
+  color: var(--muted);
+  font-size: 0.85rem;
+  line-height: 1.5;
+}
+
+.example-card-name {
+  display: inline-block;
+  font-family: var(--mono);
+  font-size: 0.9rem;
+  color: var(--accent);
+  margin-bottom: 0.4rem;
+}
+
+@media (max-width: 860px) {
+  .examples-grid { grid-template-columns: repeat(2, 1fr); }
+}
+
+@media (max-width: 560px) {
+  .examples-grid { grid-template-columns: 1fr; }
+}

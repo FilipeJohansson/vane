@@ -1,0 +1,168 @@
+package pages
+
+import (
+	"fmt"
+	"strconv"
+	"github.com/filipejohansson/vane/core"
+	"github.com/filipejohansson/vane/core/router"
+	"github.com/filipejohansson/vane/examples/fullstack-app/src/api"
+	"github.com/filipejohansson/vane/examples/fullstack-app/src/components/ui"
+	"github.com/filipejohansson/vane/examples/fullstack-app/src/store"
+)
+
+func noteCard(n api.Note, onDelete func(int)) core.Node {
+	return (
+		<div className="note-card" key={n.ID}>
+			<div className="note-header">
+				<h3 className="note-title">{n.Title}</h3>
+				{if onDelete != nil {
+					<button className="btn btn-ghost note-delete" onClick={func(core.MouseEvent) { onDelete(n.ID) }}>
+						Delete
+					</button>
+				}}
+			</div>
+			<p className="note-body">{n.Body}</p>
+			<span className="note-date">{n.CreatedDate()}</span>
+		</div>
+	)
+}
+
+// UserNotes lives at users/:id/notes, nested inside the same dashboard Layout
+// as Users/UserDetail. Same route pattern across different :id values reuses
+// this mounted component (see router docs on Params), every reactive read
+// below goes through params.Get(), never a value snapshotted at mount.
+func UserNotes() core.Node {
+	params := router.Params()
+
+	idOf := func() int {
+		id, _ := strconv.Atoi(params.Get()["id"])
+		return id
+	}
+	isSelf := func() bool {
+		return idOf() == store.CurrentUser.Get().ID
+	}
+
+	notes := core.NewSignal([]api.Note{})
+	loading := core.NewSignal(true)
+	errMsg := core.NewSignal("")
+
+	newTitle := core.NewSignal("")
+	newBody := core.NewSignal("")
+	creating := core.NewSignal(false)
+
+	core.Effect(func() func() {
+		id := idOf()
+		token := store.Token.Get()
+		loading.Set(true)
+		errMsg.Set("")
+		go func() {
+			defer loading.Set(false)
+			list, err := api.ListNotes(token, id)
+			if err != nil {
+				errMsg.Set(err.Error())
+				return
+			}
+			notes.Set(list)
+		}()
+		return nil
+	})
+
+	handleCreate := func() {
+		title := newTitle.Get()
+		if title == "" {
+			return
+		}
+		creating.Set(true)
+		token, id, body := store.Token.Get(), idOf(), newBody.Get()
+		go func() {
+			defer creating.Set(false)
+			n, err := api.CreateNote(token, id, title, body)
+			if err != nil {
+				errMsg.Set(err.Error())
+				return
+			}
+			notes.Set(append([]api.Note{n}, notes.Get()...))
+			newTitle.Set("")
+			newBody.Set("")
+		}()
+	}
+
+	handleDelete := func(noteID int) {
+		token := store.Token.Get()
+		go func() {
+			if err := api.DeleteNote(token, noteID); err != nil {
+				errMsg.Set(err.Error())
+				return
+			}
+			kept := make([]api.Note, 0, len(notes.Get()))
+			for _, n := range notes.Get() {
+				if n.ID != noteID {
+					kept = append(kept, n)
+				}
+			}
+			notes.Set(kept)
+		}()
+	}
+
+	cards := func() []core.Node {
+		list := notes.Get()
+		onDelete := handleDelete
+		if !isSelf() {
+			onDelete = nil
+		}
+		nodes := make([]core.Node, len(list))
+		for i, n := range list {
+			nodes[i] = noteCard(n, onDelete)
+		}
+		return nodes
+	}
+
+	body := func() core.Node {
+		if loading.Get() {
+			return (<p className="status">Loading…</p>)
+		}
+		if errMsg.Get() != "" {
+			return (<p className="auth-error">{errMsg.Get()}</p>)
+		}
+		if len(notes.Get()) == 0 {
+			return (<p className="status">No notes yet.</p>)
+		}
+		return (<div className="notes-list">{cards()...}</div>)
+	}
+
+	form := func() core.Node {
+		if !isSelf() {
+			return nil
+		}
+		return (
+			<div className="note-form">
+				<input
+					className="input"
+					placeholder="Title"
+					value={newTitle.Get()}
+					onInput={func(e core.InputEvent) { newTitle.Set(e.Value) }}
+				/>
+				<textarea
+					className="input note-textarea"
+					placeholder="Write something…"
+					value={newBody.Get()}
+					onInput={func(e core.InputEvent) { newBody.Set(e.Value) }}
+				></textarea>
+				{ui.Button(ui.ButtonProps{Disabled: creating.Get(), OnClick: func(core.MouseEvent) { handleCreate() }}, "Add note")}
+			</div>
+		)
+	}
+
+	return (
+		<div className="page">
+			<h1 className="page-title">Notes</h1>
+			{router.Link(router.LinkProps{
+				To:        fmt.Sprintf("/dashboard/users/%d", idOf()),
+				HTMLProps: core.HTMLProps{Class: "back-link"},
+			}, "← Back to user")}
+
+			{form()}
+			{body()}
+		</div>
+	)
+}

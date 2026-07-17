@@ -1,0 +1,112 @@
+package docs
+
+import (
+	"github.com/filipejohansson/vane/core"
+
+	"vane-page/src/components"
+)
+
+const overviewGithubHref = "https://github.com/filipejohansson/vane"
+const installCmd = "go install github.com/filipejohansson/vane@latest"
+const createFolderCmd = "mkdir myapp && cd myapp"
+const scaffoldCmd = "vane init github.com/you/myapp && vane run"
+
+// scaffoldStep is one command row inside the "Start a new project" block.
+func scaffoldStep(label, cmd string) core.Node {
+	return (
+		<div className="docs-scaffold-step">
+			<span className="docs-scaffold-step-label">{label}</span>
+			<div className="install-row docs-scaffold-cmd-row">
+				<code className="install-cmd">{core.DangerousInnerHTML(components.HighlightCLIHTML(cmd))}</code>
+				{components.CopyButton(cmd)}
+			</div>
+		</div>
+	)
+}
+
+// quickstartCard is one of the three "what to read first" entry points
+// below the scaffold command.
+func quickstartCard(step, title, desc, slug string) core.Node {
+	return (
+		<a className="docs-quickstart-card" href={"#/docs/" + slug}>
+			<span className="docs-quickstart-step">{step}</span>
+			<h3 className="docs-quickstart-title">{title}</h3>
+			<p className="docs-quickstart-desc">{desc}</p>
+		</a>
+	)
+}
+
+func highlightCard(t Topic) core.Node {
+	return (
+		<a className="docs-card" href={"#/docs/" + t.Slug}>
+			<h3 className="docs-card-title">{t.Title}</h3>
+			<p className="docs-card-desc">{t.Summary}</p>
+			<span className="docs-card-cta">Read more →</span>
+		</a>
+	)
+}
+
+func Overview() core.Node {
+	core.Head(func() core.HeadConfig {
+		return core.HeadConfig{
+			Title:       "Docs | Vane",
+			Description: "Documentation for Vane: signals, components, JSX syntax, routing, and more.",
+		}
+	})
+
+	componentsTopic, _ := TopicBySlug("components")
+	jsxTopic, _ := TopicBySlug("jsx-syntax")
+	routingTopic, _ := TopicBySlug("routing")
+	storeTopic, _ := TopicBySlug("store")
+
+	return (
+		<div className="docs-article">
+			{docsHeader(
+				"Documentation",
+				"Learn Vane",
+				"Go compiled to WebAssembly, JSX-style templates, fine-grained reactivity. No virtual DOM to reason about.",
+			)}
+
+			<div className="docs-scaffold">
+				<div className="docs-scaffold-copy">
+					<h2 className="docs-scaffold-title">Start a new project</h2>
+					<p className="docs-scaffold-desc">Install the CLI once, then scaffold and run any project in a fresh folder.</p>
+				</div>
+				<div className="docs-scaffold-steps">
+					{scaffoldStep("1. Install the CLI", installCmd)}
+					{scaffoldStep("2. Create the directory", createFolderCmd)}
+					{scaffoldStep("3. Init the project", scaffoldCmd)}
+				</div>
+			</div>
+
+			<div className="docs-quickstart-grid">
+				{quickstartCard("1", "Installation", "Get the CLI, scaffold a project with vane init, and run the dev server.", "installation")}
+				{quickstartCard("2", "Learn the concepts", "Components, signals, no virtual DOM - the mental model in one page.", "concepts")}
+				{quickstartCard("3", "Signals & Reactivity", "NewSignal, Effect, ComputedOf, Untrack - Vane's core reactivity primitives.", "signals")}
+			</div>
+
+			<section className="docs-overview-section">
+				<h2 className="docs-overview-section-title">Learn the fundamentals</h2>
+				<div className="docs-card-grid">
+					{highlightCard(componentsTopic)}
+					{highlightCard(jsxTopic)}
+					{highlightCard(routingTopic)}
+					{highlightCard(storeTopic)}
+				</div>
+			</section>
+
+			<div className="docs-community">
+				<h2 className="docs-overview-section-title">Community</h2>
+				<p className="docs-p">
+					Vane is open source. Browse the source, file an issue, or open a
+					pull request on{" "}
+					<a className="docs-community-link" href={overviewGithubHref} target="_blank" rel="noopener noreferrer">
+						GitHub
+					</a>.
+				</p>
+			</div>
+
+			{pageNav("")}
+		</div>
+	)
+}

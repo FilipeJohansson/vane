@@ -1,0 +1,18 @@
+//go:build js && wasm
+
+package pages
+
+import (
+	"github.com/filipejohansson/vane/core"
+	"github.com/filipejohansson/vane/core/router"
+)
+
+func NotFound() core.Node {
+	return (
+		<div className="page-content not-found">
+			<span className="not-found-code">404</span>
+			<p className="muted">Page not found.</p>
+			{router.Link(router.LinkProps{To: "/"}, "Go home")}
+		</div>
+	)
+}

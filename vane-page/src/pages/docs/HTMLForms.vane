@@ -1,0 +1,203 @@
+package docs
+
+import (
+	"github.com/filipejohansson/vane/core"
+
+	"vane-page/src/components"
+)
+
+const formsControlledSnippet = `name := core.NewSignal("")
+
+<input
+    value={name.Get()}
+    onInput={func(e core.InputEvent) { name.Set(e.Value) }}
+/>`
+
+const formsUncontrolledSnippet = `var nameEl core.Node
+
+submit := func() {
+    name := core.Unwrap(nameEl).Get("value").String()
+    // ... use name, no signal ever created for it
+}
+
+<form onSubmit={func(core.SubmitEvent) { submit() }}>
+    <input ref={&nameEl} />
+    <button type="submit">Send</button>
+</form>`
+
+const formsValidationSnippet = `name    := core.NewSignal("")
+nameErr := core.NewSignal("")
+
+core.Effect(func() func() {
+    n := name.Get()
+    if n != "" && len(n) < 2 {
+        nameErr.Set("Name must be at least 2 characters")
+    } else {
+        nameErr.Set("")
+    }
+    return nil
+})
+
+canSubmit := func() bool {
+    return name.Get() != "" && nameErr.Get() == ""
+}`
+
+const formsErrorNodeSnippet = `nameErrNode := func() core.Node {
+    if nameErr.Get() != "" {
+        return (<span className="form-error">{nameErr.Get()}</span>)
+    }
+    return nil
+}
+
+<input value={name.Get()} onInput={func(e core.InputEvent) { name.Set(e.Value) }} />
+{nameErrNode()}`
+
+const formsSubmitButtonSnippet = `<button onClick={func(core.MouseEvent) { submit() }} disabled={!canSubmit()}>Send</button>`
+
+const formsSubmitFormSnippet = `loading := core.NewSignal(false)
+errMsg  := core.NewSignal("")
+
+handleSubmit := func() {
+    errMsg.Set("")
+    loading.Set(true)
+    emailVal, passwordVal := email.Get(), password.Get()
+    go func() {
+        defer loading.Set(false)
+        if err := store.Login(emailVal, passwordVal); err != nil {
+            errMsg.Set(err.Error())
+            return
+        }
+        router.Navigate("/dashboard")
+    }()
+}
+
+<form onSubmit={func(core.SubmitEvent) { handleSubmit() }}>
+    {/* fields */}
+    <button type="submit" disabled={loading.Get()}>
+        {func() core.Node {
+            if loading.Get() {
+                return (<span>Signing in…</span>)
+            }
+            return (<span>Sign in</span>)
+        }()}
+    </button>
+</form>`
+
+const formsFieldSnippet = `type FieldProps struct {
+    Label       string
+    ID          string
+    Placeholder string
+    Required    bool
+    Error       string
+}
+
+// Field takes the backing signal directly (not its resolved value) so the
+// <input>'s value binding stays scoped to this component's own JSX attribute.
+// Reading value.Get() at the call site instead would make the parent's
+// {Field(...)} slot re-run on every keystroke, rebuilding the input and
+// dropping focus/cursor position.
+func Field(props FieldProps, value *core.Signal[string]) core.Node {
+    return (
+        <div className="field">
+            <label htmlFor={props.ID}>{props.Label}</label>
+            <input
+                id={props.ID}
+                value={value.Get()}
+                onInput={func(e core.InputEvent) { value.Set(e.Value) }}
+                required={props.Required}
+            />
+            {if props.Error != "" {
+                <p className="field-error">{props.Error}</p>
+            }}
+        </div>
+    )
+}`
+
+const formsFieldUsageSnippet = `email := core.NewSignal("")
+
+{Field(FieldProps{Label: "Email", ID: "email", Required: true}, email)}`
+
+func HTMLForms() core.Node {
+	core.Head(func() core.HeadConfig {
+		return core.HeadConfig{
+			Title:       "Build HTML Forms | Vane Docs",
+			Description: "Controlled inputs, skipping signals for values you only need at submit time, validation with core.Effect, handling submit, and reusable field components.",
+		}
+	})
+
+	items := htmlFormsTOCItems
+
+	return (
+		<div className="docs-page">
+			<article className="docs-article">
+				{docsHeader(
+					"How-to Patterns",
+					"Build HTML Forms",
+					"Vane has no form library. Inputs are controlled with a signal and value/onInput like any other reactive binding, validation is a core.Effect deriving an error signal, and submit is a plain onClick or onSubmit handler.",
+				)}
+
+				<h2 className="docs-h2" id="controlled-inputs">Controlled inputs</h2>
+				<p className="docs-p">
+					An input's value comes from a signal, and <code>onInput</code> writes
+					every keystroke back into it. There's no separate two-way-binding syntax,
+					it's the same <code>value={"{expr}"}</code> binding any other element uses:
+				</p>
+				{components.CodeBlock("input.go", formsControlledSnippet)}
+				{callout("tip", "Tip", "value is cursor-preserving: setting it to the string the DOM already holds skips the write instead of resetting the cursor/selection, so typing doesn't fight the reactive update. See JSX Syntax for the full prop table.")}
+
+				<h2 className="docs-h2" id="skip-signals">Skip signals when you don't need live values</h2>
+				<p className="docs-p">
+					Not every field needs to be reactive. A value only read once, at submit,
+					doesn't need a signal or an <code>onInput</code> handler at all, a{" "}
+					<code>ref</code> and <code>core.Unwrap</code> read it directly from the DOM
+					when it's needed:
+				</p>
+				{components.CodeBlock("input.go", formsUncontrolledSnippet)}
+				{callout("tip", "Tip", "Mix both in the same form: signals for fields with live validation or a character counter, refs for the rest. See Refs & DOM for ref={&var} and the ref={func(el core.Node){...}} callback form.")}
+
+				<h2 className="docs-h2" id="validation">Validation</h2>
+				<p className="docs-p">
+					An error signal derived in a <code>core.Effect</code> that reads the
+					field's own signal is the whole pattern, no separate validation API:
+				</p>
+				{components.CodeBlock("form.go", formsValidationSnippet)}
+				<p className="docs-p">
+					Render the error next to the field it belongs to, and gate the submit
+					button on the same <code>canSubmit()</code>:
+				</p>
+				{components.CodeBlock("form.go", formsErrorNodeSnippet)}
+				{callout("tip", "Tip", "required, pattern, minLength and the other HTML5 validation attributes still work, they're set as plain DOM properties. Reach for a core.Effect once validation needs a message, cross-field rules, or logic the browser's own validation can't express.")}
+
+				<h2 className="docs-h2" id="handling-submit">Handling submit</h2>
+				<p className="docs-p">
+					A submit button doesn't need a <code>{"<form>"}</code> at all, an{" "}
+					<code>onClick</code> plus <code>disabled={"{!canSubmit()}"}</code> is
+					enough when there's nowhere else the Enter key needs to trigger submit:
+				</p>
+				{components.CodeBlock("form.go", formsSubmitButtonSnippet)}
+				<p className="docs-p">
+					<code>{"<form onSubmit={...}>"}</code> is the other option, needed when
+					Enter inside any field should submit. Vane calls{" "}
+					<code>preventDefault()</code> for you, the handler only runs your own
+					logic. Combined with a <code>loading</code> signal, the same handler
+					covers an async submit and its pending state:
+				</p>
+				{components.CodeBlock("Login.vane", formsSubmitFormSnippet)}
+				{callout("important", "Important", "onSubmit already calls preventDefault() internally, calling it again yourself is redundant, not wrong. Skipping onSubmit entirely (a plain <form> with an onClick button, as above) also never navigates/refreshes, since there's no submit event to prevent in the first place.")}
+
+				<h2 className="docs-h2" id="reusable-fields">Reusable field components</h2>
+				<p className="docs-p">
+					A label, input, and error message repeated across every field is worth
+					extracting, as long as the component takes the signal itself, not its
+					resolved value:
+				</p>
+				{components.CodeBlock("Field.vane", formsFieldSnippet)}
+				{components.CodeBlock("LoginForm.vane", formsFieldUsageSnippet)}
+				{callout("important", "Important", "Passing value.Get() at the call site instead of value would read the signal during the parent's own setup, making the {Field(...)} slot itself the reactive scope. See Do's and Don'ts for why reading a signal outside the binding that should own it causes the wrong thing to re-run.")}
+
+				{pageNav("html-forms")}
+			</article>
+			{toc(items)}
+		</div>
+	)
+}

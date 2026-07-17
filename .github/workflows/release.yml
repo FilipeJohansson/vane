@@ -1,0 +1,60 @@
+name: Release
+
+# Tags version the whole module at once (this is a single-module repo, no
+# way to tag "just core" separately). Filtering what's public already
+# happened once, at repo-creation time, not here - this workflow just
+# gates the release behind the same checks CI already runs, then publishes
+# prebuilt binaries as a convenience alongside `go install`.
+on:
+  push:
+    tags: ['v*']
+
+jobs:
+  checks:
+    uses: ./.github/workflows/ci.yml
+
+  release:
+    needs: checks
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    strategy:
+      matrix:
+        include:
+          - { goos: linux, goarch: amd64 }
+          - { goos: linux, goarch: arm64 }
+          - { goos: darwin, goarch: amd64 }
+          - { goos: darwin, goarch: arm64 }
+          - { goos: windows, goarch: amd64 }
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version: '1.24.x'
+
+      - name: Build binary
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+        run: |
+          ext=""
+          [ "${{ matrix.goos }}" = "windows" ] && ext=".exe"
+          go build -o "vane-${{ matrix.goos }}-${{ matrix.goarch }}${ext}" .
+
+      - name: Upload release asset
+        uses: softprops/action-gh-release@v2
+        with:
+          files: vane-*
+          generate_release_notes: true
+
+  # go install/go get resolve through proxy.golang.org, which lazily
+  # fetches+caches a version on first request. Hitting the .info endpoint
+  # here just means the very first real user of `@latest` isn't the one
+  # paying that one-time fetch latency.
+  warm-proxy:
+    needs: release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ask proxy.golang.org to index this version
+        run: curl -sf "https://proxy.golang.org/github.com/filipejohansson/vane/@v/${GITHUB_REF_NAME}.info"

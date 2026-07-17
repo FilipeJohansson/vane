@@ -1,0 +1,45 @@
+//go:build js && wasm
+
+package pages
+
+import (
+	"github.com/filipejohansson/vane/core"
+	"github.com/filipejohansson/vane/core/router"
+)
+
+func UserDetail() core.Node {
+	params := router.Params()
+
+	return (
+		<div className="page-content">
+			{router.Link(router.LinkProps{To: "/users"}, "← Back")}
+			{renderCard(params.Get()["id"])}
+		</div>
+	)
+}
+
+func renderCard(id string) core.Node {
+	var found *Person
+	for i := range People {
+		if People[i].ID == id {
+			found = &People[i]
+			break
+		}
+	}
+
+	if found == nil {
+		return <p className="muted">User not found.</p>
+	}
+
+	return (
+		<div className="detail-card">
+			<div className="detail-avatar">{string([]rune(found.Name)[:1])}</div>
+			<div className="detail-info">
+				<h2 className="detail-name">{found.Name}</h2>
+				<span className="badge">{found.Role}</span>
+				<p className="detail-bio">{found.Bio}</p>
+				<p className="detail-hint">URL param: <code>{"/users/" + found.ID}</code></p>
+			</div>
+		</div>
+	)
+}

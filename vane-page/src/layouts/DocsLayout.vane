@@ -1,0 +1,191 @@
+package layouts
+
+import (
+	"fmt"
+	"time"
+
+	"github.com/filipejohansson/vane/core"
+	"github.com/filipejohansson/vane/core/router"
+
+	"vane-page/src/components"
+	"vane-page/src/pages/docs"
+)
+
+func docsSidebarLink(t docs.Topic, onNavigate func()) core.Node {
+	to := "/docs"
+	if t.Slug != "" {
+		to = "/docs/" + t.Slug
+	}
+	return (
+		<li>
+			{router.ActiveLink(router.ActiveLinkProps{
+				LinkProps:   router.LinkProps{To: to, HTMLProps: core.HTMLProps{Class: "docs-nav-link", OnClick: func(core.MouseEvent) { onNavigate() }}},
+				ActiveClass: "docs-nav-link--active",
+				Exact:       t.Slug == "",
+			}, t.Title)}
+		</li>
+	)
+}
+
+func docsSidebarGroup(category string, onNavigate func()) core.Node {
+	topics := docs.TopicsIn(category)
+	links := make([]core.Node, len(topics))
+	for i, t := range topics {
+		links[i] = docsSidebarLink(t, onNavigate)
+	}
+	return (
+		<div className="docs-nav-group">
+			<span className="docs-nav-group-title">{category}</span>
+			<ul className="docs-nav-list">
+				{links...}
+			</ul>
+		</div>
+	)
+}
+
+// backToTopThreshold is how far down the page (in px) the reader has to
+// scroll before the back-to-top button appears.
+const backToTopThreshold = 400.0
+
+// setupReadingProgress watches window scroll and reports how far down the
+// page the user has scrolled, as a 0-100 percentage, and whether the
+// back-to-top button should show. Called once from a ref callback:
+// DocsLayout is a router.Layout shell, it stays mounted across /docs
+// sub-navigation, so this listener (and the state it tracks) lives for the
+// whole docs session instead of being torn down per page.
+func setupReadingProgress(progress *core.Signal[float64], showBackToTop *core.Signal[bool]) {
+	update := func() {
+		scrollTop := core.ScrollY()
+		scrollHeight, clientHeight := core.DocumentHeight()
+		max := scrollHeight - clientHeight
+		pct := 100.0
+		if max > 0 {
+			pct = scrollTop / max * 100
+			switch {
+			case pct < 0:
+				pct = 0
+			case pct > 100:
+				pct = 100
+			}
+		}
+		progress.Set(pct)
+		showBackToTop.Set(scrollTop > backToTopThreshold)
+	}
+
+	// Deferred a tick for the same reason as setupScrollSpy in widgets.vane:
+	// the ref'd element isn't attached to the document yet at this point, so
+	// scrollHeight/clientHeight would still reflect the pre-mount layout.
+	core.NextTick(update)
+
+	core.OnWindowEvent("scroll", func(core.Event) { update() }, core.ListenerOpts{Passive: true})
+}
+
+func sidebarClass(open bool) string {
+	if open {
+		return "docs-sidebar"
+	}
+	return "docs-sidebar docs-sidebar--closed"
+}
+
+func toggleClass(open bool) string {
+	if open {
+		return "docs-sidebar-toggle docs-sidebar-toggle--open"
+	}
+	return "docs-sidebar-toggle"
+}
+
+func backToTopClass(visible bool) string {
+	if visible {
+		return "docs-backtotop docs-backtotop--visible"
+	}
+	return "docs-backtotop"
+}
+
+func backToTopIconClass(spinning bool) string {
+	if spinning {
+		return "docs-backtotop-icon docs-backtotop-icon--spin"
+	}
+	return "docs-backtotop-icon"
+}
+
+// backToTopTabIndex keeps the hidden (opacity:0) button out of tab order.
+func backToTopTabIndex(visible bool) int {
+	if visible {
+		return 0
+	}
+	return -1
+}
+
+// DocsLayout is the persistent shell for the whole /docs section: the
+// sidebar nav stays mounted across sub-navigation, only router.Outlet()'s
+// content swaps.
+func DocsLayout() core.Node {
+	progress := core.NewSignal(0.0)
+	showBackToTop := core.NewSignal(false)
+	// Mobile-only collapsed panel, see docs-sidebar-toggle/--closed in
+	// DocsLayout.css. On desktop the toggle button is display:none and
+	// docs-sidebar--closed has no effect, so this signal is inert there.
+	sidebarOpen := core.NewSignal(false)
+	toggleSidebar := func() { sidebarOpen.Set(!sidebarOpen.Get()) }
+	closeSidebar := func() { sidebarOpen.Set(false) }
+
+	backToTopSpinning := core.NewSignal(false)
+	scrollToTop := func() {
+		backToTopSpinning.Set(true)
+		core.ScrollTo(0, true)
+		go func() {
+			time.Sleep(300 * time.Millisecond)
+			backToTopSpinning.Set(false)
+		}()
+	}
+
+	cats := docs.Categories()
+	groups := make([]core.Node, len(cats))
+	for i, c := range cats {
+		groups[i] = docsSidebarGroup(c, closeSidebar)
+	}
+
+	search := newSearchCtrl()
+	setupSearchShortcut(search)
+
+	core.Effect(func() func() {
+		components.RefreshIcons()
+		return nil
+	})
+
+	return (
+		<>
+			<div className="docs-progress-track" ref={func(el core.Node) { setupReadingProgress(progress, showBackToTop) }}>
+				<div className="docs-progress-fill" style={core.Style{Width: fmt.Sprintf("%.2f%%", progress.Get())}} />
+			</div>
+			<div className="docs-shell">
+				<button
+					type="button"
+					className={toggleClass(sidebarOpen.Get())}
+					aria-expanded={sidebarOpen.Get()}
+					onClick={func(core.MouseEvent) { toggleSidebar() }}
+				>
+					Browse docs
+					<span className="docs-sidebar-toggle-icon" aria-hidden="true">{components.Icon("chevron-down")}</span>
+				</button>
+				<nav className={sidebarClass(sidebarOpen.Get())} aria-label="Documentation">
+					{searchTriggerButton(search)}
+					{groups...}
+				</nav>
+				<div className="docs-content-area">
+					{router.Outlet()}
+				</div>
+			</div>
+			{searchModal(search)}
+			<button
+				type="button"
+				className={backToTopClass(showBackToTop.Get())}
+				aria-label="Back to top"
+				tabIndex={backToTopTabIndex(showBackToTop.Get())}
+				onClick={func(core.MouseEvent) { scrollToTop() }}
+			>
+				<span className={backToTopIconClass(backToTopSpinning.Get())} aria-hidden="true">{components.Icon("arrow-up")}</span>
+			</button>
+		</>
+	)
+}

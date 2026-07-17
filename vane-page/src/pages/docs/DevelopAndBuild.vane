@@ -1,0 +1,118 @@
+package docs
+
+import (
+	"github.com/filipejohansson/vane/core"
+
+	"vane-page/src/components"
+)
+
+const dabRunSnippet = `vane run`
+
+const dabBuildSnippet = `vane build --release`
+
+const dabIsReleaseSnippet = `if !core.IsRelease() {
+    fmt.Println("[debug]", len(items), "items rendered")
+}`
+
+func DevelopAndBuild() core.Node {
+	core.Head(func() core.HeadConfig {
+		return core.HeadConfig{
+			Title:       "Develop & Build | Vane Docs",
+			Description: "The dev loop with vane run, production builds with vane build, and deploying dist/.",
+		}
+	})
+
+	items := developAndBuildTOCItems
+
+	return (
+		<div className="docs-page">
+			<article className="docs-article">
+				{docsHeader(
+					"Start a New Project",
+					"Develop & Build",
+					"The dev loop with vane run, production builds with vane build, and deploying dist/.",
+				)}
+
+				<h2 className="docs-h2" id="dev-server">Development server</h2>
+				<p className="docs-p">
+					From inside a project, <code>vane run</code> builds once and serves{" "}
+					<code>dist/</code> on <code>:8080</code>, then watches source files and updates
+					the browser automatically, no manual refresh needed. Go panics are grouped
+					into a single console entry, and the original <code>.vane</code>/<code>.go</code>{" "}
+					sources are served at <code>/__vane_src/</code> for manual inspection, both on
+					by default, neither costs anything at runtime.
+				</p>
+				{components.TerminalBlock("Terminal", dabRunSnippet)}
+				{docsTable(
+					[]string{"Change", "What happens"},
+					[][]core.Node{
+						{core.Fragment(code(".go"), core.Text(" / "), code(".vane")), core.Text("Full rebuild → page reload")},
+						{core.Fragment(code(".css"), core.Text(" (src or "), code("public/"), core.Text(")")), core.Text("Copy to dist/ → stylesheet hot-swap, no page reload")},
+						{core.Fragment(code("public/*.html"), core.Text(" / "), code("*.js")), core.Text("Copy to dist/ → page reload")},
+					},
+				)}
+				{callout("tip", "Tip", "vane run --debug additionally builds without inlining/optimizations (-N -l) for accurate Go call stacks and readable goroutine names in DevTools. It's off by default because it isn't free: Vane's reactivity calls Signal.Get/Set on every {expr} re-run, and losing inlining there is something you feel. Reach for it specifically when a stack trace is hard to read, not as a standing default.")}
+
+				<h2 className="docs-h2" id="production-builds">Production builds</h2>
+				<p className="docs-p">
+					<code>vane build</code> compiles the same project without the dev server,
+					writing <code>app.wasm</code> straight to <code>dist/</code>.
+				</p>
+				{docsTable(
+					[]string{"Flag", "Effect"},
+					[][]core.Node{
+						{code("--release"), core.Text("Strips core.Warn developer-misuse warnings, applies -s -w linker flags and wasm-opt -Oz if available")},
+						{code("--no-optimize"), core.Text("Keeps --release's warning-stripping, skips the linker flags and wasm-opt")},
+						{code("--tinygo"), core.Text("Compiles with TinyGo instead of the standard compiler, roughly a third the binary size, needs a separate TinyGo + binaryen install. Also works on vane run")},
+					},
+				)}
+				{callout("important", "Important", "If wasm-opt is installed but fails on your build, that's treated as a real build error, not silently skipped, pass --no-optimize to work around it.")}
+				{callout("important", "Important", "TinyGo shrinks the binary, but it isn't the standard Go compiler, its stdlib port isn't 100% compatible. net/http in particular has known gaps on js/wasm. If your app hits one, --tinygo simply isn't an option for it yet, fall back to the standard vane build --release.")}
+				<p className="docs-p">
+					App code can check which kind of build it's running in with{" "}
+					<code>core.IsRelease()</code>, true for a <code>--release</code> build,
+					false for <code>vane run</code> or a plain{" "}
+					<code>vane build</code>. It reads the same flag <code>core.Warn</code>{" "}
+					already checks internally to strip its own dev warnings, so app code can
+					gate its own dev-only checks, debug overlays, or verbose logging the same
+					way:
+				</p>
+				{components.CodeBlock("debug.go", dabIsReleaseSnippet)}
+
+				<h2 className="docs-h2" id="deploying">Deploying dist/</h2>
+				<p className="docs-p">
+					A release build is a fully static bundle: <code>index.html</code>,{" "}
+					<code>app.wasm</code>, <code>wasm_exec.js</code>, <code>style.css</code>, and
+					everything from <code>public/</code>. Upload <code>dist/</code> to any static
+					host, GitHub Pages, Netlify, S3, nginx, whatever serves files, there's no
+					server-side rendering and nothing to run on the host.
+				</p>
+				{components.TerminalBlock("Terminal", dabBuildSnippet)}
+				{callout("tip", "Tip", "Routing is hash-based (#/path), so every route is the same URL as far as the server is concerned, only the part after # changes. A plain static file server just works, unlike history-API routers, no SPA fallback or catch-all rewrite rule to configure on the host.")}
+				{callout("important", "Important", "instantiateStreaming (index.html's boot script) requires the server to send Content-Type: application/wasm for app.wasm. Most static hosts already do; if the WASM fails to load on a host you configured yourself, check that header first.")}
+
+				<h2 className="docs-h2" id="cli-reference">CLI reference</h2>
+				{docsTable(
+					[]string{"Command", "What it does"},
+					[][]core.Node{
+						{code("vane init <module>"), core.Text("Scaffold a new project in the current directory")},
+						{code("vane build [dir]"), core.Text("Compile .vane files and build app.wasm → dist/")},
+						{code("vane run [dir]"), core.Text("Build + serve dist/ on :8080 with hot-reload")},
+						{code("vane run [dir] --debug"), core.Text("Same as vane run, plus -N -l for accurate Go call stacks")},
+						{code("vane run [dir] --tinygo"), core.Text("Same as vane run, compiled with TinyGo instead of the standard compiler")},
+						{code("vane compile <file.vane>"), core.Text("Print the compiled Go output (dry-run)")},
+						{code("vane version"), core.Text("Print the vane version")},
+					},
+				)}
+				<p className="docs-p">
+					<code>vane compile</code> is a diagnostic tool worth knowing about: when JSX
+					produces unexpected behavior or a compiler error references an unfamiliar line
+					number, it prints the exact generated Go code for a single file.
+				</p>
+
+				{pageNav("develop-and-build")}
+			</article>
+			{toc(items)}
+		</div>
+	)
+}

@@ -1,0 +1,131 @@
+package docs
+
+import (
+	"github.com/filipejohansson/vane/core"
+
+	"vane-page/src/components"
+)
+
+const errBasicSnippet = `return core.Try(
+    func() core.Node {
+        return (<div>{riskyComponent()}</div>)
+    },
+    func(err any) core.Node {
+        return (<p>Something went wrong: {fmt.Sprint(err)}</p>)
+    },
+)`
+
+const errWhatItCatchesSnippet = `func Widget() core.Node {
+    return (
+        <div>
+            {func() core.Node {
+                // Reading a signal directly in this binding means the
+                // whole thing, Try included, re-runs on change.
+                if data.Get() == nil {
+                    panic("no data")
+                }
+                return core.Try(
+                    func() core.Node { return renderData(data.Get()) },
+                    func(err any) core.Node { return (<p>Failed: {fmt.Sprint(err)}</p>) },
+                )
+            }()}
+        </div>
+    )
+}`
+
+const errWhatItMissesSnippet = `func Widget() core.Node {
+    return core.Try(
+        func() core.Node {
+            return (
+                <div>
+                    {func() core.Node {
+                        // This inner {..} is its own reactive binding.
+                        // A panic here happens on a later, separate run,
+                        // Try's own call already returned long ago.
+                        if data.Get() == nil {
+                            panic("no data")
+                        }
+                        return renderData(data.Get())
+                    }()}
+                </div>
+            )
+        },
+        func(err any) core.Node { return (<p>Failed: {fmt.Sprint(err)}</p>) },
+    )
+}`
+
+func HandleErrors() core.Node {
+	core.Head(func() core.HeadConfig {
+		return core.HeadConfig{
+			Title:       "Handle Errors | Vane Docs",
+			Description: "core.Try as an error boundary, exactly what panic it catches, and what happens to panics it doesn't.",
+		}
+	})
+
+	items := errorBoundaryTOCItems
+
+	return (
+		<div className="docs-page">
+			<article className="docs-article">
+				{docsHeader(
+					"Best Practices",
+					"Handle Errors",
+					"core.Try as an error boundary, exactly what panic it catches, and what happens to panics it doesn't.",
+				)}
+
+				<h2 className="docs-h2" id="basic-usage">Basic usage</h2>
+				<p className="docs-p">
+					<code>core.Try</code> calls the first function, and if it panics, calls the
+					second with the recovered value and renders that instead:
+				</p>
+				{components.CodeBlock("Widget.vane", errBasicSnippet)}
+
+				<h2 className="docs-h2" id="what-it-catches">What Try catches</h2>
+				<p className="docs-p">
+					<code>Try</code> is a plain <code>defer</code>/<code>recover</code> around
+					its own call to the first function, nothing more. It catches a panic exactly
+					when that call panics, which is once at the point the surrounding{" "}
+					<code>{"{expr}"}</code> binding runs. If that binding itself reads a signal
+					directly, the whole thing, <code>Try</code> included, re-runs and is guarded
+					again on every re-run:
+				</p>
+				{components.CodeBlock("Widget.vane", errWhatItCatchesSnippet)}
+
+				<h2 className="docs-h2" id="what-it-misses">What Try doesn't catch</h2>
+				<p className="docs-p">
+					Any <code>{"{expr}"}</code> binding nested inside the tree{" "}
+					<code>Try</code>'s function returns is its own independent reactive binding.
+					When it re-runs later, on its own signal change, it runs outside{" "}
+					<code>Try</code>'s original call, which already returned:
+				</p>
+				{components.CodeBlock("Widget.vane", errWhatItMissesSnippet)}
+				{callout("important", "Important", "Triggering this inner panic never renders the fallback, Try's boundary isn't on the call stack anymore. The affected binding is disposed and stops updating, everything it last rendered successfully stays on screen exactly as-is, and the rest of the app, including content outside that one binding, keeps working. Nothing crashes, but nothing tells the user that piece silently stopped updating either.")}
+				<p className="docs-p">
+					For a signal-driven value that might itself throw during rendering, put the
+					guard where <code>Try</code> can actually see it: read that signal in the
+					same binding that wraps the <code>Try</code> call, as in the first example,
+					rather than deeper inside the returned tree.
+				</p>
+
+				<h2 className="docs-h2" id="effect-panics">Effect panic recovery</h2>
+				<p className="docs-p">
+					A panic that <code>Try</code> can't catch doesn't crash the app either. Every
+					reactive binding runs inside its own recovered scope: a panic disposes that
+					one binding and logs <code>[vane] effect panic: ...</code> to the console
+					instead of propagating further.
+				</p>
+				{docsTable(
+					[]string{"Panic location", "Result"},
+					[][]core.Node{
+						{core.Text("Inside Try's own function call"), core.Text("Try's fallback renders")},
+						{core.Text("Inside a nested reactive binding, after that call returned"), core.Text("That binding is disposed, logs to console, last content stays")},
+					},
+				)}
+				{callout("tip", "Tip", "This is the same recovery path an effect-loop safeguard uses, see Troubleshooting for the related \"aborted after N effect runs\" watchdog message.")}
+
+				{pageNav("error-boundary")}
+			</article>
+			{toc(items)}
+		</div>
+	)
+}

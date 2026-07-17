@@ -1,0 +1,129 @@
+package layouts
+
+import (
+	"strings"
+
+	"github.com/filipejohansson/vane/core"
+	"github.com/filipejohansson/vane/core/router"
+
+	"vane-page/src/components"
+	"vane-page/src/pages/docs"
+)
+
+func searchTriggerButton(ctrl *searchCtrl) core.Node {
+	return (
+		<button type="button" className="docs-search-trigger" onClick={func(core.MouseEvent) { ctrl.Open() }} aria-label="Search docs">
+			<span className="docs-search-trigger-icon" aria-hidden="true">{components.Icon("search")}</span>
+			<span className="docs-search-trigger-label">Search docs</span>
+			<kbd className="docs-search-kbd">Ctrl K</kbd>
+		</button>
+	)
+}
+
+func searchResultRow(r docs.SearchResult, onSelect func()) core.Node {
+	return (
+		<li key={r.RoutePath() + "#" + r.AnchorID}>
+			<button type="button" className="docs-search-result" onClick={func(core.MouseEvent) { onSelect() }}>
+				<span className="docs-search-result-category">{r.Category}</span>
+				<span className="docs-search-result-title">{r.Title}</span>
+				{if r.Heading != "" {
+					<span className="docs-search-result-sub">{r.Heading}</span>
+				}}
+			</button>
+		</li>
+	)
+}
+
+// searchModal renders the Ctrl/Cmd+K dialog. Combines the accessible-modal
+// pattern (see Accessibility.vane's "Accessible modal, with Portal" section:
+// Portal + FocusTrap via a callback ref, OnDispose registered synchronously
+// inside it) with a click-outside-to-close backdrop, done via MouseEvent.Self()
+// (target === currentTarget) on the backdrop's own OnClick.
+func searchModal(ctrl *searchCtrl) core.Node {
+	return core.Portal("#modal-root", func() core.Node {
+		if !ctrl.open.Get() {
+			return nil
+		}
+
+		// The trigger button's own search icon is picked up by DocsLayout's
+		// mount-time RefreshIcons call, but this dialog (and its icon) is
+		// only constructed the moment the modal opens, after that mount-time
+		// call already ran, so it needs its own, same as Nav.vane's mobile
+		// panel re-asks Lucide each time it reopens.
+		components.RefreshIcons()
+
+		results := docs.Search(ctrl.query.Get())
+
+		selectResult := func(r docs.SearchResult) func() {
+			return func() {
+				ctrl.Close()
+				router.Navigate(r.RoutePath())
+				scrollAfterNavigate(r.AnchorID)
+			}
+		}
+
+		rows := make([]core.Node, len(results))
+		for i, r := range results {
+			rows[i] = searchResultRow(r, selectResult(r))
+		}
+
+		return (
+			<div
+				className="docs-search-backdrop"
+				ref={func(el core.Node) {
+					core.OnClick(el, func(e core.MouseEvent) {
+						if e.Self() {
+							ctrl.Close()
+						}
+					})
+				}}
+			>
+				<div
+					ref={func(el core.Node) {
+						var untrap func()
+						core.OnDispose(func() {
+							if untrap != nil {
+								untrap()
+							}
+						})
+						core.NextTick(func() {
+							untrap = core.FocusTrap(el)
+						})
+					}}
+					role="dialog" aria-modal="true" aria-label="Search docs"
+					className="docs-search-dialog"
+					onKeyDown={func(e core.KeyEvent) {
+						if e.Key == "Escape" {
+							ctrl.Close()
+						}
+					}}
+				>
+					<div className="docs-search-input-row">
+						<span className="docs-search-input-icon" aria-hidden="true">{components.Icon("search")}</span>
+						<input
+							id="docs-search-input"
+							name="search"
+							type="text"
+							className="docs-search-input"
+							placeholder="Search docs..."
+							aria-label="Search docs"
+							value={ctrl.query.Get()}
+							onInput={func(e core.InputEvent) { ctrl.query.Set(e.Value) }}
+						/>
+						<button type="button" className="docs-search-close" onClick={func(core.MouseEvent) { ctrl.Close() }} aria-label="Close search">Esc</button>
+					</div>
+
+					{if strings.TrimSpace(ctrl.query.Get()) == "" {
+						<p className="docs-search-hint">Type to search page titles and headings.</p>
+					} else if len(results) == 0 {
+						<p className="docs-search-hint">No results for "{ctrl.query.Get()}".</p>
+					} else {
+						<ul className="docs-search-results">
+							{rows...}
+						</ul>
+					}}
+				</div>
+			</div>
+		)
+	})
+}

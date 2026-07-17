@@ -1,0 +1,38 @@
+package components
+
+import "github.com/filipejohansson/vane/core"
+
+func Proof() core.Node {
+	return (
+		<section className="section" id="proof">
+			<div className="section-header">
+				<span className="eyebrow">Compile-time, not runtime</span>
+				<h2 className="section-title">One less layer between your code and the page</h2>
+			</div>
+			<div className="proof-columns">
+				<div className="proof-col">
+					<span className="proof-col-label">Typical framework</span>
+					<div className="proof-step">Component</div>
+					<div className="proof-arrow">↓</div>
+					<div className="proof-step proof-step--extra">Virtual DOM</div>
+					<div className="proof-arrow">↓</div>
+					<div className="proof-step proof-step--extra">Diff</div>
+					<div className="proof-arrow">↓</div>
+					<div className="proof-step proof-step--extra">Patch</div>
+					<div className="proof-arrow">↓</div>
+					<div className="proof-step">Real DOM</div>
+				</div>
+				<div className="proof-col proof-col--vane">
+					<span className="proof-col-label">Vane</span>
+					<div className="proof-step">Component (JSX)</div>
+					<div className="proof-arrow proof-arrow--accent">↓ compiled ahead of time</div>
+					<div className="proof-step">Real DOM</div>
+				</div>
+			</div>
+			<p className="proof-caption">
+				The <code>.vane</code> compiler turns JSX returns into direct DOM calls at build time.
+				There's no runtime tree to build, diff, or patch.
+			</p>
+		</section>
+	)
+}

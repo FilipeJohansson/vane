@@ -1,0 +1,74 @@
+//go:build js && wasm
+
+package main
+
+import (
+	"encoding/json"
+	"net/http"
+	"github.com/filipejohansson/vane/core"
+)
+
+func App() core.Node {
+	imageURL := core.NewSignal("")
+	errMsg   := core.NewSignal("")
+	loading  := core.NewSignal(true)
+
+	fetchDog := func() {
+		loading.Set(true)
+		errMsg.Set("")
+		go func() {
+			defer loading.Set(false)
+			resp, err := http.Get("https://dog.ceo/api/breeds/image/random")
+			if err != nil {
+				errMsg.Set(err.Error())
+				return
+			}
+			defer resp.Body.Close()
+			var result struct {
+				Message string `json:"message"`
+			}
+			if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+				errMsg.Set(err.Error())
+				return
+			}
+			imageURL.Set(result.Message)
+		}()
+	}
+
+	fetchDog()
+
+	body := func() core.Node {
+		if loading.Get() {
+			return (<p className="status">Fetching…</p>)
+		}
+		if errMsg.Get() != "" {
+			return (<p className="error">{errMsg.Get()}</p>)
+		}
+		return (<img className="dog" src={imageURL.Get()} alt="A random dog" />)
+	}
+
+	return (
+		<div className="app">
+			<header className="hero">
+				<h1>Random Dog <span className="emoji">🐶</span></h1>
+				<p>
+					Every click fires a <code>GET /api/breeds/image/random</code> request via
+					<code>net/http</code> in a goroutine. Signals update the UI when the
+					response arrives.
+				</p>
+			</header>
+			<div className="card">
+				<div className="dog-frame">
+					{body()}
+				</div>
+				<button
+					className="btn"
+					disabled={loading.Get()}
+					onClick={func(core.MouseEvent) { fetchDog() }}
+				>
+					New dog 🐶
+				</button>
+			</div>
+		</div>
+	)
+}

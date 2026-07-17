@@ -1,0 +1,125 @@
+package pages
+
+import (
+	"strings"
+	"github.com/filipejohansson/vane/core"
+)
+
+func Contact() core.Node {
+	name      := core.NewSignal("")
+	email     := core.NewSignal("")
+	message   := core.NewSignal("")
+	submitted := core.NewSignal(false)
+	nameErr   := core.NewSignal("")
+	emailErr  := core.NewSignal("")
+
+	core.Effect(func() func() {
+		n := name.Get()
+		if n != "" && len(n) < 2 {
+			nameErr.Set("Name must be at least 2 characters")
+		} else {
+			nameErr.Set("")
+		}
+		return nil
+	})
+
+	core.Effect(func() func() {
+		e := email.Get()
+		if e != "" && !strings.Contains(e, "@") {
+			emailErr.Set("Invalid email address")
+		} else {
+			emailErr.Set("")
+		}
+		return nil
+	})
+
+	canSubmit := func() bool {
+		return name.Get() != "" && email.Get() != "" && message.Get() != "" &&
+			nameErr.Get() == "" && emailErr.Get() == ""
+	}
+
+	submit := func() {
+		if !canSubmit() {
+			return
+		}
+		submitted.Set(true)
+	}
+
+	nameErrNode := func() core.Node {
+		if nameErr.Get() != "" {
+			return (<span className="form-error">{nameErr.Get()}</span>)
+		}
+		return nil
+	}
+
+	emailErrNode := func() core.Node {
+		if emailErr.Get() != "" {
+			return (<span className="form-error">{emailErr.Get()}</span>)
+		}
+		return nil
+	}
+
+	// contactContent switches between success view and form based on submitted.
+	// Wrapped in {contactContent()} so DynChild tracks submitted and swaps reactively.
+	contactContent := func() core.Node {
+		if submitted.Get() {
+			return (
+				<div className="success-card">
+					<h2>Message sent!</h2>
+					<p>Thanks {name.Get()}, we'll reply to {email.Get()} soon.</p>
+					<button className="btn btn-primary" onClick={func(core.MouseEvent) {
+						name.Set("")
+						email.Set("")
+						message.Set("")
+						submitted.Set(false)
+					}}>
+						Send another
+					</button>
+				</div>
+			)
+		}
+		return (
+			<form className="contact-form">
+				<div className="form-group">
+					<label className="form-label">Name</label>
+					<input
+						id="input-name"
+						className="input"
+						placeholder="Your name"
+						value={name.Get()}
+						onInput={func(e core.InputEvent) { name.Set(e.Value) }}
+					/>
+					{nameErrNode()}
+				</div>
+				<div className="form-group">
+					<label className="form-label">Email</label>
+					<input
+						id="input-email"
+						className="input"
+						placeholder="your@email.com"
+						value={email.Get()}
+						onInput={func(e core.InputEvent) { email.Set(e.Value) }}
+					/>
+					{emailErrNode()}
+				</div>
+				<div className="form-group">
+					<label className="form-label">Message</label>
+					<textarea
+						id="input-message"
+						className="input"
+						placeholder="Your message..."
+						value={message.Get()}
+						onInput={func(e core.InputEvent) { message.Set(e.Value) }}
+					/>
+				</div>
+				<button className="btn btn-primary" onClick={func(core.MouseEvent) { submit() }} disabled={!canSubmit()}>Send</button>
+			</form>
+		)
+	}
+
+	return (
+		<div className="page contact">
+			{contactContent()}
+		</div>
+	)
+}

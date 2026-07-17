@@ -1,0 +1,35 @@
+package components
+
+import (
+	"github.com/filipejohansson/vane/core"
+	"github.com/filipejohansson/vane/core/router"
+)
+
+func Footer() core.Node {
+	return (
+		<footer className="footer">
+			<div className="footer-grid">
+				<div className="footer-brand">
+					<span className="footer-brand-name">Vane</span>
+					<p className="footer-tagline">Go + JSX, compiled to WebAssembly. No virtual DOM.</p>
+				</div>
+				<div className="footer-col">
+					<span className="footer-col-title">Docs</span>
+					{router.Link(router.LinkProps{To: "/docs/signals"}, "Signals")}
+					{router.Link(router.LinkProps{To: "/docs/jsx-syntax"}, "JSX syntax")}
+					{router.Link(router.LinkProps{To: "/docs/routing"}, "Routing")}
+					{router.Link(router.LinkProps{To: "/docs/accessibility"}, "Accessibility")}
+				</div>
+				<div className="footer-col">
+					<span className="footer-col-title">Project</span>
+					<a href="https://github.com/filipejohansson/vane" target="_blank" rel="noopener noreferrer">GitHub</a>
+					<a href="https://github.com/filipejohansson/vane/tree/master/examples" target="_blank" rel="noopener noreferrer" aria-label="Example projects on GitHub">Examples</a>
+					<a href="https://github.com/filipejohansson/vane/blob/master/LICENSE" target="_blank" rel="noopener noreferrer">MIT License</a>
+				</div>
+			</div>
+			<div className="footer-bottom">
+				<span>This page is a Vane app.</span>
+			</div>
+		</footer>
+	)
+}

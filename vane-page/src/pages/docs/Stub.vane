@@ -1,0 +1,83 @@
+package docs
+
+import (
+	"github.com/filipejohansson/vane/core"
+	"github.com/filipejohansson/vane/core/router"
+)
+
+// Stub covers every manifest topic that doesn't have a hand-written page yet.
+//
+// params.Get() is read inside the {stubContent(...)} binding below, not as a
+// plain top-level statement: every manifest topic besides "signals"/"routing"
+// shares this same ":slug" route entry, so navigating between two of them
+// (e.g. the pageNav Next/Previous links) updates router.Params() in place
+// without remounting Stub. A plain top-level read would only ever see the
+// slug from the first mount; reading it inside the binding is what makes
+// this rebuild reactively when the param changes.
+func Stub() core.Node {
+	params := router.Params()
+
+	return (
+		<div className="docs-article">
+			{stubContent(params.Get()["slug"])}
+		</div>
+	)
+}
+
+func stubContent(slug string) core.Node {
+	t, ok := TopicBySlug(slug)
+	if !ok {
+		return NotFound()
+	}
+
+	core.Head(func() core.HeadConfig {
+		return core.HeadConfig{
+			Title:       t.Title + " | Vane Docs",
+			Description: t.Summary,
+		}
+	})
+
+	sourceHref := "https://github.com/filipejohansson/vane/tree/master/docs"
+	sourceLabel := "Browse the docs on GitHub"
+	if t.HasSource {
+		sourceHref = "https://github.com/filipejohansson/vane/blob/master/docs/" + t.Slug + ".md"
+		sourceLabel = "Read " + t.Title + " on GitHub"
+	}
+
+	return (
+		<>
+			{docsHeader("Documentation", t.Title, t.Summary)}
+			<div className="docs-callout docs-callout--tip">
+				<span className="docs-callout-label">Coming soon</span>
+				<p className="docs-callout-body">
+					This page hasn't been ported into the in-app docs yet. Until
+					then, the full write-up lives in the source repo.
+				</p>
+			</div>
+			<a
+				className="btn btn-primary"
+				href={sourceHref}
+				target="_blank"
+				rel="noopener noreferrer"
+			>
+				{sourceLabel}
+			</a>
+			{pageNav(t.Slug)}
+		</>
+	)
+}
+
+func NotFound() core.Node {
+	core.Head(func() core.HeadConfig {
+		return core.HeadConfig{Title: "Not found | Vane Docs"}
+	})
+	return (
+		<div className="docs-article">
+			{docsHeader("Documentation", "Page not found", "That doc page doesn't exist.")}
+			{router.Link(router.LinkProps{
+				To:        "/docs",
+				HTMLProps: core.HTMLProps{Class: "btn btn-primary"},
+			}, "Back to docs")}
+		</div>
+	)
+}

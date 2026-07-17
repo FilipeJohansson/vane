@@ -1,0 +1,58 @@
+package pages
+
+import (
+	"github.com/filipejohansson/vane/core"
+	"github.com/filipejohansson/vane/core/router"
+	"github.com/filipejohansson/vane/examples/fullstack-app/src/components/ui"
+	"github.com/filipejohansson/vane/examples/fullstack-app/src/store"
+)
+
+func Login() core.Node {
+	email := core.NewSignal("")
+	password := core.NewSignal("")
+	errMsg := core.NewSignal("")
+	loading := core.NewSignal(false)
+
+	handleSubmit := func() {
+		errMsg.Set("")
+		loading.Set(true)
+		emailVal, passwordVal := email.Get(), password.Get()
+		go func() {
+			defer loading.Set(false)
+			if err := store.Login(emailVal, passwordVal); err != nil {
+				errMsg.Set(err.Error())
+				return
+			}
+			router.Navigate("/dashboard")
+		}()
+	}
+
+	return (
+		<div className="auth-page">
+			<form className="auth-card" onSubmit={func(core.SubmitEvent) { handleSubmit() }}>
+				<h1 className="auth-title">Welcome back</h1>
+				<p className="auth-subtitle">Log in to your account to continue</p>
+
+				{ui.Field(ui.FieldProps{Label: "Email", ID: "email", Type: "email", Placeholder: "you@example.com", Required: true}, email)}
+				{ui.Field(ui.FieldProps{Label: "Password", ID: "password", Type: "password", Placeholder: "••••••••", Required: true}, password)}
+
+				{if errMsg.Get() != "" {
+					<p className="auth-error">{errMsg.Get()}</p>
+				}}
+
+				{ui.Button(ui.ButtonProps{Type: "submit", Class: "auth-submit", Disabled: loading.Get()},
+					func() core.Node {
+						if loading.Get() {
+							return (<span>Signing in…</span>)
+						}
+						return (<span>Sign in</span>)
+					}(),
+				)}
+
+				<p className="auth-footer">
+					Don't have an account? {router.Link(router.LinkProps{To: "/register"}, "Sign up")}
+				</p>
+			</form>
+		</div>
+	)
+}

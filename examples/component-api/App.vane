@@ -1,0 +1,95 @@
+package main
+
+import (
+	"github.com/filipejohansson/vane/core"
+	"example.com/component-api/src/components"
+)
+
+func fileRow(name string, onDelete func()) core.Node {
+	return (
+		<li key={name} className="file-item">
+			<span className="file-name">{name}</span>
+			<button className="btn btn-danger" onClick={func(core.MouseEvent) { onDelete() }}>Delete</button>
+		</li>
+	)
+}
+
+func App() core.Node {
+	modal   := components.NewModalCtrl()
+	toaster := components.NewToasterCtrl()
+
+	files := core.NewSignal([]string{"Q1-Report.pdf", "Invoice-2024.pdf", "Notes.txt"})
+
+	deleteFile := func(name string) {
+		modal.Confirm(
+			"Delete file?",
+			name+" will be permanently removed.",
+			func() {
+				list := files.Get()
+				next := make([]string, 0, len(list))
+				for _, f := range list {
+					if f != name {
+						next = append(next, f)
+					}
+				}
+				files.Set(next)
+				modal.Close()
+				toaster.Push(name+" deleted", "success")
+			},
+		)
+	}
+
+	return (
+		<div className="app">
+			<header className="app-header">
+				<span className="brand">vane / component-api</span>
+			</header>
+			<main className="main">
+				<div className="page">
+					<h1>Component API</h1>
+					<p className="hint">
+						Controllers are created separately from views.
+						Share them across components, call them from anywhere.
+					</p>
+
+					<section className="section">
+						<h3 className="section-title">File Manager</h3>
+						<ul className="file-list">
+							{for _, fn := range files.Get() {
+								fileRow(fn, func() { deleteFile(fn) })
+							}}
+						</ul>
+					</section>
+
+					<section className="section">
+						<h3 className="section-title">Toaster</h3>
+						<div className="btn-row">
+							<button className="btn" onClick={func(core.MouseEvent) { toaster.Push("File saved", "success") }}>
+								Success
+							</button>
+							<button className="btn" onClick={func(core.MouseEvent) { toaster.Push("Connection failed", "error") }}>
+								Error
+							</button>
+							<button className="btn" onClick={func(core.MouseEvent) { toaster.Push("Syncing changes...", "info") }}>
+								Info
+							</button>
+						</div>
+					</section>
+
+					<section className="section">
+						<h3 className="section-title">Info Modal</h3>
+						<div className="btn-row">
+							<button className="btn" onClick={func(core.MouseEvent) { modal.Open("About vane", "vane is a Go WASM frontend framework with fine-grained reactivity and JSX-like syntax.") }}>
+								Open modal
+							</button>
+						</div>
+					</section>
+				</div>
+			</main>
+			{components.Modal(modal)}
+			{components.Toaster(toaster)}
+
+			<div id="modal-root"></div>
+		</div>
+	)
+}

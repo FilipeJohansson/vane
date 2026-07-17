@@ -1,0 +1,97 @@
+package pages
+
+import (
+	"strconv"
+	"github.com/filipejohansson/vane/core"
+)
+
+type todo struct {
+	id   string
+	text string
+	done bool
+}
+
+func todoItem(t todo, onToggle, onRemove func()) core.Node {
+	cls := "todo-item"
+	if t.done {
+		cls = "todo-item done"
+	}
+	return (
+		<li key={t.id} className={cls}>
+			<span className="todo-text" onClick={func(core.MouseEvent) { onToggle() }}>{t.text}</span>
+			<button className="btn btn-danger" onClick={func(core.MouseEvent) { onRemove() }}>✕</button>
+		</li>
+	)
+}
+
+func Home() core.Node {
+	todos := core.NewSignal([]todo{
+		{id: "1", text: "Learn vane", done: true},
+		{id: "2", text: "Build something awesome", done: false},
+		{id: "3", text: "Deploy to production", done: false},
+	})
+	input   := core.NewSignal("")
+	counter := core.NewSignal(4)
+
+	add := func() {
+		text := input.Get()
+		if text == "" {
+			return
+		}
+		todos.Set(append(todos.Get(), todo{
+			id:   strconv.Itoa(counter.Get()),
+			text: text,
+			done: false,
+		}))
+		input.Set("")
+		counter.Set(counter.Get() + 1)
+	}
+
+	toggle := func(id string) func() {
+		return func() {
+			list := todos.Get()
+			next := make([]todo, len(list))
+			copy(next, list)
+			for i, t := range next {
+				if t.id == id {
+					next[i].done = !t.done
+				}
+			}
+			todos.Set(next)
+		}
+	}
+
+	remove := func(id string) func() {
+		return func() {
+			list := todos.Get()
+			next := make([]todo, 0, len(list))
+			for _, t := range list {
+				if t.id != id {
+					next = append(next, t)
+				}
+			}
+			todos.Set(next)
+		}
+	}
+
+	return (
+		<div className="page home">
+			<h1>Todo List</h1>
+			<div className="add-row">
+				<input
+					id="todo-input"
+					className="input"
+					placeholder="What needs to be done?"
+					value={input.Get()}
+					onInput={func(e core.InputEvent) { input.Set(e.Value) }}
+				/>
+				<button className="btn btn-primary" onClick={func(core.MouseEvent) { add() }}>Add</button>
+			</div>
+			<ul className="todo-list">
+				{for _, t := range todos.Get() {
+					todoItem(t, toggle(t.id), remove(t.id))
+				}}
+			</ul>
+		</div>
+	)
+}

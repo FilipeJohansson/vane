@@ -1,0 +1,18 @@
+#!/bin/bash
+# Runs the CI workflow locally (via https://github.com/nektos/act, needs Docker
+# running) before allowing a push - so a red CI run on GitHub is a surprise you
+# already saw locally, not one you find out about after pushing.
+#
+# One-time setup: make install-hooks (or: git config core.hooksPath .githooks)
+
+if ! command -v act >/dev/null 2>&1; then
+    echo "⚠️  act not found - skipping local CI check (install: https://github.com/nektos/act)"
+    exit 0
+fi
+
+act push
+if [ $? -ne 0 ]; then
+    echo "❌ Push canceled - local CI (act) failed"
+    exit 1
+fi
+echo "✅ Local CI passed - pushing"

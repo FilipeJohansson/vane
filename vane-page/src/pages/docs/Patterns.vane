@@ -1,0 +1,213 @@
+package docs
+
+import (
+	"github.com/filipejohansson/vane/core"
+
+	"vane-page/src/components"
+)
+
+const patternsCoarseSignalSnippet = `// ✗ coarse: entire object signal, every binding re-runs on any field change
+state := core.NewSignal(struct{ name, email string }{"", ""})
+
+// ✓ fine-grained: each binding only re-runs when its own signal changes
+name  := core.NewSignal("")
+email := core.NewSignal("")`
+
+const patternsGroupedSignalSnippet = `// ✓ also fine-grained: state itself isn't a signal, only its fields are.
+// Same subscription behavior as two separate variables, just grouped
+// under one name - the same shape as a controller struct (see Component
+// API pattern in Components).
+state := struct {
+    name, email *core.Signal[string]
+}{core.NewSignal(""), core.NewSignal("")}
+
+state.name.Get()  // subscribes only to name
+state.email.Get() // subscribes only to email`
+
+const patternsListSnippet = `// ✓ correct: fn re-runs when deps change, DynList reconciles the DOM
+items := func() []core.Node {
+    return lo.Map(todos.Get(), func(t todo, _ int) core.Node {
+        return todoNode(t)
+    })
+}
+return (<ul>{items()...}</ul>)
+
+func todoNode(t todo) core.Node {
+    return (<li key={t.ID}>{t.Text}</li>)
+}`
+
+const patternsListStaticSnippet = `// ✗ static: slice built once at mount, never updates
+nodes := buildNodes(todos.Get())
+return (<ul>{nodes...}</ul>)
+
+// ✗ unkeyed: adding/removing/reordering rebuilds the entire list
+func todoNode(t todo) core.Node {
+    return (<li>{t.Text}</li>)
+}`
+
+const patternsGoroutineSnippet = `// ✓ goroutine stopped on unmount, signal carries the result back to the DOM
+ticker := time.NewTicker(time.Second)
+core.OnDispose(ticker.Stop)
+go func() {
+    for range ticker.C {
+        count.Set(count.Get() + 1)
+    }
+}()`
+
+const patternsGoroutineLeakSnippet = `// ✗ leaks after navigation: ticker created inside the goroutine is never
+// stopped, the goroutine runs forever even after the component unmounts
+go func() {
+    ticker := time.NewTicker(time.Second)
+    for range ticker.C {
+        count.Set(count.Get() + 1)
+    }
+}()
+
+// ✗ unsafe: DOM access from a goroutine, not the main goroutine
+go func() {
+    resp, _ := http.Get(url)
+    el.Set("textContent", resp)
+}()`
+
+const patternsPortalFnSnippet = `// ✓ correct: everything signal-derived lives inside fn(), the reactive boundary
+func Modal(ctrl *ModalCtrl) core.Node {
+    return core.Portal("#modal-root", func() core.Node {
+        if !ctrl.open.Get() {
+            return nil
+        }
+        hasConfirm := ctrl.onConfirm != nil // recomputed on every reactive run
+        _ = hasConfirm
+        return (<div className="modal">...</div>)
+    })
+}`
+
+const patternsPortalOutsideSnippet = `// ✗ wrong: guard reads ctrl.open outside fn(), in the parent's own binding
+func Modal(ctrl *ModalCtrl) core.Node {
+    if !ctrl.open.Get() {
+        return nil
+    }
+    hasConfirm := ctrl.onConfirm != nil // snapshot at call time, stale later
+
+    return core.Portal("#modal-root", func() core.Node {
+        return (<div className="modal">...</div>) // fn() has no signal reads
+    })
+}`
+
+const patternsTestSnippet = `// cart.go: no build constraint, testable with plain go test
+package cart
+
+import "github.com/filipejohansson/vane/core"
+
+type Cart struct {
+    items *core.Signal[[]Item]
+    Total *core.Computed[float64]
+}
+
+func (c *Cart) Add(item Item) { ... }`
+
+const patternsWaitEffectsSnippet = `import "github.com/filipejohansson/vane/core/signal"
+
+func TestCartTotal(t *testing.T) {
+    cart := NewCart()
+    cart.Add(Item{Name: "Apple", Price: 1.50})
+
+    if !signal.WaitEffects(100 * time.Millisecond) {
+        t.Fatal("effects timed out")
+    }
+    if cart.Total.Get() != 1.50 {
+        t.Errorf("want 1.50, got %.2f", cart.Total.Get())
+    }
+}`
+
+func Patterns() core.Node {
+	core.Head(func() core.HeadConfig {
+		return core.HeadConfig{
+			Title:       "Patterns | Vane Docs",
+			Description: "Practical recipes: fine-grained signals, reactive lists, goroutines with cleanup, Portal's reactive boundary, and testing signal logic without a browser.",
+		}
+	})
+
+	items := patternsTOCItems
+
+	return (
+		<div className="docs-page">
+			<article className="docs-article">
+				{docsHeader(
+					"How-to Patterns",
+					"Patterns",
+					"Practical recipes for problems that come up once an app grows past the basics covered elsewhere in these docs.",
+				)}
+
+				<h2 className="docs-h2" id="fine-grained-signals">Fine-grained signals</h2>
+				<p className="docs-p">
+					A signal wrapping a whole struct re-runs every binding that reads any field
+					whenever any field changes. Splitting state into one signal per field keeps
+					each binding subscribed only to what it actually reads.
+				</p>
+				{components.CodeBlock("state.go", patternsCoarseSignalSnippet)}
+				<p className="docs-p">
+					Grouping related fields under one name doesn't reintroduce the problem, as
+					long as the group itself isn't wrapped in a signal. A plain struct whose
+					fields are signals behaves exactly like separate variables:
+				</p>
+				{components.CodeBlock("state.go", patternsGroupedSignalSnippet)}
+				{callout("tip", "Tip", "This only matters once a component has several independently-changing fields. A single signal is simpler and perfectly fine for one or two values that always change together.")}
+
+				<h2 className="docs-h2" id="reactive-lists">Reactive lists and keys</h2>
+				<p className="docs-p">
+					A slice built once at mount never updates, since the component function
+					doesn't re-run. Wrap the slice-building logic in a function passed to{" "}
+					<code>{"{fn()...}"}</code> so it re-runs when the signals it reads change,
+					and add <code>key</code> so <code>core.DynList</code> can reconcile
+					individual items instead of rebuilding the whole list.
+				</p>
+				{components.CodeBlock("TodoList.vane", patternsListSnippet)}
+				{components.CodeBlock("anti-patterns.go", patternsListStaticSnippet)}
+				{callout("important", "Important", "Without key, DynList falls back to rebuilding the entire list on every change, adding, removing, or reordering one item touches every DOM node instead of just the one that changed.")}
+
+				<h2 className="docs-h2" id="goroutines">Goroutines and cleanup</h2>
+				<p className="docs-p">
+					Goroutines don't stop automatically when a component unmounts. Create
+					long-running goroutines (tickers, subscriptions, polling loops) in the
+					component body, where <code>core.OnDispose</code> is available to stop them,
+					and use a signal to carry results back rather than touching the DOM directly
+					from the goroutine.
+				</p>
+				{components.CodeBlock("Clock.vane", patternsGoroutineSnippet)}
+				{components.CodeBlock("anti-patterns.go", patternsGoroutineLeakSnippet)}
+				{callout("important", "Important", "core.Node/DOM APIs are not safe to call from a goroutine other than the one WASM's single-threaded event loop runs on. Set a signal instead and let the binding update the DOM.")}
+
+				<h2 className="docs-h2" id="portal-boundary">Portal's reactive boundary</h2>
+				<p className="docs-p">
+					<code>core.Portal</code>'s render function is the reactive boundary, not the
+					component that calls <code>core.Portal</code>. A signal read (or a value
+					derived from one) outside that function subscribes the parent's own binding
+					instead, and gets snapshotted at call time rather than recomputed on change.
+				</p>
+				{components.CodeBlock("Modal.vane", patternsPortalFnSnippet)}
+				{components.CodeBlock("anti-patterns.go", patternsPortalOutsideSnippet)}
+				{callout("important", "Important", "Guarding before core.Portal also means the Portal itself gets torn down and rebuilt on every open/close, losing any Portal-local state and re-running the target-resolution goroutine each time.")}
+
+				<h2 className="docs-h2" id="testing">Testing signal logic</h2>
+				<p className="docs-p">
+					Signal state lives in <code>core/signal</code>, which has no WASM
+					dependency. Code that only touches signals, not <code>core.Node</code> or
+					other DOM APIs, needs no <code>{"//go:build js && wasm"}</code> constraint and
+					tests with plain <code>go test</code>.
+				</p>
+				{components.CodeBlock("cart.go", patternsTestSnippet)}
+				<p className="docs-p">
+					Reads right after <code>.Set()</code> are synchronous, but{" "}
+					<code>core.Effect</code>/<code>core.ComputedOf</code> re-runs happen on a
+					goroutine scheduler. Use <code>signal.WaitEffects</code> instead of{" "}
+					<code>time.Sleep</code> to wait for them to settle.
+				</p>
+				{components.CodeBlock("cart_test.go", patternsWaitEffectsSnippet)}
+				{callout("tip", "Tip", "signal.WaitEffects(timeout) returns true if the effect queue drained before the timeout, false otherwise.")}
+
+				{pageNav("patterns")}
+			</article>
+			{toc(items)}
+		</div>
+	)
+}

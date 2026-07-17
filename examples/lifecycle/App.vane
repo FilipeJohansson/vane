@@ -1,0 +1,74 @@
+//go:build js && wasm
+
+package main
+
+import (
+	"fmt"
+	"time"
+
+	"github.com/filipejohansson/vane/core"
+)
+
+func App() core.Node {
+	uptime := core.NewSignal(0)
+
+	//* 1. mount + cleanup
+	// Component body is mounted and runs once.
+	// OnDispose registers cleanup called when the component is disposed (unmount).
+	ticker := time.NewTicker(time.Second)
+	core.OnDispose(ticker.Stop)
+	n := 0
+	go func() {
+		for range ticker.C {
+			n++
+			uptime.Set(n)
+		}
+	}()
+
+	//* 2. Reactive Effect (with signal dep)
+	// Reads count.Get() → re-runs on every count change.
+	// runs is a plain Go int, no circular dep.
+	count      := core.NewSignal(0)
+	effectRuns := core.NewSignal(0)
+	runs := 0
+	core.Effect(func() func() {
+		_ = count.Get()
+		runs++
+		effectRuns.Set(runs)
+		return nil
+	})
+
+	return (
+		<div className="app">
+			<header className="hero">
+				<h1>Lifecycle <span className="emoji">⚡</span></h1>
+				<p>Lifecycle patterns in vane: mount, reactive Effect, OnDispose.</p>
+			</header>
+
+			<div className="cards">
+				<section className="card">
+					<h2>mount + cleanup</h2>
+					<p className="label">
+						Component body runs once on mount.
+						<code>OnDispose</code> registers cleanup called on unmount.
+					</p>
+					<div className="value">{fmt.Sprintf("%ds", uptime.Get())}</div>
+					<p className="hint">Ticker started on mount · stops on unmount</p>
+				</section>
+
+				<section className="card">
+					<h2>Reactive Effect</h2>
+					<p className="label">
+						<code>Effect</code> that reads a signal re-runs on every change.
+					</p>
+					<div className="counter-row">
+						<button className="btn" onClick={func(core.MouseEvent) { count.Set(count.Get() - 1) }}>-</button>
+						<div className="value">{count.Get()}</div>
+						<button className="btn" onClick={func(core.MouseEvent) { count.Set(count.Get() + 1) }}>+</button>
+					</div>
+					<p className="hint">Effect ran {fmt.Sprintf("%d", effectRuns.Get())} time(s)</p>
+				</section>
+			</div>
+		</div>
+	)
+}

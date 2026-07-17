@@ -1,0 +1,35 @@
+package components
+
+import "github.com/filipejohansson/vane/core"
+
+func exampleCard(name, desc string) core.Node {
+	href := "https://github.com/filipejohansson/vane/tree/master/examples/" + name
+	return (
+		<a className="example-card" href={href} target="_blank" rel="noopener noreferrer">
+			<span className="example-card-name">{name}</span>
+			<p className="example-card-desc">{desc}</p>
+		</a>
+	)
+}
+
+func Examples() core.Node {
+	return (
+		<section className="section" id="examples">
+			<div className="section-header">
+				<span className="eyebrow">Examples</span>
+				<h2 className="section-title">Runnable examples, not slideware</h2>
+				<p className="section-sub">Clone one, run it, read the source. Each covers a real pattern end to end.</p>
+			</div>
+			<div className="examples-grid">
+				{exampleCard("reactive-showcase", "Fine-grained reactivity, computed values, effects.")}
+				{exampleCard("routing", "Hash router, named params, 404 handling.")}
+				{exampleCard("forms-and-lists", "Router, forms, validation, accordion.")}
+				{exampleCard("component-api", "Modal + Toaster via the controller pattern.")}
+				{exampleCard("shared-store", "Global store, auth pattern.")}
+				{exampleCard("async-fetch", "Goroutines + net/http + signals.")}
+				{exampleCard("lifecycle", "Effect patterns: post-mount, reactive, cleanup.")}
+				{exampleCard("fullstack-app", "WASM frontend + Go API backend, auth, dashboard.")}
+			</div>
+		</section>
+	)
+}

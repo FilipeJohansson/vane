@@ -1,0 +1,40 @@
+package main
+
+import (
+	"github.com/filipejohansson/vane/core"
+	"github.com/filipejohansson/vane/core/router"
+	"github.com/filipejohansson/vane/examples/forms-and-lists/src/pages"
+)
+
+func App() core.Node {
+	nav := func() core.Node {
+		return (
+			<nav className="nav">
+				<span className="nav-brand">vane forms-and-lists</span>
+				<div className="nav-links">
+					<a href="#/">Home</a>
+					<a href="#/about">About</a>
+					<a href="#/contact">Contact</a>
+				</div>
+			</nav>
+		)
+	}
+
+	routerEl := func() core.Node {
+		return router.Router(
+			router.Route("/", pages.Home, "Home - vane forms-and-lists"),
+			router.Route("/about", pages.About, "About - vane forms-and-lists"),
+			router.Route("/contact", pages.Contact, "Contact - vane forms-and-lists"),
+			router.Route("*", pages.NotFound, "404 - vane forms-and-lists"),
+		)
+	}
+
+	return (
+		<div className="app">
+			{nav()}
+			<main className="main">
+				{routerEl()}
+			</main>
+		</div>
+	)
+}

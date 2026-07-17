@@ -1,0 +1,8 @@
+{
+  "name": "vane-wasmtest",
+  "private": true,
+  "description": "jsdom-based exec wrapper so `GOOS=js GOARCH=wasm go test` can run vane's core/ DOM code without a real browser. Not shipped - dev/test tooling only.",
+  "dependencies": {
+    "jsdom": "^25.0.0"
+  }
+}

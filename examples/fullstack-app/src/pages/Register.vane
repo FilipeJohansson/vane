@@ -1,0 +1,66 @@
+package pages
+
+import (
+	"github.com/filipejohansson/vane/core"
+	"github.com/filipejohansson/vane/core/router"
+	"github.com/filipejohansson/vane/examples/fullstack-app/src/components/ui"
+	"github.com/filipejohansson/vane/examples/fullstack-app/src/store"
+)
+
+func Register() core.Node {
+	name := core.NewSignal("")
+	email := core.NewSignal("")
+	password := core.NewSignal("")
+	confirm := core.NewSignal("")
+	errMsg := core.NewSignal("")
+	loading := core.NewSignal(false)
+
+	handleSubmit := func() {
+		if password.Get() != confirm.Get() {
+			errMsg.Set("passwords do not match")
+			return
+		}
+		errMsg.Set("")
+		loading.Set(true)
+		nameVal, emailVal, passwordVal := name.Get(), email.Get(), password.Get()
+		go func() {
+			defer loading.Set(false)
+			if err := store.Register(nameVal, emailVal, passwordVal); err != nil {
+				errMsg.Set(err.Error())
+				return
+			}
+			router.Navigate("/dashboard")
+		}()
+	}
+
+	return (
+		<div className="auth-page">
+			<form className="auth-card" onSubmit={func(core.SubmitEvent) { handleSubmit() }}>
+				<h1 className="auth-title">Create your account</h1>
+				<p className="auth-subtitle">Start your dashboard in a few seconds</p>
+
+				{ui.Field(ui.FieldProps{Label: "Name", ID: "name", Placeholder: "Ada Lovelace", Required: true}, name)}
+				{ui.Field(ui.FieldProps{Label: "Email", ID: "email", Type: "email", Placeholder: "you@example.com", Required: true}, email)}
+				{ui.Field(ui.FieldProps{Label: "Password", ID: "password", Type: "password", Placeholder: "At least 6 characters", Required: true}, password)}
+				{ui.Field(ui.FieldProps{Label: "Confirm password", ID: "confirm", Type: "password", Placeholder: "••••••••", Required: true}, confirm)}
+
+				{if errMsg.Get() != "" {
+					<p className="auth-error">{errMsg.Get()}</p>
+				}}
+
+				{ui.Button(ui.ButtonProps{Type: "submit", Class: "auth-submit", Disabled: loading.Get()},
+					func() core.Node {
+						if loading.Get() {
+							return (<span>Creating account…</span>)
+						}
+						return (<span>Sign up</span>)
+					}(),
+				)}
+
+				<p className="auth-footer">
+					Already have an account? {router.Link(router.LinkProps{To: "/login"}, "Log in")}
+				</p>
+			</form>
+		</div>
+	)
+}

@@ -1,0 +1,31 @@
+package components
+
+import "github.com/filipejohansson/vane/core"
+
+func docCard(title, desc, slug string) core.Node {
+	return (
+		<a className="doc-card" href={"#/docs/" + slug}>
+			<h3 className="doc-card-title">{title}</h3>
+			<p className="doc-card-desc">{desc}</p>
+		</a>
+	)
+}
+
+func DocsCards() core.Node {
+	return (
+		<section className="section" id="docs">
+			<div className="section-header">
+				<span className="eyebrow">Documentation</span>
+				<h2 className="section-title">Learn the concepts</h2>
+			</div>
+			<div className="docs-grid">
+				{docCard("Signals & Reactivity", "Effect, OnDispose, ComputedOf, Untrack.", "signals")}
+				{docCard("JSX Syntax", "Full prop/event table, inline for/if/switch, reactive lists.", "jsx-syntax")}
+				{docCard("Components", "Functions, children, the controller pattern.", "components")}
+				{docCard("Routing", "Router, params, layouts, ActiveLink.", "routing")}
+				{docCard("Accessibility", "aria-*/role, focus management, live regions.", "accessibility")}
+				{docCard("Global Store", "Package-level signals for shared state.", "store")}
+			</div>
+		</section>
+	)
+}

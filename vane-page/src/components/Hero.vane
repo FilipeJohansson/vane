@@ -1,0 +1,46 @@
+package components
+
+import (
+	"github.com/filipejohansson/vane/core"
+	"github.com/filipejohansson/vane/core/router"
+)
+
+func Hero() core.Node {
+	installCmd := "go install github.com/filipejohansson/vane@latest"
+
+	return (
+		<section className="hero" id="hero">
+			<div className="hero-inner">
+				<div className="hero-copy">
+					<span className="eyebrow">Go + WebAssembly</span>
+					<h1 className="hero-title">Write UI in Go.<br />Compile straight to the DOM.</h1>
+					<p className="hero-sub">
+						Vane compiles Go + JSX to WebAssembly. No virtual DOM, no diffing:
+						every reactive binding updates its own DOM node directly.
+					</p>
+					<div className="hero-actions">
+						<div className="spin-border">
+							{router.Link(router.LinkProps{
+								To:        "/docs",
+								HTMLProps: core.HTMLProps{Class: "btn btn-primary"},
+							}, "Get Started")}
+						</div>
+						{Button(ButtonProps{
+							Variant: "ghost",
+							Href:    githubHref,
+							Target:  "_blank",
+							Rel:     "noopener noreferrer",
+						}, "View on GitHub")}
+					</div>
+					<div className="install-row">
+						<code className="install-cmd">{core.DangerousInnerHTML(HighlightCLIHTML(installCmd))}</code>
+						{CopyButton(installCmd)}
+					</div>
+				</div>
+				<div className="hero-visual">
+					{Weathervane()}
+				</div>
+			</div>
+		</section>
+	)
+}

@@ -1,0 +1,25 @@
+//go:build js && wasm
+
+package pages
+
+import (
+	"github.com/filipejohansson/vane/core"
+	"github.com/filipejohansson/vane/core/router"
+)
+
+func Home() core.Node {
+	return (
+		<div className="page-content">
+			<div className="hero">
+				<h1>vane router</h1>
+				<p>
+					Hash-based routing with typed URL params.
+					Navigate to a route, params are extracted and passed to the page.
+				</p>
+			</div>
+			<div className="cta">
+				{router.Link(router.LinkProps{To: "/users"}, "View users →")}
+			</div>
+		</div>
+	)
+}

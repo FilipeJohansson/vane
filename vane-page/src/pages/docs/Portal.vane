@@ -1,0 +1,129 @@
+package docs
+
+import (
+	"github.com/filipejohansson/vane/core"
+
+	"vane-page/src/components"
+)
+
+const portalSnippet = `func Modal(title string) core.Node {
+    return core.Portal("#modal-root", func() core.Node {
+        return (
+            <div className="modal">
+                <h2>{title}</h2>
+            </div>
+        )
+    })
+}
+
+func App() core.Node {
+    open := core.NewSignal(false)
+
+    return (
+        <div>
+            <button onClick={func(core.MouseEvent) {
+                open.Set(true)
+            }}>
+                Open
+            </button>
+
+            {if open.Get() { Modal("Hello") }}
+        </div>
+    )
+}`
+
+const targetSnippet = `core.Portal("#modal-root", fn)
+core.Portal(containerNode, fn)
+core.Portal(jsElement, fn)`
+
+const guardSnippet = `func Modal(ctrl *ModalCtrl) core.Node {
+    return core.Portal("#modal-root", func() core.Node {
+        if !ctrl.open.Get() {
+            return nil
+        }
+
+        return (
+            <div className="modal">
+                ...
+            </div>
+        )
+    })
+}`
+
+func Portal() core.Node {
+	core.Head(func() core.HeadConfig {
+		return core.HeadConfig{
+			Title:       "Portal | Vane Docs",
+			Description: "Render components outside their parent's DOM hierarchy.",
+		}
+	})
+
+	items := portalTOCItems
+
+	return (
+		<div className="docs-page">
+			<article className="docs-article">
+				{docsHeader(
+					"Advanced",
+					"Portal",
+					"Render UI into another part of the DOM without leaving the current component tree.",
+				)}
+
+				<h2 className="docs-h2" id="why">Why use a Portal?</h2>
+				<p className="docs-p">
+					Normally, a component renders inside its parent. Sometimes that's not
+					what you want.
+				</p>
+				<p className="docs-p">
+					Modals, dialogs, dropdowns, tooltips, and context menus often need to
+					escape containers with <code>overflow: hidden</code> or stacking
+					contexts. <code>core.Portal</code> renders their DOM somewhere else
+					while keeping them in the same reactive component tree.
+				</p>
+				{components.CodeBlock("Modal.vane", portalSnippet)}
+				{callout("tip", "Tip", "The Portal still belongs to the component that created it. Signals, Effects, and OnDispose work exactly as if it had been rendered normally.")}
+
+				<h2 className="docs-h2" id="target">Choosing a target</h2>
+				<p className="docs-p">
+					The first argument tells Vane where the Portal should render.
+				</p>
+				{components.CodeBlock("portal.go", targetSnippet)}
+				<p className="docs-p">
+					If multiple Portals render into the same target, their content is
+					appended in creation order.
+				</p>
+				{callout("important", "Important", "If the target doesn't exist, Vane logs a console warning and renders nothing.")}
+
+				<h2 className="docs-h2" id="guard">Guarding inside the Portal</h2>
+				<p className="docs-p">
+					Controller-driven components are usually always mounted. Instead of
+					creating and destroying the Portal itself, let the Portal stay mounted
+					and decide inside its render function whether anything should be
+					rendered.
+				</p>
+				{components.CodeBlock("Modal.vane", guardSnippet)}
+				<p className="docs-p">
+					Returning <code>nil</code> simply leaves the Portal empty until it
+					needs to display content again.
+				</p>
+				{callout("tip", "Tip", "Keep the Portal mounted and guard inside the callback. This works especially well with controller-based components such as modals and drawers.")}
+
+				<h2 className="docs-h2" id="first-render-timing">First render timing</h2>
+				<p className="docs-p">
+					Resolving the target needs the parent's own DOM already mounted, so
+					Portal defers creating its own reactive Effect to a goroutine,
+					launched synchronously inside the <code>core.Portal(...)</code> call
+					itself, the first time it's used. That first render runs outside
+					Vane's shared effect scheduler entirely, since the Effect doesn't
+					exist yet for the scheduler to track. Once the goroutine has run and
+					the Effect exists, later reruns (triggered by a signal change) go
+					through that same shared scheduler as any other reactive update.
+				</p>
+				{callout("tip", "Tip", "This only matters for code that reacts to the Portal having just rendered, exactly once, e.g. moving focus into a freshly-opened dialog. signal.WaitEffects only tracks Vane's shared effect scheduler queue, so right after flipping the signal that first opens a Portal-based modal, it can return immediately even though the content hasn't mounted yet, Portal's first render hasn't reached that scheduler at all yet. Later signal-driven rerenders of the same Portal don't have this gap, since by then the Effect already exists and goes through the normal scheduler like everything else.")}
+
+				{pageNav("portal")}
+			</article>
+			{toc(items)}
+		</div>
+	)
+}

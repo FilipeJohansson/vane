@@ -1,0 +1,121 @@
+package pages
+
+import (
+	"fmt"
+	"github.com/filipejohansson/vane/core"
+	"github.com/filipejohansson/vane/core/router"
+	"github.com/filipejohansson/vane/examples/fullstack-app/src/api"
+	"github.com/filipejohansson/vane/examples/fullstack-app/src/store"
+)
+
+func recentNoteRow(n api.Note) core.Node {
+	return (
+		<div className="activity-item" key={n.ID}>
+			<span className="activity-title">{n.Title}</span>
+			<span className="activity-date">{n.CreatedDate()}</span>
+		</div>
+	)
+}
+
+func Dashboard() core.Node {
+	stats := core.NewSignal(api.Stats{})
+	loading := core.NewSignal(true)
+	errMsg := core.NewSignal("")
+
+	recentNotes := core.NewSignal([]api.Note{})
+	notesLoading := core.NewSignal(true)
+
+	core.Effect(func() func() {
+		token := store.Token.Get()
+		go func() {
+			s, err := api.GetStats(token)
+			if err != nil {
+				errMsg.Set(err.Error())
+				loading.Set(false)
+				return
+			}
+			stats.Set(s)
+			loading.Set(false)
+		}()
+		return nil
+	})
+
+	// Depends on CurrentUser (not just Token): on a deep-linked reload the
+	// session's user may not be populated yet, so this re-fires once
+	// RestoreSession's background Me() call fills it in.
+	core.Effect(func() func() {
+		token := store.Token.Get()
+		userID := store.CurrentUser.Get().ID
+		go func() {
+			defer notesLoading.Set(false)
+			list, err := api.ListNotes(token, userID)
+			if err != nil {
+				return // non-critical widget, leave it empty rather than erroring the page
+			}
+			if len(list) > 3 {
+				list = list[:3]
+			}
+			recentNotes.Set(list)
+		}()
+		return nil
+	})
+
+	body := func() core.Node {
+		if loading.Get() {
+			return (<p className="status">Loading…</p>)
+		}
+		if errMsg.Get() != "" {
+			return (<p className="auth-error">{errMsg.Get()}</p>)
+		}
+		return (
+			<div className="stats-grid">
+				<div className="stat-card">
+					<span className="stat-label">Total users</span>
+					<span className="stat-value">{stats.Get().TotalUsers}</span>
+				</div>
+				<div className="stat-card">
+					<span className="stat-label">Member since</span>
+					<span className="stat-value">{stats.Get().MemberSince}</span>
+				</div>
+			</div>
+		)
+	}
+
+	recentNoteRows := func() []core.Node {
+		list := recentNotes.Get()
+		nodes := make([]core.Node, len(list))
+		for i, n := range list {
+			nodes[i] = recentNoteRow(n)
+		}
+		return nodes
+	}
+
+	notesBody := func() core.Node {
+		if notesLoading.Get() {
+			return (<p className="status">Loading…</p>)
+		}
+		if len(recentNotes.Get()) == 0 {
+			return (<p className="status">No notes yet.</p>)
+		}
+		return (<div className="activity-list">{recentNoteRows()...}</div>)
+	}
+
+	return (
+		<div className="page">
+			<h1 className="page-title">Welcome, {store.CurrentUser.Get().Name}</h1>
+			<p className="page-desc">Here's a quick look at your account.</p>
+			{body()}
+
+			<div className="page-section">
+				<div className="section-header">
+					<h2 className="section-title">Recent notes</h2>
+					{router.Link(router.LinkProps{
+						To:        fmt.Sprintf("/dashboard/users/%d/notes", store.CurrentUser.Get().ID),
+						HTMLProps: core.HTMLProps{Class: "back-link"},
+					}, "View all →")}
+				</div>
+				{notesBody()}
+			</div>
+		</div>
+	)
+}

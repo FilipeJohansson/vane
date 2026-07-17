@@ -1,0 +1,52 @@
+package layouts
+
+import (
+	"github.com/filipejohansson/vane/core"
+	"github.com/filipejohansson/vane/core/router"
+	"github.com/filipejohansson/vane/examples/fullstack-app/src/store"
+)
+
+// exact=true on "/dashboard" keeps Overview from also matching sub-routes
+// like /dashboard/users see ActiveLinkProps.Exact.
+func sidebarLink(to, label string, exact bool) core.Node {
+	return router.ActiveLink(router.ActiveLinkProps{
+		LinkProps: router.LinkProps{
+			To:        to,
+			HTMLProps: core.HTMLProps{Class: "sidebar-link"},
+		},
+		ActiveClass: "sidebar-link--active",
+		Exact:       exact,
+	}, label)
+}
+
+// DashboardShell persists across /dashboard/* sub-navigation, only
+// router.Outlet() content changes. It also guards the whole section: if the
+// session ever becomes logged-out (initial load with no token, or a Logout
+// call while inside the dashboard) it redirects to /login.
+func DashboardShell() core.Node {
+	core.Effect(func() func() {
+		if !store.LoggedIn() {
+			router.Navigate("/login")
+		}
+		return nil
+	})
+
+	return (
+		<div className="shell">
+			<aside className="sidebar">
+				<div className="sidebar-brand">Fullstack App</div>
+				<nav className="sidebar-nav">
+					{sidebarLink("/dashboard", "Overview", true)}
+					{sidebarLink("/dashboard/users", "Users", false)}
+				</nav>
+				<div className="sidebar-footer">
+					<span className="sidebar-user">{store.CurrentUser.Get().Name}</span>
+					<button className="btn btn-ghost" onClick={func(core.MouseEvent) { store.Logout() }}>
+						Log out
+					</button>
+				</div>
+			</aside>
+			<main className="content">{router.Outlet()}</main>
+		</div>
+	)
+}

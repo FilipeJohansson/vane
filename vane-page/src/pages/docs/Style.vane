@@ -1,0 +1,137 @@
+package docs
+
+import (
+	"github.com/filipejohansson/vane/core"
+
+	"vane-page/src/components"
+)
+
+const styleStructSnippet = `return (
+    <div style={core.Style{
+        Display:         "flex",
+        Gap:             "12px",
+        BackgroundColor: "#f5f5f5",
+        BorderRadius:    "8px",
+        Padding:         "16px",
+    }}>
+        ...
+    </div>
+)`
+
+const styleReactiveSnippet = `return (
+    <button style={core.Style{
+        BackgroundColor: func() string {
+            if active.Get() { return "#0070f3" }
+            return "#eee"
+        }(),
+        Color: func() string {
+            if active.Get() { return "white" }
+            return "black"
+        }(),
+    }}>
+        Click me
+    </button>
+)`
+
+const styleStaticStringSnippet = `<div style="--accent:#0070f3;grid-template-areas:'header header' 'nav main'">`
+
+const styleTreeSnippet = `src/components/
+├── Card.vane
+└── Card.css`
+
+const styleImportSnippet = `/* public/style.css: @import must be at the top */
+@import 'Card.css';`
+
+func Style() core.Node {
+	core.Head(func() core.HeadConfig {
+		return core.HeadConfig{
+			Title:       "Styles and CSS | Vane Docs",
+			Description: "The core.Style struct for reactive inline styles, the static-string escape hatch, and co-located CSS files.",
+		}
+	})
+
+	items := styleTOCItems
+
+	return (
+		<div className="docs-page">
+			<article className="docs-article">
+				{docsHeader(
+					"Build Your UI",
+					"Styles and CSS",
+					"The core.Style struct for reactive inline styles, the static-string escape hatch, and co-located CSS files.",
+				)}
+
+				<h2 className="docs-h2" id="the-style-struct">The core.Style struct</h2>
+				<p className="docs-p">
+					<code>core.Style</code> is a Go struct covering the common CSS properties as
+					typed <code>string</code> fields. Set only the fields a given element needs,
+					fields left as the zero value are skipped rather than written as empty CSS:
+				</p>
+				{components.CodeBlock("Card.vane", styleStructSnippet)}
+				{docsTable(
+					[]string{"Category", "Example fields"},
+					[][]core.Node{
+						{core.Text("Box model"), core.Fragment(code("Width"), core.Text(", "), code("Margin"), core.Text(", "), code("PaddingTop"))},
+						{core.Text("Layout"), core.Fragment(code("Display"), core.Text(", "), code("Position"), core.Text(", "), code("ZIndex"), core.Text(", "), code("Overflow"))},
+						{core.Text("Flexbox"), core.Fragment(code("Flex"), core.Text(", "), code("JustifyContent"), core.Text(", "), code("Gap"))},
+						{core.Text("Grid"), core.Fragment(code("GridTemplateColumns"), core.Text(", "), code("GridColumn"))},
+						{core.Text("Typography"), core.Fragment(code("Color"), core.Text(", "), code("FontSize"), core.Text(", "), code("LineHeight"))},
+						{core.Text("Background"), core.Fragment(code("BackgroundColor"), core.Text(", "), code("BackgroundImage"))},
+						{core.Text("Border"), core.Fragment(code("Border"), core.Text(", "), code("BorderRadius"), core.Text(", "), code("Outline"))},
+						{core.Text("Effects & interaction"), core.Fragment(code("Opacity"), core.Text(", "), code("Transform"), core.Text(", "), code("Cursor"), core.Text(", "), code("Transition"))},
+					},
+				)}
+				{callout("tip", "Tip", "That's a representative sample, not the full list. core.Style covers roughly 80 properties across these categories, browse core/style.go in the vane repo for the exact field names.")}
+
+				<h2 className="docs-h2" id="reactive-styles">Reactive styles</h2>
+				<p className="docs-p">
+					Signal reads inside the struct literal make the style reactive: any signal
+					read while building the <code>core.Style</code> value re-runs the whole thing
+					whenever that signal changes, the same way any other JSX expression binding
+					works. Compute a field with an inline, immediately-called function when it
+					depends on a signal:
+				</p>
+				{components.CodeBlock("Card.vane", styleReactiveSnippet)}
+				{callout("tip", "Tip", "Each reactive run clears every inline style on the element first, then reapplies the struct's non-empty fields. A field that's conditionally empty in the new value actually disappears rather than keeping its last non-empty value.")}
+
+				<h2 className="docs-h2" id="static-strings">Static CSS strings</h2>
+				<p className="docs-p">
+					For CSS <code>core.Style</code> doesn't cover, custom properties, multi-value
+					shorthands, anything with a colon or quote the struct's flat string fields
+					can't express cleanly, pass a plain string instead:
+				</p>
+				{components.CodeBlock("Card.vane", styleStaticStringSnippet)}
+				{callout(
+					"important",
+					"Important",
+					"style=\"...\" and style={core.Style{...}} compile to two different things. The plain-string form sets cssText once and isn't reactive. The {} form always expects a core.Style value, style={someStringVar} is a compile error (cannot use someStringVar as core.Style value), not a working reactive string. There's no reactive plain-string form, only the struct is reactive.",
+				)}
+
+				<h2 className="docs-h2" id="co-located-css">Co-located CSS</h2>
+				<p className="docs-p">
+					For anything beyond inline styles, real stylesheets, selectors, pseudo-classes,
+					media queries, place a <code>.css</code> file next to the component it styles.
+					Any <code>.css</code> file in the source tree (outside <code>public/</code> and{" "}
+					<code>dist/</code>) is automatically copied to <code>dist/</code>, flattened to
+					a single level, on every <code>vane build</code>:
+				</p>
+				{components.PlainBlock("src/components/", styleTreeSnippet)}
+				<p className="docs-p">
+					Copying alone doesn't load the file, wire it up with an <code>@import</code> in{" "}
+					<code>public/style.css</code>:
+				</p>
+				{components.PlainBlock("public/style.css", styleImportSnippet)}
+				{callout("important", "Important", "@import statements must stay at the top of public/style.css, that's a CSS rule, not a Vane one. Anything above them, including a comment placed carelessly, invalidates the import.")}
+				<p className="docs-p">
+					Because every co-located file flattens into the same <code>dist/</code>{" "}
+					directory, two components named <code>Card.css</code> in different folders
+					would collide. Keep component CSS filenames unique across the project, matching
+					the component name is the simplest way.
+				</p>
+
+				{pageNav("style")}
+			</article>
+			{toc(items)}
+		</div>
+	)
+}

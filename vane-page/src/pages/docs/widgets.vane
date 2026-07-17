@@ -1,0 +1,234 @@
+package docs
+
+import (
+	"strconv"
+
+	"github.com/filipejohansson/vane/core"
+)
+
+// docsHeader is the title block every doc page starts with.
+func docsHeader(eyebrow, title, desc string) core.Node {
+	return (
+		<header className="docs-header">
+			<span className="docs-eyebrow">{eyebrow}</span>
+			<h1 className="docs-title">{title}</h1>
+			<p className="docs-desc">{desc}</p>
+		</header>
+	)
+}
+
+// calloutKind picks the accent color; "tip" (helpful aside) or "important"
+func callout(kind, label string, children ...any) core.Node {
+	return (
+		<div className={"docs-callout docs-callout--" + kind}>
+			<span className="docs-callout-label">{label}</span>
+			<p className="docs-callout-body">{core.Spread(children)...}</p>
+		</div>
+	)
+}
+
+// pipeline renders a compact numbered flow, e.g. the .vane -> app.wasm build
+// steps in Concepts. Kept as real styled DOM rather than a "diagram" pushed
+// through CodeBlock's Go syntax highlighter, since plain step text isn't Go
+// and would render with no highlighting at all.
+func pipeline(steps ...string) core.Node {
+	nodes := make([]core.Node, len(steps))
+	for i, s := range steps {
+		nodes[i] = pipelineStep(i+1, s)
+	}
+	return (
+		<div className="docs-pipeline">
+			{nodes...}
+		</div>
+	)
+}
+
+func pipelineStep(n int, label string) core.Node {
+	return (
+		<div className="docs-pipeline-step">
+			<span className="docs-pipeline-num">{strconv.Itoa(n)}</span>
+			<span>{label}</span>
+		</div>
+	)
+}
+
+// docsTable renders a titled reference table (border, header row, zebra-free
+// body), same box treatment as callout/code-block/pipeline. headers are
+// plain labels; each row is a fixed-width slice of pre-built cell nodes, one
+// per column. Build a cell with code(s) for a single <code> token, or
+// core.Fragment(...) to mix text and code within one cell.
+func docsTable(headers []string, rows [][]core.Node) core.Node {
+	headerCells := make([]core.Node, len(headers))
+	for i, h := range headers {
+		headerCells[i] = tableHeaderCell(h)
+	}
+	rowNodes := make([]core.Node, len(rows))
+	for i, cells := range rows {
+		tds := make([]core.Node, len(cells))
+		for j, c := range cells {
+			tds[j] = tableDataCell(c)
+		}
+		rowNodes[i] = tableRow(tds)
+	}
+	return (
+		<div className="docs-table-wrap">
+			<table className="docs-table">
+				<thead>{tableRow(headerCells)}</thead>
+				<tbody>{rowNodes...}</tbody>
+			</table>
+		</div>
+	)
+}
+
+func tableHeaderCell(label string) core.Node {
+	return (<th>{label}</th>)
+}
+
+func tableDataCell(content core.Node) core.Node {
+	return (<td>{content}</td>)
+}
+
+func tableRow(cells []core.Node) core.Node {
+	return (<tr>{cells...}</tr>)
+}
+
+// code renders a single inline <code> token, for use as a docsTable cell.
+func code(s string) core.Node {
+	return (<code>{s}</code>)
+}
+
+// scrollSpyOffset is how far (in px) a heading's top can be below the
+// viewport top and still count as "current": clears the sticky site nav
+// (3.5rem) plus the reading-progress bar, with a little breathing room.
+const scrollSpyOffset = 90.0
+
+// scrollToHeading is used instead of a plain href="#id" anchor: this app's
+// router treats any hash not starting with "#/" as a bare "/" navigation
+// (see core/router), so a real anchor would silently jump to the homepage
+// instead of scrolling. scroll-margin-top on .docs-h2 keeps the heading
+// clear of the sticky nav once scrollIntoView lands.
+func scrollToHeading(id string) {
+	el, ok := core.GetElementByID(id)
+	if !ok {
+		return
+	}
+	core.ScrollIntoView(el, true)
+}
+
+// setupScrollSpy watches window scroll and keeps active set to the id of
+// the lowest heading that's scrolled past scrollSpyOffset. Called once from
+// a ref callback (see toc below), not from a reactive {expr}, so it isn't
+// re-registered every time active itself changes.
+func setupScrollSpy(items []tocItem, active *core.Signal[string]) {
+	update := func() {
+		current := ""
+		for _, it := range items {
+			el, ok := core.GetElementByID(it.ID)
+			if !ok {
+				continue
+			}
+			if core.BoundingRect(el).Top <= scrollSpyOffset {
+				current = it.ID
+			}
+		}
+		if current == "" && len(items) > 0 {
+			current = items[0].ID
+		}
+		// The last heading's own section is often too short to ever push its
+		// top past scrollSpyOffset (nothing left below it to scroll through),
+		// so the loop above can never select it. Once the page is scrolled to
+		// its true bottom, force the last item active regardless.
+		scrollY := core.ScrollY()
+		_, innerHeight := core.Viewport()
+		scrollHeight, _ := core.DocumentHeight()
+		if len(items) > 0 && scrollY+innerHeight >= scrollHeight-2 {
+			current = items[len(items)-1].ID
+		}
+		if active.Get() != current {
+			active.Set(current)
+		}
+	}
+
+	// Headings aren't attached to the document yet at ref-callback time (see
+	// refs-and-dom.md), so getBoundingClientRect would see stale/zeroed
+	// layout on the very first call. Defer it a tick; the scroll listener
+	// itself only ever fires later, once layout is live, so it doesn't need
+	// the same deferral.
+	core.NextTick(update)
+
+	core.OnWindowEvent("scroll", func(core.Event) { update() }, core.ListenerOpts{Passive: true})
+}
+
+func tocLink(it tocItem, active *core.Signal[string]) core.Node {
+	return (
+		<li>
+			<button
+				type="button"
+				className={func() string {
+					if active.Get() == it.ID {
+						return "docs-toc-link docs-toc-link--active"
+					}
+					return "docs-toc-link"
+				}()}
+				onClick={func(core.MouseEvent) { scrollToHeading(it.ID) }}
+			>
+				{it.Label}
+			</button>
+		</li>
+	)
+}
+
+func toc(items []tocItem) core.Node {
+	active := core.NewSignal("")
+	links := make([]core.Node, len(items))
+	for i, it := range items {
+		links[i] = tocLink(it, active)
+	}
+	return (
+		<aside className="docs-toc" ref={func(el core.Node) { setupScrollSpy(items, active) }}>
+			<span className="docs-toc-title">On this page</span>
+			<ul className="docs-toc-list">
+				{links...}
+			</ul>
+		</aside>
+	)
+}
+
+// navCard is one side of the prev/next footer nav. dir is "prev" or "next".
+func navCard(dir, slug, title string) core.Node {
+	to := "/docs"
+	if slug != "" {
+		to = "/docs/" + slug
+	}
+	label := "Next"
+	if dir == "prev" {
+		label = "Previous"
+	}
+	return (
+		<a className={"docs-pagenav-card docs-pagenav-card--" + dir} href={"#" + to}>
+			<span className="docs-pagenav-label">{label}</span>
+			<span className="docs-pagenav-title">{title}</span>
+		</a>
+	)
+}
+
+// pageNav renders the bottom prev/next row from slug's neighbors in the
+// manifest. Either side is omitted when slug is first/last (or unlisted,
+// e.g. the overview index itself, whose slug is "").
+func pageNav(slug string) core.Node {
+	prev, next, hasPrev, hasNext := PrevNext(slug)
+	return (
+		<div className="docs-pagenav">
+			{if hasPrev {
+				<>{navCard("prev", prev.Slug, prev.Title)}</>
+			} else {
+				<span />
+			}}
+			{if hasNext {
+				<>{navCard("next", next.Slug, next.Title)}</>
+			} else {
+				<span />
+			}}
+		</div>
+	)
+}

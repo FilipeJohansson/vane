@@ -1,0 +1,34 @@
+package ui
+
+import (
+	"github.com/filipejohansson/vane/core"
+)
+
+type ButtonProps struct {
+	Variant  string // "primary" (default), "secondary", "danger", "ghost"
+	Type     string // "button" (default) or "submit"
+	Class    string
+	Disabled bool
+	OnClick  func(core.MouseEvent)
+}
+
+func Button(props ButtonProps, children ...any) core.Node {
+	variant := props.Variant
+	if variant == "" {
+		variant = "primary"
+	}
+	typ := props.Type
+	if typ == "" {
+		typ = "button"
+	}
+	cls := "btn btn-" + variant
+	if props.Class != "" {
+		cls += " " + props.Class
+	}
+
+	return (
+		<button type={typ} className={cls} disabled={props.Disabled} onClick={props.OnClick}>
+			{children...}
+		</button>
+	)
+}

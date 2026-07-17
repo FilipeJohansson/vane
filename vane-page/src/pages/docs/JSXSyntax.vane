@@ -1,0 +1,297 @@
+package docs
+
+import (
+	"github.com/filipejohansson/vane/core"
+
+	"vane-page/src/components"
+)
+
+const jsxRuleAssignSnippet = `// ✗ won't compile
+nodes[i] = (<li>{t}</li>)
+
+// ✓ correct
+func listItem(t string) core.Node {
+    return (<li>{t}</li>)
+}
+nodes[i] = listItem(t)`
+
+const jsxRuleUncalledSnippet = `// ✗ won't compile: literal is never called
+{func() core.Node {
+    return (<span>hi</span>)
+}}
+
+// ✓ correct: call it immediately
+{func() core.Node {
+    return (<span>hi</span>)
+}()}`
+
+const jsxReturnNilSnippet = `// ✓ correct: return nil is idiomatic early exit
+func Modal() core.Node {
+    if !open.Get() { return nil }
+    return (<div className="modal">...</div>)
+}
+
+// ✓ nested func() core.Node literals are rewritten too
+confirmBtn := func() core.Node {
+    if !hasConfirm { return nil }
+    return (<button>Confirm</button>)
+}
+
+// ✗ not rewritten: this closure's own signature has no core.Node
+// return, so return nil here stays a plain nil func value
+core.Effect(func() func() {
+    sub := bus.Subscribe(topic.Get(), handler)
+    return func() { sub.Cancel() }
+})`
+
+const jsxForSnippet = `func TodoList() core.Node {
+    todos := core.NewSignal([]todo{...})
+
+    return (
+        <ul>
+            {for _, t := range todos.Get() {
+                cls := "item"
+                if t.done { cls = "item done" }
+                <li className={cls}>{t.text}</li>
+            }}
+        </ul>
+    )
+}`
+
+const jsxIfSnippet = `return (
+    <div>
+        {if loading.Get() {
+            <p>Loading...</p>
+        } else if hasError.Get() {
+            <p>Error</p>
+        } else {
+            <p>Done</p>
+        }}
+    </div>
+)`
+
+const jsxSwitchSnippet = `return (
+    <div>
+        {switch status.Get() {
+        case "loading":
+            <p>Loading...</p>
+        case "error":
+            <p>Error</p>
+        default:
+            <p>Done</p>
+        }}
+    </div>
+)`
+
+const jsxListSnippet = `func itemNode(t string) core.Node {
+    return (<li>{t}</li>)
+}
+
+func TodoList() core.Node {
+    todos := core.NewSignal([]string{"Buy milk", "Walk dog"})
+
+    items := func() []core.Node {
+        list := todos.Get()
+        nodes := make([]core.Node, len(list))
+        for i, t := range list {
+            t := t
+            nodes[i] = itemNode(t)
+        }
+        return nodes
+    }
+
+    return (
+        <ul>{items()...}</ul>
+    )
+}`
+
+const jsxKeyedListSnippet = `func todoNode(t todo) core.Node {
+    return (<li key={t.ID} className="todo-item">{t.Text}</li>)
+}
+
+func TodoList() core.Node {
+    todos := core.NewSignal([]todo{...})
+
+    items := func() []core.Node {
+        list := todos.Get()
+        nodes := make([]core.Node, len(list))
+        for i, t := range list {
+            nodes[i] = todoNode(t)
+        }
+        return nodes
+    }
+
+    return (
+        <ul>{items()...}</ul>
+    )
+}`
+
+func JSXSyntax() core.Node {
+	core.Head(func() core.HeadConfig {
+		return core.HeadConfig{
+			Title:       "JSX Syntax | Vane Docs",
+			Description: "Full prop/event table, JSX rules, inline for/if/switch, and reactive lists.",
+		}
+	})
+
+	items := jsxSyntaxTOCItems
+
+	return (
+		<div className="docs-page">
+			<article className="docs-article">
+				{docsHeader(
+					"Build Your UI",
+					"JSX Syntax",
+					"The HTML-like syntax inside .vane files is not JSX, it's Vane's own parser and compiler. This is the full prop/event table plus the rules for where it can and can't appear.",
+				)}
+
+				<h2 className="docs-h2" id="props-and-events">Props & events</h2>
+				<p className="docs-p"><strong>Props</strong></p>
+				{docsTable(
+					[]string{"Source", "What it does"},
+					[][]core.Node{
+						{code(`className="foo"`), core.Text("Static prop, set once")},
+						{code(`className={expr}`), core.Text("Reactive, updates when signals in expr change")},
+						{code(`style="color:red;font-size:14px"`), core.Text("Static inline CSS string")},
+						{code(`style={core.Style{Color:"red"}}`), core.Text("Reactive, re-applies when signals inside change")},
+						{code(`value={expr}`), core.Text("Reactive, cursor-preserving")},
+						{code(`disabled={expr}`), core.Text("Reactive")},
+					},
+				)}
+
+				<p className="docs-p"><strong>Events</strong></p>
+				{docsTable(
+					[]string{"Source", "Handler signature"},
+					[][]core.Node{
+						{code(`onClick={fn}`), code(`func(core.MouseEvent)`)},
+						{code(`onDblClick={fn}`), code(`func(core.MouseEvent)`)},
+						{code(`onInput={fn}`), core.Fragment(code(`func(core.InputEvent)`), core.Text(", every keystroke"))},
+						{code(`onChange={fn}`), core.Fragment(code(`func(core.InputEvent)`), core.Text(", committed value (select, text blur)"))},
+						{code(`onChecked={fn}`), core.Fragment(code(`func(core.CheckEvent)`), core.Text(", checkbox / radio"))},
+						{code(`onSubmit={fn}`), core.Fragment(code(`func(core.SubmitEvent)`), core.Text(", calls preventDefault automatically"))},
+						{code(`onKeyDown={fn}`), code(`func(core.KeyEvent)`)},
+						{code(`onKeyUp={fn}`), code(`func(core.KeyEvent)`)},
+						{code(`onFocus={fn}`), code(`func(core.Event)`)},
+						{code(`onBlur={fn}`), code(`func(core.Event)`)},
+						{code(`onMouseEnter={fn}`), code(`func(core.MouseEvent)`)},
+						{code(`onMouseLeave={fn}`), code(`func(core.MouseEvent)`)},
+						{code(`onScroll={fn}`), code(`func(core.Event)`)},
+						{code(`onPointerDown={fn}`), code(`func(core.MouseEvent)`)},
+						{code(`onPointerUp={fn}`), code(`func(core.MouseEvent)`)},
+						{code(`onPointerMove={fn}`), code(`func(core.MouseEvent)`)},
+						{code(`onTouchStart={fn}`), code(`func(core.TouchEvent)`)},
+						{code(`onTouchEnd={fn}`), code(`func(core.TouchEvent)`)},
+						{code(`onDragStart={fn}`), code(`func(core.Event)`)},
+						{code(`onDrop={fn}`), code(`func(core.Event)`)},
+					},
+				)}
+
+				<p className="docs-p"><strong>Refs</strong></p>
+				{docsTable(
+					[]string{"Source", "What it does"},
+					[][]core.Node{
+						{code(`ref={&myVar}`), core.Fragment(core.Text("Assigns the DOM node to "), code("myVar"), core.Text(" after creation"))},
+						{code(`ref={func(el core.Node){...}}`), core.Text("Calls func with the DOM node, synchronously, at creation")},
+					},
+				)}
+
+				<p className="docs-p"><strong>Children & control flow</strong></p>
+				{docsTable(
+					[]string{"Source", "What it does"},
+					[][]core.Node{
+						{code(`{expr}`), core.Text("Reactive child node")},
+						{code(`{slice...}`), core.Fragment(core.Text("Reactive list, keyed if nodes have a "), code("key"), core.Text(" prop"))},
+						{code(`key={expr}`), core.Fragment(core.Text("List reconciliation key, read by "), code("{slice...}"))},
+						{code(`{for ... { <jsx/> }}`), core.Text("Inline reactive loop")},
+						{code(`{if ... { <jsx/> }}`), core.Text("Inline reactive conditional")},
+						{code(`{switch ... { case: <jsx/> }}`), core.Text("Inline reactive switch")},
+						{code(`<></>`), core.Text("Fragment, groups nodes without a wrapper element")},
+					},
+				)}
+
+				<h2 className="docs-h2" id="jsx-rules">JSX rules</h2>
+				<p className="docs-p">
+					JSX is only compiled inside <code>return (...)</code> statements. Two patterns
+					that look valid will not compile.
+				</p>
+
+				<p className="docs-p"><strong>1. JSX in assignments.</strong> Extract to a named function instead:</p>
+				{components.CodeBlock("list.go", jsxRuleAssignSnippet)}
+
+				<p className="docs-p">
+					<strong>2. Uncalled func literals.</strong> A <code>func() core.Node {"{ ... }"}</code>{" "}
+					used as a JSX child is rescanned so a <code>return</code> with JSX inside it compiles,
+					but only if it's invoked immediately. Forgetting the trailing <code>()</code> leaves
+					the result unrendered and is a compile error:
+				</p>
+				{components.CodeBlock("inline.go", jsxRuleUncalledSnippet)}
+				{callout("tip", "Tip", "This is the same pattern vane init's starter template uses for its guard-clause greeting: an inline, immediately-called func() core.Node that returns nil when there's nothing to show. return nil inside it compiles to core.Empty(), an empty renderable node, safe to use for guard clauses.")}
+
+				<h2 className="docs-h2" id="return-nil">Early exits with return nil</h2>
+				<p className="docs-p">
+					<code>return nil</code> inside a function returning <code>core.Node</code>{" "}
+					is rewritten by the compiler to <code>return core.Empty()</code>, an idiomatic
+					guard clause instead of a nil pointer.
+				</p>
+				{components.CodeBlock("Modal.vane", jsxReturnNilSnippet)}
+				<p className="docs-p">
+					The rewrite is scoped to whichever <code>func</code> literal encloses
+					that <code>return nil</code>, so a <code>func() core.Node {"{ ... }"}</code>{" "}
+					nested inside another function gets rewritten on its own, not the
+					outer function. A closure whose own signature has <code>core.Node</code>
+					as a return type, such as an Effect's <code>{"func() func()"}</code> cleanup closure,
+					is left untouched.
+				</p>
+
+				<h2 className="docs-h2" id="inline-control-flow">Inline control flow</h2>
+				<p className="docs-p">
+					<code>{"{for ...}"}</code>, <code>{"{if ...}"}</code>, and <code>{"{switch ...}"}</code>{" "}
+					can appear directly as JSX children, compiled to reactive bindings. When signal
+					deps change, only the affected slot updates.
+				</p>
+
+				<p className="docs-p"><strong>for</strong></p>
+				{components.CodeBlock("TodoList.vane", jsxForSnippet)}
+				<p className="docs-p">
+					Go code before the JSX element runs per-iteration as setup. Add <code>key={"{t.id}"}</code> for
+					keyed reconciliation.
+				</p>
+
+				<p className="docs-p"><strong>if</strong></p>
+				{components.CodeBlock("loading.vane", jsxIfSnippet)}
+				<p className="docs-p">
+					<code>else if</code> chains work too, as many as needed. A missing <code>else</code> renders nothing.
+				</p>
+
+				<p className="docs-p"><strong>switch</strong></p>
+				{components.CodeBlock("status.vane", jsxSwitchSnippet)}
+
+				<ul className="docs-list">
+					<li>Each branch / loop iteration contains Go setup code (any number of statements) followed by one JSX element.</li>
+					<li>Multiple JSX nodes in one branch: wrap in <code>{"<>...</>"}</code> Fragment.</li>
+					<li><code>if</code>/<code>for</code>/<code>switch</code> inside the blocks are plain Go, no extra <code>{"{...}"}</code> delimiters.</li>
+					<li>These are reactive: signal reads anywhere in the expression re-run the whole closure.</li>
+				</ul>
+
+				<h2 className="docs-h2" id="reactive-lists">Reactive lists</h2>
+				<p className="docs-p">
+					Use <code>{"{items()...}"}</code> (spread) to render a reactive list. Build the
+					nodes in a separate function, JSX must be inside a <code>return</code>:
+				</p>
+				{components.CodeBlock("TodoList.vane", jsxListSnippet)}
+
+				<p className="docs-p">
+					Add <code>key={"{expr}"}</code> to the root element of each list item to switch{" "}
+					<code>{"{items()...}"}</code> to keyed reconciliation. A single-item change (add,
+					remove, reorder) then touches exactly one DOM node instead of rebuilding the
+					whole list:
+				</p>
+				{components.CodeBlock("TodoList.vane", jsxKeyedListSnippet)}
+				{callout("tip", "Tip", "Without key, {items()...} rebuilds the entire list on every change.")}
+
+				{pageNav("jsx-syntax")}
+			</article>
+			{toc(items)}
+		</div>
+	)
+}

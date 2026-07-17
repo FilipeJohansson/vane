@@ -1,0 +1,16 @@
+package pages
+
+import (
+	"github.com/filipejohansson/vane/core"
+	"github.com/filipejohansson/vane/core/router"
+)
+
+func NotFound() core.Node {
+	return (
+		<div className="page not-found">
+			<h1>404</h1>
+			<p>Page not found.</p>
+			{router.Link(router.LinkProps{To: "/"}, "← Back to Home")}
+		</div>
+	)
+}

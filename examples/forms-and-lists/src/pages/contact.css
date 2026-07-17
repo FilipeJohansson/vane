@@ -1,0 +1,78 @@
+.contact-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.form-label {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--muted);
+  letter-spacing: 0.02em;
+}
+
+.form-error {
+  font-size: 0.8rem;
+  color: #ef4444;
+}
+
+textarea.input {
+  resize: vertical;
+  min-height: 110px;
+  font-family: inherit;
+}
+
+.success-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 2.5rem 2rem;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+.success-card h2 {
+  font-size: 1.35rem;
+  color: #4ade80;
+}
+
+.success-card p {
+  color: var(--muted);
+  line-height: 1.5;
+  font-size: 0.95rem;
+  max-width: 340px;
+}
+
+.not-found {
+  text-align: center;
+  padding-top: 4rem;
+}
+
+.not-found h1 {
+  font-size: 5rem;
+  font-weight: 800;
+  color: var(--surface-2);
+  margin-bottom: 0.5rem;
+}
+
+.not-found p {
+  color: var(--hint);
+  margin-bottom: 1.5rem;
+}
+
+.not-found a {
+  color: var(--primary);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.not-found a:hover { text-decoration: underline; }

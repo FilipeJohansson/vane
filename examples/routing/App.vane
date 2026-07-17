@@ -1,0 +1,39 @@
+//go:build js && wasm
+
+package main
+
+import (
+	"github.com/filipejohansson/vane/core"
+	"github.com/filipejohansson/vane/core/router"
+	"example.com/routing/src/pages"
+)
+
+func App() core.Node {
+	return (
+		<div className="app">
+			<nav className="nav">
+				<span className="nav-brand">vane router</span>
+				<div className="nav-links">
+					{router.ActiveLink(router.ActiveLinkProps{
+						LinkProps:   router.LinkProps{To: "/", HTMLProps: core.HTMLProps{Class: "nav-link"}},
+						ActiveClass: "nav-link--active",
+					}, "Home")}
+					{router.ActiveLink(router.ActiveLinkProps{
+						LinkProps:   router.LinkProps{To: "/users", HTMLProps: core.HTMLProps{Class: "nav-link"}},
+						ActiveClass: "nav-link--active",
+					}, "Team")}
+				</div>
+			</nav>
+			<main>
+				{router.Router(
+					router.Route("/",   pages.Home, "Home"),
+					router.Layout("/users", pages.UsersLayout,
+						router.Route("",    pages.Users,      "Team"),
+						router.Route(":id", pages.UserDetail, "Member"),
+					),
+					router.Route("*", pages.NotFound),
+				)}
+			</main>
+		</div>
+	)
+}

@@ -1,0 +1,154 @@
+package docs
+
+import (
+	"github.com/filipejohansson/vane/core"
+
+	"vane-page/src/components"
+)
+
+const troubleshootingLoopSnippet = `// ✗ Set inside the Effect that reads the same signal, reschedules itself
+core.Effect(func() func() {
+    count.Set(count.Get() + 1)
+    return nil
+})`
+
+const troubleshootingLoopFixSnippet = `// ✓ write a signal the Effect doesn't itself read, or guard the write
+core.Effect(func() func() {
+    n := count.Get()
+    if n < max.Get() {
+        displayCount.Set(n) // separate signal, doesn't feed back into count
+    }
+    return nil
+})`
+
+const troubleshootingLoopConsoleSnippet = `[vane] vane: aborted after 10000 effect runs in a single flush, likely an
+infinite update loop (e.g. a signal Set called synchronously from its own
+dependent Effect, or from a ref callback before the element is attached to
+the DOM, see NextTick)`
+
+const troubleshootingRefSnippet = `<input
+    ref={func(el core.Node) {
+        core.Unwrap(el).Call("scrollIntoView") // no-op: el isn't in the document yet
+    }}
+/>`
+
+const troubleshootingRefFixSnippet = `<input
+    ref={func(el core.Node) {
+        core.NextTick(func() {
+            core.Unwrap(el).Call("scrollIntoView") // attached by now, works
+        })
+    }}
+/>`
+
+const troubleshootingPanicSnippet = `core.Effect(func() func() {
+    items := list.Get()
+    label.Set(items[selected.Get()].Name) // panics once selected is out of range
+    return nil
+})`
+
+const troubleshootingPortalSnippet = `core.Portal("#modal-root", func() core.Node {
+    return (<div className="modal">...</div>)
+})`
+
+const troubleshootingKeysSnippet = `func rowA() core.Node { return (<li key="a">First</li>) }
+func rowB() core.Node { return (<li key="a">Second</li>) } // same key as rowA
+
+items := func() []core.Node {
+    return []core.Node{rowA(), rowB()}
+}
+return (<ul>{items()...}</ul>)`
+
+func Troubleshooting() core.Node {
+	core.Head(func() core.HeadConfig {
+		return core.HeadConfig{
+			Title:       "Troubleshooting | Vane Docs",
+			Description: "Known gotchas: infinite reactive update loops, ref timing, silent effect panics, missing Portal targets, and DynList key warnings, and how to diagnose each in the console.",
+		}
+	})
+
+	items := troubleshootingTOCItems
+
+	return (
+		<div className="docs-page">
+			<article className="docs-article">
+				{docsHeader(
+					"Troubleshooting",
+					"Troubleshooting",
+					"Known gotchas, what actually happens under the hood when they hit, and how to tell from the browser console.",
+				)}
+
+				<h2 className="docs-h2" id="infinite-loops">Infinite reactive update loops</h2>
+				<p className="docs-p">
+					A <code>core.Effect</code> that <code>Set</code>s the same signal it
+					reads reschedules itself every time it runs, forever:
+				</p>
+				{components.CodeBlock("Counter.vane", troubleshootingLoopSnippet)}
+				<p className="docs-p">
+					Vane doesn't detect the cycle up front, but a per-flush watchdog caps it
+					at 10,000 effect runs, then drops the rest of the queue and logs instead
+					of hanging the single-threaded runtime:
+				</p>
+				{components.CodeBlock("console", troubleshootingLoopConsoleSnippet)}
+				<p className="docs-p">
+					Fix by writing to a signal the Effect doesn't itself read, or by
+					guarding the write so it stops feeding back into its own dependency:
+				</p>
+				{components.CodeBlock("Counter.vane", troubleshootingLoopFixSnippet)}
+				{callout("important", "Important", "10,000 runs still means the effect actually executed 10,000 times before Vane gave up, any side effect inside it (an HTTP call, a console.log) fires that many times too. Diagnose from the first few log lines, not from waiting for the abort message.")}
+
+				<h2 className="docs-h2" id="ref-timing">Ref timing</h2>
+				<p className="docs-p">
+					<code>core.Mount</code> builds the whole subtree by calling your render
+					function first, and only appends the result to the live document
+					afterward. A <code>ref</code> callback runs while its element is being
+					constructed, before that append happens, so anything that depends on
+					the element actually being in <code>document</code> silently no-ops or
+					returns zeroed values:
+				</p>
+				{components.CodeBlock("Field.vane", troubleshootingRefSnippet)}
+				<p className="docs-p">
+					<code>core.NextTick</code> defers the call past that point:
+				</p>
+				{components.CodeBlock("Field.vane", troubleshootingRefFixSnippet)}
+				{callout("tip", "Tip", "getBoundingClientRect, scrollIntoView, and focus are the usual symptoms, each one either returns all zeros or does nothing, with no error. See Refs & DOM for the full ref={&var} and ref={func(el core.Node){...}} forms.")}
+
+				<h2 className="docs-h2" id="silent-panics">Silent effect panics</h2>
+				<p className="docs-p">
+					A panicking <code>core.Effect</code> doesn't crash the app, Vane
+					recovers it and logs <code>[vane] effect panic: ...</code> to the
+					console. But the effect that panicked is also disposed permanently, it
+					never runs again, even after the signal it reads changes back to a
+					value that wouldn't have panicked:
+				</p>
+				{components.CodeBlock("List.vane", troubleshootingPanicSnippet)}
+				{callout("important", "Important", "Every binding this effect was updating just stops, silently, with no further errors after the one panic line. If a piece of UI looks frozen instead of erroring, check the console for a past effect panic before assuming the signal itself stopped changing.")}
+
+				<h2 className="docs-h2" id="portal-target">Portal target not found</h2>
+				<p className="docs-p">
+					<code>core.Portal</code> resolves its target with a plain{" "}
+					<code>querySelector</code>. When nothing matches, it logs{" "}
+					<code>[vane] core.Portal: target not found: #modal-root</code> and
+					renders nothing, there's no panic and no visible error in the UI itself:
+				</p>
+				{components.CodeBlock("Modal.vane", troubleshootingPortalSnippet)}
+				{callout("tip", "Tip", "This usually means the target element isn't in public/index.html yet, or a route change unmounted it before the Portal's own mount ran. See Portals for the full target resolution rules.")}
+
+				<h2 className="docs-h2" id="list-keys">DynList key warnings</h2>
+				<p className="docs-p">
+					Passing more than one key function, a key function returning the wrong
+					number of keys, or mixing keyed and unkeyed nodes in the same list all
+					log a <code>console.warn</code> and fall back to unkeyed rendering for
+					that update, nothing crashes. One case logs nothing at all: two nodes in
+					the same render sharing the same <code>key</code>. The second silently
+					overwrites the first in Vane's internal key-to-node map, so only one of
+					them ends up in the DOM:
+				</p>
+				{components.CodeBlock("List.vane", troubleshootingKeysSnippet)}
+				{callout("important", "Important", "A row missing from a keyed list with no warning anywhere is usually a duplicate key, not a filtering bug. Check that the key expression is actually unique per item, not just per render.")}
+
+				{pageNav("troubleshooting")}
+			</article>
+			{toc(items)}
+		</div>
+	)
+}

@@ -1,0 +1,17 @@
+package main
+
+import (
+	"github.com/filipejohansson/vane/core"
+	"github.com/filipejohansson/vane/examples/shared-store/src/components"
+)
+
+func App() core.Node {
+	return (
+		<div className="app">
+			{components.Navbar()}
+			<main className="main">
+				{components.Login()}
+			</main>
+		</div>
+	)
+}

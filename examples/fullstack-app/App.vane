@@ -1,0 +1,25 @@
+package main
+
+import (
+	"github.com/filipejohansson/vane/core"
+	"github.com/filipejohansson/vane/core/router"
+	"github.com/filipejohansson/vane/examples/fullstack-app/src/layouts"
+	"github.com/filipejohansson/vane/examples/fullstack-app/src/pages"
+	"github.com/filipejohansson/vane/examples/fullstack-app/src/store"
+)
+
+func App() core.Node {
+	store.RestoreSession()
+
+	return router.Router(
+		router.Route("/", pages.Home, "Fullstack app"),
+		router.Route("/login", pages.Login, "Log in"),
+		router.Route("/register", pages.Register, "Sign up"),
+		router.Layout("/dashboard", layouts.DashboardShell,
+			router.Route("", pages.Dashboard, "Dashboard"),
+			router.Route("users", pages.Users, "Users"),
+			router.Route("users/:id", pages.UserDetail, "User detail"),
+			router.Route("users/:id/notes", pages.UserNotes, "Notes"),
+		),
+	)
+}

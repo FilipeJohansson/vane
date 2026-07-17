@@ -1,0 +1,84 @@
+package docs
+
+import (
+	"github.com/filipejohansson/vane/core"
+
+	"vane-page/src/components"
+)
+
+const installGoInstallSnippet = `go install github.com/filipejohansson/vane@latest`
+
+const installVerifySnippet = `vane version`
+
+const installScaffoldSnippet = `mkdir myapp && cd myapp
+vane init github.com/you/myapp`
+
+const installRunSnippet = `vane run`
+
+func Installation() core.Node {
+	core.Head(func() core.HeadConfig {
+		return core.HeadConfig{
+			Title:       "Installation | Vane Docs",
+			Description: "Install the vane CLI, scaffold a new project, and run the dev server.",
+		}
+	})
+
+	items := installationTOCItems
+
+	return (
+		<div className="docs-page">
+			<article className="docs-article">
+				{docsHeader(
+					"Start a New Project",
+					"Installation",
+					"Install the CLI, scaffold a new project, and get the dev server running.",
+				)}
+
+				<h2 className="docs-h2" id="prerequisites">Prerequisites</h2>
+				<p className="docs-p">
+					Vane needs <code>Go 1.24</code> or later on your <code>PATH</code>. The CLI and
+					every project it scaffolds compile with the standard <code>GOOS=js GOARCH=wasm</code>{" "}
+					target, nothing else to install for the default build.
+				</p>
+				{callout("tip", "Tip", "TinyGo and wasm-opt are optional, used only for --tinygo and the automatic --release size optimization. Skip them for now, nothing else on this page needs them.")}
+
+				<h2 className="docs-h2" id="install-cli">Install the CLI</h2>
+				<p className="docs-p">
+					Install the <code>vane</code> binary the same way as any other Go tool:
+				</p>
+				{components.TerminalBlock("Terminal", installGoInstallSnippet)}
+				<p className="docs-p">
+					This installs to your Go bin directory (<code>$GOPATH/bin</code>, or{" "}
+					<code>$HOME/go/bin</code> by default), make sure it's on your <code>PATH</code>.
+					Confirm the install worked:
+				</p>
+				{components.TerminalBlock("Terminal", installVerifySnippet)}
+
+				<h2 className="docs-h2" id="create-project">Create a new project</h2>
+				<p className="docs-p">
+					Make an empty directory and run <code>vane init</code> inside it, same as{" "}
+					<code>go mod init</code>: pick a module path, <code>vane init</code>{" "}
+					scaffolds a complete project around it: <code>go.mod</code>,{" "}
+					<code>public/index.html</code>, <code>public/wasm_exec.js</code>,{" "}
+					<code>main.go</code>, <code>App.vane</code>, and starter components. See
+					Project Structure for what every generated file does.
+				</p>
+				{components.TerminalBlock("Terminal", installScaffoldSnippet)}
+
+				<h2 className="docs-h2" id="run-it">Run it</h2>
+				<p className="docs-p">
+					From inside the project, one command builds and serves it:
+				</p>
+				{components.TerminalBlock("Terminal", installRunSnippet)}
+				<p className="docs-p">
+					Open <code>{"http://localhost:8080"}</code>, that's the starter app. See
+					Develop & Build for the dev server's hot-reload behavior, production builds,
+					and deploying <code>dist/</code>.
+				</p>
+
+				{pageNav("installation")}
+			</article>
+			{toc(items)}
+		</div>
+	)
+}

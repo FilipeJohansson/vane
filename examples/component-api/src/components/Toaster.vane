@@ -1,0 +1,24 @@
+package components
+
+import (
+	"github.com/filipejohansson/vane/core"
+)
+
+func toastNode(tc toastItem, onDismiss func()) core.Node {
+	return (
+		<div key={tc.id} className={"toast toast-" + tc.kind}>
+			<span className="toast-msg">{tc.msg}</span>
+			<button className="toast-close" onClick={func(core.MouseEvent) { onDismiss() }}>x</button>
+		</div>
+	)
+}
+
+func Toaster(ctrl *ToasterCtrl) core.Node {
+	return (
+		<div className="toaster">
+			{for _, tc := range ctrl.items.Get() {
+				toastNode(tc, func() { ctrl.dismiss(tc.id) })
+			}}
+		</div>
+	)
+}

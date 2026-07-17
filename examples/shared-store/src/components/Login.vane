@@ -1,0 +1,29 @@
+package components
+
+import (
+	"github.com/filipejohansson/vane/core"
+	"github.com/filipejohansson/vane/examples/shared-store/src/store"
+)
+
+func Login() core.Node {
+	userName := core.NewSignal("")
+
+	return (
+		<div className="login-card">
+			<div className="login-title">Sign in</div>
+			<div className="login-hint">Enter your name to continue.</div>
+			<input
+				className="input"
+				placeholder="Your name…"
+				value={userName.Get()}
+				onInput={func(e core.InputEvent) { userName.Set(e.Value) }}
+			/>
+			<button
+				className="btn btn-primary"
+				onClick={func(core.MouseEvent) { store.User.Set(userName.Get()) }}
+			>
+				Login
+			</button>
+		</div>
+	)
+}

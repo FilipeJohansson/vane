@@ -1,0 +1,120 @@
+package docs
+
+import (
+	"github.com/filipejohansson/vane/core"
+
+	"vane-page/src/components"
+)
+
+const counterSnippet = `func Counter() core.Node {
+    count := core.NewSignal(0)
+
+    return (
+        <div>
+            <button onClick={func(core.MouseEvent) { count.Set(count.Get() + 1) }}>+1</button>
+            <p>Count: {count.Get()}</p>
+        </div>
+    )
+}`
+
+const effectSnippet = `core.Effect(func() func() {
+    core.SetRootAttribute("data-theme", theme.Get())
+    return nil
+})
+
+// Effect with cleanup: cleanup runs before each re-run and on unmount
+core.Effect(func() func() {
+    id := channelID.Get()
+    sub := store.Subscribe(id, handler)
+    return sub.Cancel
+})`
+
+const onDisposeSnippet = `func MyComp() core.Node {
+    ticker := time.NewTicker(time.Second)
+    core.OnDispose(ticker.Stop)
+
+    go func() {
+        for range ticker.C {
+            uptime.Set(uptime.Get() + 1)
+        }
+    }()
+
+    return (<div>{uptime.Get()}s</div>)
+}`
+
+const computedSnippet = `doubled := core.ComputedOf(func(prev int) int {
+    return count.Get() * 2
+})
+doubled.Get() // subscribes to doubled, not directly to count`
+
+const untrackSnippet = `core.Untrack(func() {
+    fmt.Println(s.Get()) // no subscription
+})`
+
+func Signals() core.Node {
+	core.Head(func() core.HeadConfig {
+		return core.HeadConfig{
+			Title:       "Signals & Reactivity | Vane Docs",
+			Description: "core.NewSignal, Effect, OnDispose, ComputedOf, and Untrack: Vane's fine-grained reactivity primitives.",
+		}
+	})
+
+	items := signalsTOCItems
+
+	return (
+		<div className="docs-page">
+			<article className="docs-article">
+				{docsHeader(
+					"Core Concepts",
+					"Signals & Reactivity",
+					"core.NewSignal creates reactive state. Each binding in JSX becomes its own Effect - when a signal changes, only that specific binding re-runs, not the whole component.",
+				)}
+
+				<h2 className="docs-h2" id="creating-signals">Creating signals</h2>
+				<p className="docs-p">
+					Call <code>core.NewSignal</code> with an initial value. Read it with <code>.Get()</code>, write it with <code>.Set()</code>.
+				</p>
+				{components.CodeBlock("Counter.vane", counterSnippet)}
+				<p className="docs-p">
+					When <code>count.Set(n)</code> is called, only the <code>{"<p>"}</code> text node updates in the real DOM. The <code>{"<button>"}</code> element is never touched.
+				</p>
+				{callout("tip", "Tip", "There's no component-level re-render to reason about: each binding is its own tiny Effect, wired directly to the signal it reads.")}
+
+				<h2 className="docs-h2" id="effect">Effect</h2>
+				<p className="docs-p">
+					Runs a side-effect reactively. Signal reads inside the function are auto-tracked. The returned function is called as cleanup before each re-run and on unmount.
+				</p>
+				{components.CodeBlock("effect.go", effectSnippet)}
+				<p className="docs-p">
+					Both examples read a signal (<code>theme.Get()</code>,
+					<code>channelID.Get()</code>): the Effect re-runs whenever
+					that signal changes. An Effect whose function reads no signal
+					has no dependency, so it never re-runs, its cleanup only ever
+					fires on unmount, the same as <code>OnDispose</code> below.
+				</p>
+
+				<h2 className="docs-h2" id="ondispose">OnDispose</h2>
+				<p className="docs-p">
+					Registers a cleanup function that runs when the component is disposed (unmount). Use it for non-reactive resources created during mount - timers, goroutines, subscriptions.
+				</p>
+				{components.CodeBlock("ticker.go", onDisposeSnippet)}
+				{callout("important", "Important", "OnDispose is for cleanup only, no reactivity. Reach for Effect when the setup itself needs to re-run on signal changes. A panic inside an Effect is recovered and logged, it doesn't crash the app.")}
+
+				<h2 className="docs-h2" id="computedof">ComputedOf</h2>
+				<p className="docs-p">
+					A derived read-only signal. Re-computes when its dependencies change and notifies its own subscribers.
+				</p>
+				{components.CodeBlock("computed.go", computedSnippet)}
+
+				<h2 className="docs-h2" id="untrack">Untrack</h2>
+				<p className="docs-p">
+					Reads a signal without creating a subscription - useful inside an Effect when you need a value but shouldn't re-run because of it.
+				</p>
+				{components.CodeBlock("untrack.go", untrackSnippet)}
+
+				{pageNav("signals")}
+			</article>
+			{toc(items)}
+		</div>
+	)
+}

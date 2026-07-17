@@ -1,0 +1,45 @@
+package pages
+
+import (
+	"github.com/filipejohansson/vane/core"
+	"github.com/filipejohansson/vane/core/router"
+
+	"vane-page/src/components"
+)
+
+// NotFound is the top-level catch-all, wired via router.Route("*", ...) in
+// App.vane. It only handles paths outside /docs, the docs section has its
+// own catch-all (docs.Stub -> docs.NotFound) styled to match the docs shell.
+func NotFound() core.Node {
+	core.Head(func() core.HeadConfig {
+		return core.HeadConfig{
+			Title:       "Page not found | Vane",
+			Description: "The page you're looking for doesn't exist.",
+		}
+	})
+
+	return (
+		<section className="notfound">
+			<div className="notfound-inner">
+				<div className="notfound-vane">
+					{components.LostVane()}
+				</div>
+				<span className="eyebrow">404</span>
+				<h1 className="notfound-title">Looks like you've wandered off the map.</h1>
+				<p className="notfound-desc">
+					This page doesn't exist, or it moved somewhere we haven't charted yet.
+				</p>
+				<div className="notfound-actions">
+					{router.Link(router.LinkProps{
+						To:        "/",
+						HTMLProps: core.HTMLProps{Class: "btn btn-primary"},
+					}, "Back home")}
+					{components.Button(components.ButtonProps{
+						Variant: "ghost",
+						Href:    "#/docs",
+					}, "Read the docs")}
+				</div>
+			</div>
+		</section>
+	)
+}

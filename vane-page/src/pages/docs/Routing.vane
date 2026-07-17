@@ -1,0 +1,145 @@
+package docs
+
+import (
+	"github.com/filipejohansson/vane/core"
+
+	"vane-page/src/components"
+)
+
+const basicRoutesSnippet = `func App() core.Node {
+    return router.Router(
+        router.Route("/",          Home,     "Home"),
+        router.Route("/about",     About,    "About"),
+        router.Route("/users/:id", UserPage, "User"),
+        router.Route("*",          NotFound),
+    )
+}`
+
+const paramsSnippet = `func UserPage() core.Node {
+    params := router.Params()
+    return (<h1>User {params.Get()["id"]}</h1>)
+}`
+
+const layoutSnippet = `func App() core.Node {
+    return router.Router(
+        router.Route("/", Home, "Home"),
+        router.Layout("/dashboard", DashboardShell,
+            router.Route("",          Dashboard,  "Dashboard"),
+            router.Route("users",     UserList,   "Users"),
+            router.Route("users/:id", UserDetail, "User"),
+        ),
+        router.Route("*", NotFound),
+    )
+}
+
+func DashboardShell() core.Node {
+    return (
+        <div className="shell">
+            <nav className="sidebar">
+                {router.Link(router.LinkProps{To: "/dashboard"}, "Overview")}
+                {router.Link(router.LinkProps{To: "/dashboard/users"}, "Users")}
+            </nav>
+            <main>{router.Outlet()}</main>
+        </div>
+    )
+}`
+
+const navigationSnippet = `router.Link(router.LinkProps{To: "/about"}, "About")
+
+func goToAbout() {
+    router.Navigate("/about")
+}`
+
+const navigationChildrenSnippet = `// Link/ActiveLink children accept core.Node as well as string
+router.Link(router.LinkProps{To: "/settings"}, icons.Gear(), "Settings")`
+
+const pathSignalSnippet = `path := router.Path() // reactive, read-only
+path.Get()             // e.g. "/dashboard/users/42"`
+
+const activeLinkSnippet = `router.ActiveLink(router.ActiveLinkProps{
+    LinkProps: router.LinkProps{
+        To:        "/users",
+        HTMLProps: core.HTMLProps{Class: "nav-link"},
+    },
+    ActiveClass: "nav-link--active",
+}, "Team")`
+
+func Routing() core.Node {
+	core.Head(func() core.HeadConfig {
+		return core.HeadConfig{
+			Title:       "Routing | Vane Docs",
+			Description: "Hash-based routing with router.Route, router.Layout, URL params, Link, and ActiveLink.",
+		}
+	})
+
+	items := routingTOCItems
+
+	return (
+		<div className="docs-page">
+			<article className="docs-article">
+				{docsHeader(
+					"Data & Navigation",
+					"Routing",
+					"A hash-based router. Components run once on mount, the previous route's effects are disposed on navigation.",
+				)}
+
+				<h2 className="docs-h2" id="basic-routes">Basic routes</h2>
+				<p className="docs-p">
+					<code>router.Router</code> renders the first matching entry for the current path.
+					<code>router.Route</code> accepts an optional title string, which sets{" "}
+					<code>document.title</code> on navigation.
+				</p>
+				{components.CodeBlock("App.vane", basicRoutesSnippet)}
+
+				<h2 className="docs-h2" id="url-params">URL params</h2>
+				<p className="docs-p">
+					<code>router.Params()</code> returns a reactive signal. Call it during component
+					setup, then read <code>.Get()</code> inside JSX bindings or effects to subscribe.
+				</p>
+				{components.CodeBlock("UserPage.vane", paramsSnippet)}
+				{callout("tip", "Tip", "The signal updates in-place when the same route pattern matches with different params - the component is not remounted.")}
+
+				<h2 className="docs-h2" id="layouts">Layouts</h2>
+				<p className="docs-p">
+					<code>router.Layout</code> keeps a shell component alive across sub-navigation.
+					Only the <code>router.Outlet()</code> slot updates. Child patterns are relative
+					to the layout prefix.
+				</p>
+				{components.CodeBlock("App.vane", layoutSnippet)}
+				{callout("important", "Important", "router.Outlet() returns the stable container the sub-router populates. It must be called synchronously during shell setup, not inside an Effect. Called anywhere else, including a component never passed to router.Layout as its shell, it logs a console warning and renders nothing instead of failing loudly.")}
+
+				<h2 className="docs-h2" id="navigation">Navigation</h2>
+				<p className="docs-p">
+					<code>router.Link</code> renders an anchor that navigates on click.{" "}
+					<code>router.Navigate</code> does the same thing programmatically.
+				</p>
+				{components.CodeBlock("nav.go", navigationSnippet)}
+				<p className="docs-p">
+					<code>router.Link</code> and <code>router.ActiveLink</code> accept <code>core.Node</code>
+					children as well as plain <code>strings</code>, so an icon component works as part of the label.
+				</p>
+				{components.CodeBlock("nav.go", navigationChildrenSnippet)}
+
+				<h2 className="docs-h2" id="active-link">ActiveLink</h2>
+				<p className="docs-p">
+					Same as <code>Link</code>, but reactively adds a class when the current path
+					matches <code>To</code>. Use it for navbars and sidebars that need to
+					highlight the current route.
+				</p>
+				{components.CodeBlock("nav.go", activeLinkSnippet)}
+				{callout("tip", "Tip", "\"/\" always uses exact match. Every other To prefix-matches by default, so /users is active on /users and /users/42 alike. Set Exact: true when To is a section index with its own sub-routes.")}
+
+				<h2 className="docs-h2" id="path-signal">Path signal</h2>
+				<p className="docs-p">
+					An escape hatch for manual routing logic: <code>router.Path()</code>{" "}
+					returns the current path as a reactive, read-only signal, for code
+					that needs the raw path string rather than matched params.
+				</p>
+				{components.CodeBlock("snippet.go", pathSignalSnippet)}
+
+				{pageNav("routing")}
+			</article>
+			{toc(items)}
+		</div>
+	)
+}

@@ -1,0 +1,31 @@
+package components
+
+import (
+	"time"
+
+	"github.com/filipejohansson/vane/core"
+)
+
+// CopyButton copies text to the clipboard and flashes a confirmation
+func CopyButton(text string) core.Node {
+	copied := core.NewSignal(false)
+
+	onClick := func(core.MouseEvent) {
+		_ = core.WriteClipboardText(text)
+		copied.Set(true)
+		go func() {
+			time.Sleep(1200 * time.Millisecond)
+			copied.Set(false)
+		}()
+	}
+
+	return (
+		<button className="copy-btn" type="button" aria-label="Copy command to clipboard" onClick={onClick}>
+			{if copied.Get() {
+				<span>Copied</span>
+			} else {
+				<span>Copy</span>
+			}}
+		</button>
+	)
+}

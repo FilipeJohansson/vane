@@ -1,0 +1,14 @@
+go 1.24.3
+
+use (
+	.
+	./examples/async-fetch
+	./examples/component-api
+	./examples/forms-and-lists
+	./examples/fullstack-app
+	./examples/lifecycle
+	./examples/reactive-showcase
+	./examples/routing
+	./examples/shared-store
+	./vane-page
+)

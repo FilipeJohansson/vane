@@ -1,0 +1,23 @@
+package components
+
+import (
+	"github.com/filipejohansson/vane/core"
+	"github.com/filipejohansson/vane/examples/shared-store/src/store"
+)
+
+func Navbar() core.Node {
+	userLabel := func() string {
+		u := store.User.Get()
+		if u == "" {
+			return "Not logged in"
+		}
+		return u
+	}
+
+	return (
+		<nav className="navbar">
+			<span className="nav-brand">shared-store</span>
+			<span className="nav-user">User: <strong>{userLabel()}</strong></span>
+		</nav>
+	)
+}

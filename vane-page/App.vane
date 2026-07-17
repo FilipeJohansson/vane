@@ -1,0 +1,51 @@
+package main
+
+import (
+	"vane-page/src/components"
+	"vane-page/src/layouts"
+	"vane-page/src/pages"
+	"vane-page/src/pages/docs"
+	"github.com/filipejohansson/vane/core"
+	"github.com/filipejohansson/vane/core/router"
+)
+
+func App() core.Node {
+	return (
+		<div className="app">
+			{components.Nav()}
+			<main className="main">
+				{router.Router(
+					router.Route("/", pages.Home, "Vane"),
+					router.Layout("/docs", layouts.DocsLayout,
+						router.Route("", docs.Overview, "Vane Docs"),
+						router.Route("signals", docs.Signals, "Signals & Reactivity | Vane Docs"),
+						router.Route("routing", docs.Routing, "Routing | Vane Docs"),
+						router.Route("components", docs.Components, "Components | Vane Docs"),
+						router.Route("concepts", docs.Concepts, "Concepts | Vane Docs"),
+						router.Route("portal", docs.Portal, "Portal | Vane Docs"),
+						router.Route("installation", docs.Installation, "Installation | Vane Docs"),
+						router.Route("jsx-syntax", docs.JSXSyntax, "JSX Syntax | Vane Docs"),
+						router.Route("project-structure", docs.ProjectStructure, "Project Structure | Vane Docs"),
+						router.Route("develop-and-build", docs.DevelopAndBuild, "Develop & Build | Vane Docs"),
+						router.Route("style", docs.Style, "Styles and CSS | Vane Docs"),
+						router.Route("store", docs.Store, "Global Store | Vane Docs"),
+						router.Route("refs-and-dom", docs.RefsAndDOM, "Refs & DOM | Vane Docs"),
+						router.Route("head", docs.Head, "Head Management | Vane Docs"),
+						router.Route("dos-and-donts", docs.DosAndDonts, "Do's and Don'ts | Vane Docs"),
+						router.Route("security", docs.Security, "Security | Vane Docs"),
+						router.Route("accessibility", docs.Accessibility, "Accessibility | Vane Docs"),
+						router.Route("error-boundary", docs.HandleErrors, "Handle Errors | Vane Docs"),
+						router.Route("patterns", docs.Patterns, "Patterns | Vane Docs"),
+						router.Route("data-fetching", docs.DataFetching, "Data Fetching | Vane Docs"),
+						router.Route("lucide-icons", docs.LucideIcons, "Add Lucide Icons | Vane Docs"),
+						router.Route("html-forms", docs.HTMLForms, "Build HTML Forms | Vane Docs"),
+						router.Route("troubleshooting", docs.Troubleshooting, "Troubleshooting | Vane Docs"),
+						router.Route(":slug", docs.Stub),
+					),
+					router.Route("*", pages.NotFound, "Not found | Vane"),
+				)}
+			</main>
+			{components.Footer()}
+		</div>
+	)
+}

@@ -1,0 +1,46 @@
+package components
+
+import "github.com/filipejohansson/vane/core"
+
+func Features() core.Node {
+	return (
+		<section className="section" id="features">
+			<div className="section-header">
+				<span className="eyebrow">Why Vane</span>
+				<h2 className="section-title">Built for direct, predictable updates</h2>
+			</div>
+			<div className="feature-grid">
+				<div className="feature-card">
+					<span className="feature-mark">01</span>
+					<h3 className="feature-title">No Virtual DOM</h3>
+					<p className="feature-desc">JSX compiles straight to <code>core.El</code> / <code>AppendChild</code> calls. There's nothing to diff.</p>
+				</div>
+				<div className="feature-card">
+					<span className="feature-mark">02</span>
+					<h3 className="feature-title">Fine-Grained Reactivity</h3>
+					<p className="feature-desc">Every <code>{"{expr}"}</code> is its own signal-driven Effect, not a component-level re-render.</p>
+				</div>
+				<div className="feature-card">
+					<span className="feature-mark">03</span>
+					<h3 className="feature-title">Own Compiler</h3>
+					<p className="feature-desc"><code>.vane</code> → <code>.go</code> with source maps, so Go errors and stack traces point back at your source.</p>
+				</div>
+				<div className="feature-card">
+					<span className="feature-mark">04</span>
+					<h3 className="feature-title">Plain Go Underneath</h3>
+					<p className="feature-desc">Components are Go functions returning <code>core.Node</code>. No new runtime to learn.</p>
+				</div>
+				<div className="feature-card">
+					<span className="feature-mark">05</span>
+					<h3 className="feature-title">Batteries Included</h3>
+					<p className="feature-desc">Router with layouts and params, accessibility helpers, portals, error boundaries, reactive head management.</p>
+				</div>
+				<div className="feature-card">
+					<span className="feature-mark">06</span>
+					<h3 className="feature-title">Hot Reload</h3>
+					<p className="feature-desc"><code>vane run</code> watches your source and updates the browser automatically.</p>
+				</div>
+			</div>
+		</section>
+	)
+}

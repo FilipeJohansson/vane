@@ -1,0 +1,92 @@
+package docs
+
+import (
+	"github.com/filipejohansson/vane/core"
+
+	"vane-page/src/components"
+)
+
+const securityTextSnippet = `// Always safe, comment is never parsed as markup, even
+// if it looks like a tag
+<p>{comment}</p>`
+
+const securityDangerousSnippet = `return (
+    <div>
+        <h1>{title}</h1>
+        {core.DangerousInnerHTML(sanitize(bodyHTML))}
+        <footer>...</footer>
+    </div>
+)`
+
+const securityBlockedSnippet = `<div innerHTML={untrusted} />
+// core.Warn: "innerHTML is not settable via a prop, since it silently
+// injects raw HTML with no XSS warning. Use core.DangerousInnerHTML(html)
+// as a child instead."`
+
+const securityURLSnippet = `<a href={userSuppliedURL}>Visit</a>
+// Not sanitized. If userSuppliedURL is "javascript:alert(1)", it runs on click.`
+
+func Security() core.Node {
+	core.Head(func() core.HeadConfig {
+		return core.HeadConfig{
+			Title:       "Security | Vane Docs",
+			Description: "Vane's default-safe rendering model, the DangerousInnerHTML escape hatch, and how URL props are handled.",
+		}
+	})
+
+	items := securityTOCItems
+
+	return (
+		<div className="docs-page">
+			<article className="docs-article">
+				{docsHeader(
+					"Best Practices",
+					"Security",
+					"Vane's default-safe rendering model, the DangerousInnerHTML escape hatch, and how URL props are handled.",
+				)}
+
+				<h2 className="docs-h2" id="the-default">The default: structurally safe</h2>
+				<p className="docs-p">
+					Text content and props never parse as markup. A signal or variable rendered as a
+					child goes through <code>document.createTextNode</code>, an attacker
+					putting <code>{"<img onerror=alert(1)>"}</code> in a comment field
+					renders as inert literal text, not an element:
+				</p>
+				{components.CodeBlock("Comment.vane", securityTextSnippet)}
+				{callout("tip", "Tip", "This holds for every {expr} child binding and every plain prop, no special-casing needed on the call site.")}
+
+				<h2 className="docs-h2" id="dangerousinnerhtml">DangerousInnerHTML</h2>
+				<p className="docs-p">
+					The one sanctioned way to inject raw markup, a rendered blog post
+					body, a CMS field, anything that's genuinely HTML rather than text.
+					It's deliberately not sugared into vane syntax, an explicit,
+					awkwardly-named function call that's easy to grep for during a
+					security review:
+				</p>
+				{components.CodeBlock("Post.vane", securityDangerousSnippet)}
+				{callout("important", "Important", "html is inserted via a <template>'s innerHTML and the browser parses it as real markup. Never pass user-controlled input here unsanitized, that's a textbook XSS vulnerability. <script> tags don't execute (a documented quirk of innerHTML parsing), but event handler attributes like onclick=\"...\" and other markup-based vectors still do. Vane doesn't ship a sanitizer, run untrusted HTML through one (e.g. DOMPurify via a WASM/JS interop call) before this.")}
+
+				<h2 className="docs-h2" id="blocked-innerhtml-prop">The blocked innerHTML/outerHTML prop</h2>
+				<p className="docs-p">
+					Setting <code>innerHTML</code>/<code>outerHTML</code> as a plain prop
+					would be a second, undocumented injection path, same browser parsing
+					behavior as <code>DangerousInnerHTML</code>, but with no "dangerous"
+					naming to flag the risk and no warning at the call site. Vane blocks
+					both keys in the generic prop setter instead of passing them through:
+				</p>
+				{components.CodeBlock("unsafe.vane", securityBlockedSnippet)}
+
+				<h2 className="docs-h2" id="url-props">URL props (href, src)</h2>
+				<p className="docs-p">
+					<code>href</code>/<code>src</code> values are set as plain props, passed
+					through exactly as given, with no scheme check:
+				</p>
+				{components.CodeBlock("Link.vane", securityURLSnippet)}
+				{callout("important", "Important", "Validate the scheme yourself before putting untrusted input into href/src, allow http:/https:/mailto:, reject the rest. A javascript: URL runs on click, same as any other attribute Vane doesn't specifically wrap in a check.")}
+
+				{pageNav("security")}
+			</article>
+			{toc(items)}
+		</div>
+	)
+}

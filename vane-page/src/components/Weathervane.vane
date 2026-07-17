@@ -1,0 +1,81 @@
+package components
+
+import (
+	"fmt"
+	"math"
+
+	"github.com/filipejohansson/vane/core"
+)
+
+// Static frame: a compass ring with N/E/S/W ticks. Never rotates, it's
+// the fixed reference the needle points against.
+const weathervaneRingSVG = `<svg viewBox="0 0 100 100" fill="none" stroke="currentColor" stroke-linecap="round">
+	<circle cx="50" cy="50" r="40" stroke-width="2.5" stroke-opacity="0.3" />
+	<line x1="50" y1="3" x2="50" y2="15" stroke-width="2" stroke-opacity="0.55" />
+	<line x1="50" y1="85" x2="50" y2="97" stroke-width="2" stroke-opacity="0.55" />
+	<line x1="3" y1="50" x2="15" y2="50" stroke-width="2" stroke-opacity="0.55" />
+	<line x1="85" y1="50" x2="97" y2="50" stroke-width="2" stroke-opacity="0.55" />
+</svg>`
+
+// Rotating needle: arrow head at N, small fin at S, pivot dot at center.
+const weathervaneNeedleSVG = `<svg viewBox="0 0 100 100" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+	<path d="M50 22 L50 79" />
+	<path d="M50 18 L38 40 L50 33 L62 40 Z" fill="currentColor" stroke="none" />
+	<path d="M50 82 L44 69 L50 73 L56 69 Z" fill="currentColor" stroke="none" />
+	<circle cx="50" cy="50" r="5" fill="var(--bg)" stroke="currentColor" stroke-width="2.5" />
+</svg>`
+
+// Weathervane renders the brand mark: a slowly-spinning vane whose tilt
+// tracks the pointer and whose base rotation drifts with scroll position.
+func Weathervane() core.Node {
+	tiltX := core.NewSignal(0.0)
+	tiltY := core.NewSignal(0.0)
+	scrollTilt := core.NewSignal(0.0)
+
+	core.OnWindowMouseMove(func(e core.MouseEvent) {
+		w, h := core.Viewport()
+		if w > 0 {
+			tiltY.Set(((e.ClientX / w) - 0.5) * 18)
+		}
+		if h > 0 {
+			tiltX.Set(((e.ClientY / h) - 0.5) * -18)
+		}
+	})
+
+	core.OnWindowEvent("scroll", func(core.Event) {
+		scrollTilt.Set(math.Min(core.ScrollY()*0.06, 28))
+	})
+
+	return (
+		<div
+			className="vane-icon"
+			aria-hidden="true"
+			style={core.Style{
+				Transform: fmt.Sprintf(
+					"perspective(700px) rotateX(%.2fdeg) rotateY(%.2fdeg) rotateZ(%.2fdeg)",
+					tiltX.Get(), tiltY.Get(), scrollTilt.Get(),
+				),
+			}}
+		>
+			<div className="vane-icon-ring">
+				{core.DangerousInnerHTML(weathervaneRingSVG)}
+			</div>
+			<div className="vane-icon-spin">
+				{core.DangerousInnerHTML(weathervaneNeedleSVG)}
+			</div>
+		</div>
+	)
+}
+
+func LostVane() core.Node {
+	return (
+		<div className="vane-icon vane-icon--lost" aria-hidden="true">
+			<div className="vane-icon-ring">
+				{core.DangerousInnerHTML(weathervaneRingSVG)}
+			</div>
+			<div className="vane-icon-spin">
+				{core.DangerousInnerHTML(weathervaneNeedleSVG)}
+			</div>
+		</div>
+	)
+}

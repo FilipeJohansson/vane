@@ -1,0 +1,27 @@
+package pages
+
+import (
+	"vane-page/src/components"
+	"github.com/filipejohansson/vane/core"
+)
+
+func Home() core.Node {
+	core.Head(func() core.HeadConfig {
+		return core.HeadConfig{
+			Title:       "Vane | Go web apps",
+			Description: "Vane compiles Go + JSX to WebAssembly. No virtual DOM, no diffing: fine-grained reactivity, direct DOM updates.",
+		}
+	})
+
+	return (
+		<>
+			{components.Hero()}
+			{components.FeatureTabs()}
+			{components.Features()}
+			{components.Proof()}
+			{components.DocsCards()}
+			{components.Examples()}
+			{components.CommunityCTA()}
+		</>
+	)
+}
