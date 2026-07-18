@@ -51,3 +51,6 @@ install-hooks:
 
 clean:
 	del /f vane.exe 2>nul || true
+
+build-vscode-extension:
+	cd tools/vscode-vane && npx @vscode/vsce package

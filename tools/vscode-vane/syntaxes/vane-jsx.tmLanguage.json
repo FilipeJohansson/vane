@@ -1,0 +1,96 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "scopeName": "source.vane.jsx",
+  "injectionSelector": "L:source.vane -comment -string",
+  "patterns": [
+    { "include": "#jsx-fragment" },
+    { "include": "#jsx-element" }
+  ],
+  "repository": {
+
+    "jsx-fragment": {
+      "name": "meta.tag.vane",
+      "begin": "(<)(>)",
+      "beginCaptures": {
+        "1": { "name": "punctuation.definition.tag.begin.vane" },
+        "2": { "name": "punctuation.definition.tag.end.vane" }
+      },
+      "end": "(</)(>)",
+      "endCaptures": {
+        "1": { "name": "punctuation.definition.tag.begin.vane" },
+        "2": { "name": "punctuation.definition.tag.end.vane" }
+      },
+      "patterns": [
+        { "include": "#jsx-text" },
+        { "include": "source.go" }
+      ]
+    },
+
+    "jsx-element": {
+      "name": "meta.tag.vane",
+      "begin": "(<)([a-z][a-zA-Z0-9.-]*)",
+      "beginCaptures": {
+        "1": { "name": "punctuation.definition.tag.begin.vane" },
+        "2": { "name": "entity.name.tag.html" }
+      },
+      "end": "(/>)|(</)(\\2)(\\s*)(>)",
+      "endCaptures": {
+        "1": { "name": "punctuation.definition.tag.end.vane" },
+        "2": { "name": "punctuation.definition.tag.begin.vane" },
+        "3": { "name": "entity.name.tag.html" },
+        "5": { "name": "punctuation.definition.tag.end.vane" }
+      },
+      "patterns": [
+        { "include": "#jsx-attribute-expression" },
+        { "include": "#jsx-attribute-string" },
+        { "include": "#jsx-attribute-bare" },
+        { "include": "#jsx-attribute-separator" },
+        { "include": "#jsx-text" },
+        { "include": "source.go" }
+      ]
+    },
+
+    "jsx-attribute-separator": {
+      "comment": "Whitespace between attributes (or between the tag name and its first attribute). Without this, jsx-text's [^<{]+ would also match starting on that whitespace, and since it doesn't stop at word boundaries it would greedily swallow the attribute name/value that follows before the attribute rules above ever get a chance.",
+      "match": "\\s+"
+    },
+
+    "jsx-text": {
+      "comment": "Plain text between tags (JSX children). Matches anything up to the next '<' or '{' so it never falls through to the base Go grammar, which would otherwise treat a lone apostrophe (e.g. \"Here's\", \"Don't\") as an unterminated rune literal and highlight everything after it as a string until the next stray quote.",
+      "match": "[^<{]+"
+    },
+
+    "jsx-attribute-expression": {
+      "name": "meta.tag.attribute.vane",
+      "begin": "([a-zA-Z_][a-zA-Z0-9_:-]*)\\s*(=)\\s*(\\{)",
+      "beginCaptures": {
+        "1": { "name": "entity.other.attribute-name" },
+        "2": { "name": "punctuation.separator.key-value" },
+        "3": { "name": "punctuation.section.embedded.begin" }
+      },
+      "end": "\\}",
+      "endCaptures": {
+        "0": { "name": "punctuation.section.embedded.end" }
+      },
+      "patterns": [
+        { "include": "source.go" }
+      ]
+    },
+
+    "jsx-attribute-string": {
+      "name": "meta.tag.attribute.vane",
+      "match": "([a-zA-Z_][a-zA-Z0-9_:-]*)\\s*(=)\\s*(\"(?:[^\"]|\\\\.)*\")",
+      "captures": {
+        "1": { "name": "entity.other.attribute-name" },
+        "2": { "name": "punctuation.separator.key-value" },
+        "3": { "name": "string.quoted.double" }
+      }
+    },
+
+    "jsx-attribute-bare": {
+      "name": "entity.other.attribute-name",
+      "match": "[a-zA-Z_][a-zA-Z0-9_:-]*(?=\\s|/?>)"
+    }
+
+  }
+}

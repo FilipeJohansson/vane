@@ -24,6 +24,7 @@ import (
 
 	"github.com/filipejohansson/vane/internal/compiler"
 	"github.com/filipejohansson/vane/internal/hotreload"
+	"github.com/filipejohansson/vane/internal/lsp"
 )
 
 // ANSI color codes, disabled when NO_COLOR is set or terminal doesn't support them.
@@ -216,8 +217,8 @@ func main() {
 			os.Exit(1)
 		}
 		err = cmdCompile(os.Args[2])
-	// case "lsp":
-	// 	err = lsp.Serve(os.Stdin, os.Stdout)
+	case "lsp":
+		err = lsp.Serve(os.Stdin, os.Stdout)
 	case "version", "--version", "-v":
 		v := vaneVersion()
 		if v == "" {
