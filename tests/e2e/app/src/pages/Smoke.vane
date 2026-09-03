@@ -1,0 +1,7 @@
+package pages
+
+import "github.com/filipejohansson/vane/core"
+
+func Smoke() core.Node {
+	return <div data-testid="app-ready">ready</div>
+}

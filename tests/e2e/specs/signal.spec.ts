@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test'
 
 test('updates the DOM when a signal changes', async ({ page }) => {
-  await page.goto('/')
+  await page.goto('/#/signals')
 
   const count = page.getByTestId('signal-count')
 

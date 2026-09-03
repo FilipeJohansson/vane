@@ -1,28 +1,25 @@
 package main
 
 import (
+	"vane-e2e-app/src/pages"
+
 	"github.com/filipejohansson/vane/core"
 	"github.com/filipejohansson/vane/core/router"
-	"vane-e2e-app/src/components"
-	"vane-e2e-app/src/pages"
 )
 
 func App() core.Node {
 	return (
-		<div className="app">
-			<nav className="nav">
-				<a href="#/" className="nav-brand">Vane</a>
-				<div className="nav-links">
-					{components.NavLink("/", "Home")}
-					{components.NavLink("/about", "About")}
-				</div>
+		<div>
+			<nav aria-label="Test pages">
+				<a href="#/smoke">Smoke</a>
+				<a href="#/signals">Signals</a>
+				<a href="#/events">Events</a>
 			</nav>
-			<main className="main">
-				{router.Router(
-					router.Route("/", pages.Home, "Home - Vane starter"),
-					router.Route("/about", pages.About, "About - Vane starter"),
-				)}
-			</main>
+			{router.Router(
+				router.Route("/smoke", pages.Smoke, "Smoke - Vane E2E"),
+				router.Route("/signals", pages.Signals, "Signals - Vane E2E"),
+				router.Route("/events", pages.Events, "Events - Vane E2E"),
+			)}
 		</div>
 	)
 }

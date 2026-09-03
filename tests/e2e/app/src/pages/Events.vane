@@ -1,0 +1,17 @@
+package pages
+
+import "github.com/filipejohansson/vane/core"
+
+func Events() core.Node {
+	name := core.NewSignal("")
+
+	return (
+		<section aria-label="Input events">
+			<label>
+				Name
+				<input aria-label="Name" onInput={func(e core.InputEvent) { name.Set(e.Value) }} />
+			</label>
+			<div data-testid="input-output">{name.Get()}</div>
+		</section>
+	)
+}

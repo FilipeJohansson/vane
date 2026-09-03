@@ -1,0 +1,15 @@
+package pages
+
+import "github.com/filipejohansson/vane/core"
+
+func Signals() core.Node {
+	count := core.NewSignal(0)
+
+	return (
+		<section aria-label="Signal reactivity">
+			<button onClick={func(core.MouseEvent) { count.Set(count.Get() - 1) }}>-</button>
+			<span data-testid="signal-count">{count.Get()}</span>
+			<button onClick={func(core.MouseEvent) { count.Set(count.Get() + 1) }}>+</button>
+		</section>
+	)
+}
