@@ -1,0 +1,11 @@
+package pages
+
+import (
+	"github.com/filipejohansson/vane/core"
+	"github.com/filipejohansson/vane/core/router"
+)
+
+func User() core.Node {
+	params := router.Params()
+	return <div data-testid="user-id">{params.Get()["id"]}</div>
+}
