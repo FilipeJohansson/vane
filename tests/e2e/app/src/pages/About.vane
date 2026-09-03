@@ -1,0 +1,44 @@
+package pages
+
+import (
+	"github.com/filipejohansson/vane/core"
+	"vane-e2e-app/src/store"
+)
+
+type feature struct {
+	name string
+	desc string
+}
+
+func About() core.Node {
+	features := []feature{
+		{"Signals", "Fine-grained reactivity. Only what changed re-renders."},
+		{"JSX in Go", "Familiar component syntax, full Go type safety."},
+		{"Router", "Hash-based SPA routing with layouts and nested routes."},
+		{"Store", "Global state management with signals and computed values."},
+	}
+
+	return (
+		<div className="page">
+			<h1 className="page-title">About Vane</h1>
+			{func() core.Node {
+				if n := store.Name.Get(); n != "" {
+					return (<p className="page-desc">Nice to meet you, {n}.</p>)
+				}
+				return nil
+			}()}
+			<p className="page-desc">
+				Vane is a reactive frontend framework for Go. Write components in Go + JSX syntax,
+				compile to WebAssembly, ship to any browser.
+			</p>
+			<ul className="feature-list">
+				{for _, f := range features {
+					<li><strong>{f.name}</strong>: {f.desc}</li>
+				}}
+			</ul>
+			<p className="page-desc">
+				Run <code>vane build .</code> to compile, <code>vane run .</code> to preview.
+			</p>
+		</div>
+	)
+}

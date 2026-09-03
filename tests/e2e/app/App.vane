@@ -1,0 +1,28 @@
+package main
+
+import (
+	"github.com/filipejohansson/vane/core"
+	"github.com/filipejohansson/vane/core/router"
+	"vane-e2e-app/src/components"
+	"vane-e2e-app/src/pages"
+)
+
+func App() core.Node {
+	return (
+		<div className="app">
+			<nav className="nav">
+				<a href="#/" className="nav-brand">Vane</a>
+				<div className="nav-links">
+					{components.NavLink("/", "Home")}
+					{components.NavLink("/about", "About")}
+				</div>
+			</nav>
+			<main className="main">
+				{router.Router(
+					router.Route("/", pages.Home, "Home - Vane starter"),
+					router.Route("/about", pages.About, "About - Vane starter"),
+				)}
+			</main>
+		</div>
+	)
+}
