@@ -1787,6 +1787,12 @@ func (em *emitter) emitIfCtrl(raw, parentVar string, basePos int) {
 		if rest == "" {
 			break
 		}
+		// Absolute position of the branch keyword ("if"/"else if"/"else") that
+		// starts this iteration's rest, used below to emit a //line directive
+		// for each header so VaneToGo maps the branch condition directly to
+		// its own statement (not to the DynChild wrapper or a sibling branch),
+		// same fix as {for}'s header (see emitForCtrl).
+		condPos := basePos + em.posOffset + (len(raw) - len(rest))
 
 		if first && strings.HasPrefix(rest, "if ") {
 			rest = rest[3:]
@@ -1807,6 +1813,9 @@ func (em *emitter) emitIfCtrl(raw, parentVar string, basePos int) {
 			if err != nil {
 				em.err = fmt.Errorf("if scan: %w", err)
 				return
+			}
+			if em.filename != "" {
+				fmt.Fprintf(&out, "//line %s:%d\n", em.filename, lineAt(em.src, condPos))
 			}
 			fmt.Fprintf(&out, "\t\tif %s {\n", cond)
 			em.emitBranchParts(parts, &out, bodyAbsStart(em.src, basePos+em.posOffset, body))
@@ -1835,6 +1844,9 @@ func (em *emitter) emitIfCtrl(raw, parentVar string, basePos int) {
 				em.err = fmt.Errorf("else if scan: %w", err)
 				return
 			}
+			if em.filename != "" {
+				fmt.Fprintf(&out, "//line %s:%d\n", em.filename, lineAt(em.src, condPos))
+			}
 			fmt.Fprintf(&out, "\t\t} else if %s {\n", cond)
 			em.emitBranchParts(parts, &out, bodyAbsStart(em.src, basePos+em.posOffset, body))
 			rest = strings.TrimSpace(remaining)
@@ -1855,6 +1867,9 @@ func (em *emitter) emitIfCtrl(raw, parentVar string, basePos int) {
 			if err != nil {
 				em.err = fmt.Errorf("else scan: %w", err)
 				return
+			}
+			if em.filename != "" {
+				fmt.Fprintf(&out, "//line %s:%d\n", em.filename, lineAt(em.src, condPos))
 			}
 			out.WriteString("\t\t} else {\n")
 			em.emitBranchParts(parts, &out, bodyAbsStart(em.src, basePos+em.posOffset, body))
@@ -1899,6 +1914,12 @@ func (em *emitter) emitSwitchCtrl(raw, parentVar string, basePos int) {
 
 	var out strings.Builder
 	fmt.Fprintf(&out, "\tcore.DynChild(%s, func() any {\n", parentVar)
+	// Emit //line before the switch header so VaneToGo maps the {switch} vane
+	// line directly to the switch statement (not to the DynChild wrapper above
+	// it), same fix as {for}'s header (see emitForCtrl).
+	if em.filename != "" {
+		fmt.Fprintf(&out, "//line %s:%d\n", em.filename, lineAt(em.src, basePos+em.posOffset))
+	}
 	if expr != "" {
 		fmt.Fprintf(&out, "\t\tswitch %s {\n", expr)
 	} else {

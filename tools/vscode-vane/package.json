@@ -10,11 +10,21 @@
   },
   "engines": { "vscode": "^1.75.0" },
   "categories": ["Programming Languages"],
+  "icon": "icon.png",
   "main": "./extension.js",
   "activationEvents": [
     "onLanguage:vane"
   ],
   "contributes": {
+    "configurationDefaults": {
+      "go.toolsEnvVars": {
+        "GOOS": "js",
+        "GOARCH": "wasm"
+      },
+      "files.exclude": {
+        "**/*_vane.go": true
+      }
+    },
     "commands": [
       {
         "command": "vane.restartLanguageServer",

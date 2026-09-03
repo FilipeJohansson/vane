@@ -126,6 +126,82 @@ func Serve(editorIn io.Reader, editorOut io.Writer) error {
 							}
 						}
 
+					case "textDocument/documentHighlight":
+						// DocumentHighlight entries carry no URI of their own (just
+						// range+kind), so the generic Location-shaped handling in
+						// translateResponsePos never matches them and these ranges
+						// were passed straight through in go-coordinates: "highlight
+						// all occurrences" landed on unrelated/out-of-bounds lines
+						// in the .vane buffer. Translate using the request's vaneURI.
+						if len(resp.Result) > 0 && string(resp.Result) != "null" && info.vaneURI != "" {
+							if newResult, changed := translateDocumentHighlightResultJSON(info.vaneURI, info.reqGoLine, info.reqGoCol, resp.Result, store); changed {
+								var full map[string]json.RawMessage
+								if json.Unmarshal(msg, &full) == nil {
+									full["result"] = newResult
+									if rebuilt, err2 := json.Marshal(full); err2 == nil {
+										msg = Message(rebuilt)
+									}
+								}
+							}
+						}
+
+					case "textDocument/documentSymbol":
+						// Every symbol's range/selectionRange (and location.range for the
+						// older SymbolInformation[] shape) is in go-coordinates and carries
+						// no URI to catch via the generic Location handling below: the
+						// Outline panel, breadcrumbs, and Ctrl+Shift+O showed entries
+						// pointing at the wrong line (or a line past the end of the .vane
+						// file entirely) in every .vane file, confirmed live.
+						if len(resp.Result) > 0 && string(resp.Result) != "null" && info.vaneURI != "" {
+							if newResult, changed := translateDocumentSymbolResultJSON(info.vaneURI, resp.Result, store); changed {
+								var full map[string]json.RawMessage
+								if json.Unmarshal(msg, &full) == nil {
+									full["result"] = newResult
+									if rebuilt, err2 := json.Marshal(full); err2 == nil {
+										msg = Message(rebuilt)
+									}
+								}
+							}
+						}
+
+					case "textDocument/foldingRange":
+						// FoldingRange uses flat startLine/endLine integers (no nested
+						// range, no URI), so this was never translated either: code
+						// folding markers in the gutter landed on unrelated or
+						// out-of-bounds lines in the .vane file.
+						if len(resp.Result) > 0 && string(resp.Result) != "null" && info.vaneURI != "" {
+							if newResult, changed := translateFoldingRangeResultJSON(info.vaneURI, resp.Result, store); changed {
+								var full map[string]json.RawMessage
+								if json.Unmarshal(msg, &full) == nil {
+									full["result"] = newResult
+									if rebuilt, err2 := json.Marshal(full); err2 == nil {
+										msg = Message(rebuilt)
+									}
+								}
+							}
+						}
+
+					case "textDocument/prepareRename":
+						// prepareRename's Range (bare, or wrapped in {range,placeholder})
+						// has no URI either, so it was silently left in go-coordinates:
+						// F2 rename would validate/select against the wrong span in the
+						// .vane buffer, off by however many lines the compiled preamble
+						// added, confirmed live (looked plausible, was consistently off
+						// by a couple of lines, exactly the untranslated-position symptom).
+						// The actual rename edit itself is a WorkspaceEdit, already handled
+						// by translateResponsePos below; this only fixes the prepare step.
+						if len(resp.Result) > 0 && string(resp.Result) != "null" && info.vaneURI != "" {
+							if newResult, changed := translatePrepareRenameResultJSON(info.vaneURI, resp.Result, store); changed {
+								var full map[string]json.RawMessage
+								if json.Unmarshal(msg, &full) == nil {
+									full["result"] = newResult
+									if rebuilt, err2 := json.Marshal(full); err2 == nil {
+										msg = Message(rebuilt)
+									}
+								}
+							}
+						}
+
 					case "textDocument/codeAction":
 						// Each CodeAction in the response can carry a directly-embedded
 						// WorkspaceEdit (e.g. gopls's "organize imports" quick fix) in
@@ -177,10 +253,29 @@ func Serve(editorIn io.Reader, editorOut io.Writer) error {
 	return nil
 }
 
+// methodsNeedingVaneURI lists request methods whose gopls response is
+// translated by method-specific logic in the response-handling switch (see
+// proxyEditorToGopls's gopls->editor pipeline), and therefore need the
+// request's vaneURI captured so that translation can find the right
+// document's source map.
+var methodsNeedingVaneURI = map[string]bool{
+	"textDocument/hover":             true,
+	"textDocument/completion":        true,
+	"textDocument/codeAction":        true,
+	"textDocument/documentHighlight": true,
+	"textDocument/documentSymbol":    true,
+	"textDocument/foldingRange":      true,
+	"textDocument/prepareRename":     true,
+}
+
 // pendingInfo holds per-request state for the gopls response handler.
 type pendingInfo struct {
 	method  string
 	vaneURI string // normalized vane URI, set for hover requests
+	// reqGoLine/reqGoCol are the go-coordinate position sent to gopls for a
+	// textDocument/documentHighlight request. Used to filter gopls's response:
+	// see translateDocumentHighlightResultJSON.
+	reqGoLine, reqGoCol int
 }
 
 // rpcMsg is a minimal JSONRPC message envelope for method/id extraction.
@@ -336,10 +431,10 @@ func proxyEditorToGopls(src *bufio.Reader, goplsIn io.Writer, editorOut io.Write
 		// Track outgoing requests so the response side can log and translate by method.
 		if env.ID != nil && env.Method != "" {
 			info := pendingInfo{method: env.Method}
-			// For hover, completion, and codeAction, also capture the vane URI (before
-			// vaneToVirtual rewrote it) so the response handler can translate returned
-			// ranges back to vane coords.
-			if env.Method == "textDocument/hover" || env.Method == "textDocument/completion" || env.Method == "textDocument/codeAction" {
+			// For methods whose response is translated by the switch below, also
+			// capture the vane URI (before vaneToVirtual rewrote it) so that
+			// translation can find the right document's source map.
+			if methodsNeedingVaneURI[env.Method] {
 				var wrapper struct {
 					Params struct {
 						TextDocument struct {
@@ -356,6 +451,17 @@ func proxyEditorToGopls(src *bufio.Reader, goplsIn io.Writer, editorOut io.Write
 					if strings.HasSuffix(vURI, "_vane.go") {
 						vaneURI := vURI[:len(vURI)-len("_vane.go")] + ".vane"
 						info.vaneURI = normalizeFileURI(vaneURI)
+					}
+				}
+				if env.Method == "textDocument/documentHighlight" {
+					var posWrapper struct {
+						Params struct {
+							Position *lspPos `json:"position,omitempty"`
+						} `json:"params"`
+					}
+					if json.Unmarshal(msg, &posWrapper) == nil && posWrapper.Params.Position != nil {
+						info.reqGoLine = posWrapper.Params.Position.Line
+						info.reqGoCol = posWrapper.Params.Position.Character
 					}
 				}
 			}
@@ -689,6 +795,13 @@ func isJSXTagNamePos(msg Message, store *docStore) bool {
 // isIdentByte reports whether b can appear in a Go/vane identifier.
 func isIdentByte(b byte) bool {
 	return (b >= 'a' && b <= 'z') || (b >= 'A' && b <= 'Z') || (b >= '0' && b <= '9') || b == '_'
+}
+
+// isSyntheticVaneIdent reports whether ident is a compiler-generated handle
+// (_vane1, _vaneItems1, ...) with no equivalent text in the vane source. See
+// emitElement/emitForCtrl in internal/compiler for where these are minted.
+func isSyntheticVaneIdent(ident string) bool {
+	return strings.HasPrefix(ident, "_vane")
 }
 
 // identAt returns the identifier word that contains column col in line.
@@ -1061,6 +1174,19 @@ func translateGoRangeToVaneImpl(uri string, r lspRange, store *docStore, dropImp
 			sc = refinedStart
 		}
 	}
+	// A compiler-synthesized handle (_vane1, _vaneItems1, ...) never appears in
+	// the vane source at all, so findIdentInLine above is guaranteed to fail
+	// for it. Without this check, sc silently kept its RAW go-column value
+	// (GoToVane passes columns through unchanged) and that got reused as if it
+	// were a valid vane-coordinate column, slicing into whatever text happened
+	// to sit at that byte offset on the vane line: confirmed live, a
+	// documentHighlight for other _vane1 occurrences (from hovering the JSX
+	// return statement, itself mapped to _vane1's declaration) landed mid-word
+	// inside unrelated attribute text ("ssName" out of "className"). Drop
+	// rather than guess.
+	if refineColumns && goIdent != "" && refinedStart < 0 && isSyntheticVaneIdent(goIdent) {
+		return r, false, true
+	}
 	el, ec, eok := doc.sourceMap.GoToVane(r.End.Line, r.End.Character)
 	if !refineColumns {
 		if !eok {
@@ -1263,6 +1389,317 @@ func translateCompletionResultJSON(vaneURI string, result json.RawMessage, store
 			return result, false
 		}
 		b, _ := json.Marshal(items)
+		return json.RawMessage(b), true
+	}
+
+	return result, false
+}
+
+// translateDocumentHighlightResultJSON translates a textDocument/documentHighlight
+// response (DocumentHighlight[], each {range, kind}) from go-coordinates to
+// vane-coordinates. Entries carry no URI of their own; vaneURI is the document
+// the request targeted. Entries that land in the package/import preamble, or
+// that have no source-map coverage at all, are dropped rather than shown at a
+// misleading location.
+//
+// gopls itself returns bogus entries alongside the real ones for identifiers
+// inside a func literal passed as an argument (exactly the shape the compiler
+// wraps every reactive expression in: core.DynChild(el, func() any { return
+// EXPR })): confirmed live against plain, non-vane Go with the same shape, so
+// this is a gopls quirk, not something introduced by translation. Two kinds
+// show up: a range covering the entire wrapped call expression, multiple go
+// lines, which a real identifier occurrence never does; and a single-line
+// range that lands on an unrelated word (e.g. "any", the closure's return
+// type) rather than the identifier actually asked about. reqGoLine/reqGoCol,
+// the position sent to gopls for this request, let us recognize and drop both:
+// multi-line ranges outright, and single-line ranges whose text doesn't match
+// the identifier at the request position.
+func translateDocumentHighlightResultJSON(vaneURI string, reqGoLine, reqGoCol int, result json.RawMessage, store *docStore) (json.RawMessage, bool) {
+	if len(result) == 0 || string(result) == "null" {
+		return result, false
+	}
+	var items []map[string]json.RawMessage
+	if json.Unmarshal(result, &items) != nil {
+		return result, false
+	}
+
+	doc, hasDoc := store.getByNorm(vaneURI)
+	var expectedIdent string
+	if hasDoc && reqGoLine >= 0 && reqGoLine < len(doc.goLines) {
+		expectedIdent = identAt(doc.goLines[reqGoLine], reqGoCol)
+	}
+
+	changed := false
+	out := make([]map[string]json.RawMessage, 0, len(items))
+	for _, item := range items {
+		rangeRaw, ok := item["range"]
+		if !ok {
+			out = append(out, item)
+			continue
+		}
+		var r lspRange
+		if json.Unmarshal(rangeRaw, &r) != nil {
+			out = append(out, item)
+			continue
+		}
+		if r.Start.Line != r.End.Line {
+			// A real identifier occurrence is always on one line.
+			changed = true
+			continue
+		}
+		if expectedIdent != "" && hasDoc && r.Start.Line < len(doc.goLines) {
+			if identAt(doc.goLines[r.Start.Line], r.Start.Character) != expectedIdent {
+				changed = true
+				continue
+			}
+		}
+		nr, ok, drop := translateGoRangeToVane(vaneURI, r, store)
+		if drop || !ok {
+			changed = true
+			continue
+		}
+		b, _ := json.Marshal(nr)
+		item["range"] = json.RawMessage(b)
+		out = append(out, item)
+		changed = true
+	}
+	if !changed {
+		return result, false
+	}
+	b, _ := json.Marshal(out)
+	return json.RawMessage(b), true
+}
+
+// translateDocumentSymbolResultJSON translates a textDocument/documentSymbol
+// response from go-coordinates to vane-coordinates. gopls returns one of two
+// shapes depending on whether the client declared
+// documentSymbol.hierarchicalDocumentSymbolSupport (vscode-languageclient
+// does, for any reasonably modern VS Code): DocumentSymbol[] (flat
+// range/selectionRange plus nested children, no URI) when supported, or the
+// older SymbolInformation[] (name/kind/location, location itself carrying
+// uri+range) otherwise. Both carry no top-level URI the generic
+// Location-shaped handling in translateResponsePos could catch, so every
+// range was left in go-coordinates: confirmed live, Outline/breadcrumbs
+// entries pointed at the wrong line, sometimes past the end of the .vane file.
+func translateDocumentSymbolResultJSON(vaneURI string, result json.RawMessage, store *docStore) (json.RawMessage, bool) {
+	if len(result) == 0 || string(result) == "null" {
+		return result, false
+	}
+	var raw []json.RawMessage
+	if json.Unmarshal(result, &raw) != nil {
+		return result, false
+	}
+
+	changed := false
+	out := make([]json.RawMessage, 0, len(raw))
+	for _, item := range raw {
+		var si struct {
+			Location *struct {
+				URI   string   `json:"uri"`
+				Range lspRange `json:"range"`
+			} `json:"location,omitempty"`
+		}
+		if json.Unmarshal(item, &si) == nil && si.Location != nil {
+			nr, ok, drop := translateGoRangeToVane(vaneURI, si.Location.Range, store)
+			if drop || !ok {
+				changed = true
+				continue
+			}
+			var obj map[string]json.RawMessage
+			if json.Unmarshal(item, &obj) != nil {
+				out = append(out, item)
+				continue
+			}
+			var loc map[string]json.RawMessage
+			if json.Unmarshal(obj["location"], &loc) != nil {
+				out = append(out, item)
+				continue
+			}
+			rb, _ := json.Marshal(nr)
+			loc["range"] = json.RawMessage(rb)
+			lb, _ := json.Marshal(loc)
+			obj["location"] = json.RawMessage(lb)
+			ib, _ := json.Marshal(obj)
+			out = append(out, json.RawMessage(ib))
+			changed = true
+			continue
+		}
+
+		newItem, itemChanged := translateDocumentSymbolNode(vaneURI, item, store)
+		out = append(out, newItem)
+		if itemChanged {
+			changed = true
+		}
+	}
+	if !changed {
+		return result, false
+	}
+	b, _ := json.Marshal(out)
+	return json.RawMessage(b), true
+}
+
+// translateDocumentSymbolNode translates one DocumentSymbol's range and
+// selectionRange, recursing into children. Unlike navigation results, a
+// symbol whose range can't be translated is kept as-is (dropping it would
+// remove it from the Outline entirely) rather than removed.
+func translateDocumentSymbolNode(vaneURI string, item json.RawMessage, store *docStore) (json.RawMessage, bool) {
+	var obj map[string]json.RawMessage
+	if json.Unmarshal(item, &obj) != nil {
+		return item, false
+	}
+	changed := false
+
+	if rangeRaw, ok := obj["range"]; ok {
+		var r lspRange
+		if json.Unmarshal(rangeRaw, &r) == nil {
+			if nr, ok2, drop := translateGoRangeToVane(vaneURI, r, store); ok2 && !drop {
+				b, _ := json.Marshal(nr)
+				obj["range"] = json.RawMessage(b)
+				changed = true
+			}
+		}
+	}
+	if srRaw, ok := obj["selectionRange"]; ok {
+		var r lspRange
+		if json.Unmarshal(srRaw, &r) == nil {
+			if nr, ok2, drop := translateGoRangeToVane(vaneURI, r, store); ok2 && !drop {
+				b, _ := json.Marshal(nr)
+				obj["selectionRange"] = json.RawMessage(b)
+				changed = true
+			}
+		}
+	}
+	if childrenRaw, ok := obj["children"]; ok && len(childrenRaw) > 0 && string(childrenRaw) != "null" {
+		var children []json.RawMessage
+		if json.Unmarshal(childrenRaw, &children) == nil {
+			newChildren := make([]json.RawMessage, len(children))
+			childChanged := false
+			for i, c := range children {
+				nc, cc := translateDocumentSymbolNode(vaneURI, c, store)
+				newChildren[i] = nc
+				if cc {
+					childChanged = true
+				}
+			}
+			if childChanged {
+				b, _ := json.Marshal(newChildren)
+				obj["children"] = json.RawMessage(b)
+				changed = true
+			}
+		}
+	}
+	if !changed {
+		return item, false
+	}
+	b, _ := json.Marshal(obj)
+	return json.RawMessage(b), true
+}
+
+// translateFoldingRangeResultJSON translates a textDocument/foldingRange
+// response from go-coordinates to vane-coordinates. FoldingRange uses flat
+// startLine/endLine integers (plus optional start/endCharacter), a shape
+// distinct from every other position-bearing response, so it was never
+// translated either: fold markers in the gutter landed on unrelated or
+// out-of-bounds lines. Column precision isn't reliably mappable across the
+// compiler's expansion, so start/endCharacter are dropped rather than
+// translated; VS Code folds to end-of-line by default without them, which is
+// the normal behavior for whole-block folds anyway. A range whose start/end
+// line has no source-map coverage at all, or that collapses to a single line
+// after translation, is dropped rather than shown as a misleading fold.
+func translateFoldingRangeResultJSON(vaneURI string, result json.RawMessage, store *docStore) (json.RawMessage, bool) {
+	if len(result) == 0 || string(result) == "null" {
+		return result, false
+	}
+	var raw []json.RawMessage
+	if json.Unmarshal(result, &raw) != nil {
+		return result, false
+	}
+	doc, ok := store.getByNorm(vaneURI)
+	if !ok || doc.sourceMap == nil {
+		return result, false
+	}
+
+	type foldingRange struct {
+		StartLine      int    `json:"startLine"`
+		StartCharacter *int   `json:"startCharacter,omitempty"`
+		EndLine        int    `json:"endLine"`
+		EndCharacter   *int   `json:"endCharacter,omitempty"`
+		Kind           string `json:"kind,omitempty"`
+		CollapsedText  string `json:"collapsedText,omitempty"`
+	}
+
+	changed := false
+	out := make([]json.RawMessage, 0, len(raw))
+	for _, item := range raw {
+		var fr foldingRange
+		if json.Unmarshal(item, &fr) != nil {
+			out = append(out, item)
+			continue
+		}
+		sl, _, sok := doc.sourceMap.GoToVane(fr.StartLine, 0)
+		el, _, eok := doc.sourceMap.GoToVane(fr.EndLine, 0)
+		if !sok || !eok || sl >= el {
+			changed = true
+			continue
+		}
+		fr.StartLine = sl
+		fr.StartCharacter = nil
+		fr.EndLine = el
+		fr.EndCharacter = nil
+		b, _ := json.Marshal(fr)
+		out = append(out, json.RawMessage(b))
+		changed = true
+	}
+	if !changed {
+		return result, false
+	}
+	b, _ := json.Marshal(out)
+	return json.RawMessage(b), true
+}
+
+// translatePrepareRenameResultJSON translates a textDocument/prepareRename
+// response from go-coordinates to vane-coordinates. Per the LSP spec this is
+// one of: a bare Range, {range, placeholder}, {defaultBehavior: bool}, or
+// null. Only the first two carry a position to translate; neither carries a
+// URI, so, same as documentHighlight/documentSymbol/foldingRange, this was
+// never translated: F2 rename validated and pre-selected the wrong span in
+// the .vane buffer, off by however many lines the compiled preamble added.
+// The actual rename edit is a separate textDocument/rename request returning
+// a WorkspaceEdit, already handled by translateResponsePos; this only fixes
+// the preceding validate-and-select step.
+func translatePrepareRenameResultJSON(vaneURI string, result json.RawMessage, store *docStore) (json.RawMessage, bool) {
+	if len(result) == 0 || string(result) == "null" {
+		return result, false
+	}
+
+	var defBehavior struct {
+		DefaultBehavior *bool `json:"defaultBehavior,omitempty"`
+	}
+	if json.Unmarshal(result, &defBehavior) == nil && defBehavior.DefaultBehavior != nil {
+		return result, false
+	}
+
+	var wrapped struct {
+		Range       *lspRange `json:"range,omitempty"`
+		Placeholder *string   `json:"placeholder,omitempty"`
+	}
+	if json.Unmarshal(result, &wrapped) == nil && wrapped.Range != nil {
+		nr, ok, drop := translateGoRangeToVane(vaneURI, *wrapped.Range, store)
+		if drop || !ok {
+			return json.RawMessage("null"), true
+		}
+		wrapped.Range = &nr
+		b, _ := json.Marshal(wrapped)
+		return json.RawMessage(b), true
+	}
+
+	var r lspRange
+	if json.Unmarshal(result, &r) == nil {
+		nr, ok, drop := translateGoRangeToVane(vaneURI, r, store)
+		if drop || !ok {
+			return json.RawMessage("null"), true
+		}
+		b, _ := json.Marshal(nr)
 		return json.RawMessage(b), true
 	}
 

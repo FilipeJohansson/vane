@@ -8,10 +8,15 @@ const path = require('path');
 const fs = require('fs');
 
 let client;
+let output;
 
 // Files the redirect listener should skip once, because the user just asked
 // (via vane.openGeneratedGoFile) to view the generated file directly.
 const suppressRedirect = new Set();
+
+function log(msg) {
+  if (output) output.appendLine(msg);
+}
 
 function resolveVaneBin() {
   // Try workspace-local binary first, then PATH.
@@ -74,6 +79,9 @@ function makeClient() {
 }
 
 function activate(context) {
+  output = vscode.window.createOutputChannel('Vane');
+  context.subscriptions.push(output);
+
   client = makeClient();
   client.start();
 
@@ -120,39 +128,62 @@ function activate(context) {
     })
   );
 
-  // When the Go extension's gopls navigates to a _vane.go file (e.g. ctrl+click
-  // App() in main.go), redirect to the corresponding .vane source file at the mapped line.
-  // Only do this for navigation-opened tabs (go to definition, ctrl+click, single
-  // click in the explorer), which VS Code opens as a "preview" tab. A deliberate
-  // open (double-click, Quick Open, restored tab) pins the tab instead.
+  // When any navigation (gopls "go to definition"/"go to references" from a
+  // plain .go file like search.go, ctrl+click from a .vane file, etc.) lands
+  // on a _vane.go file, redirect to the corresponding .vane source at the
+  // mapped line. This has to be origin-agnostic: navigation from a plain .go
+  // file (main.go, search.go, ...) is handled entirely by VS Code's own Go
+  // extension and its own separate gopls, which never goes through vane's LSP
+  // proxy at all, so there's no opportunity to translate the URI there — this
+  // listener, watching the active editor itself, is the only hook available.
   //
-  // onDidChangeActiveTextEditor fires once, on the *first* click, while the tab
-  // is still in preview state. A double-click's second click (which pins the tab)
-  // doesn't change the active editor again, so it never re-fires this event. So we
-  // can't decide right away: wait briefly for the pin to settle, then recheck.
+  // Distinguish "the editor navigated here" from "I opened this file myself"
+  // by selection, not tab-preview state: every navigation source (go to
+  // definition, ctrl+click, clicking a reference in the References panel)
+  // selects the target symbol's range, a non-empty selection. Deliberately
+  // opening a file (double-click in Explorer, Quick Open, a restored tab)
+  // just places the cursor, an empty selection. This also fixed a case
+  // tab-preview state got wrong: double-clicking a reference in the
+  // References panel opens the file pinned (not preview, same as opening it
+  // deliberately), which used to skip the redirect entirely.
   context.subscriptions.push(
     vscode.window.onDidChangeActiveTextEditor(editor => {
       if (!editor) return;
       const file = editor.document.fileName;
       if (!file.endsWith('_vane.go')) return;
 
-      setTimeout(() => maybeRedirectVaneGoFile(file), 300);
+      const tab = vscode.window.tabGroups.activeTabGroup.activeTab;
+      log(
+        `[activeEditor] file=${file} ` +
+        `selection.isEmpty=${editor.selection.isEmpty} ` +
+        `selection=${editor.selection.start.line}:${editor.selection.start.character}-${editor.selection.end.line}:${editor.selection.end.character} ` +
+        `isPreview=${tab ? tab.isPreview : 'n/a'} ` +
+        `suppressed=${suppressRedirect.has(file)}`
+      );
+
+      if (editor.selection.isEmpty) {
+        log(`[activeEditor] SKIP: empty selection, treating as deliberate open`);
+        return;
+      }
+
+      maybeRedirectVaneGoFile(file, editor);
     })
   );
 }
 
-async function maybeRedirectVaneGoFile(file) {
-  if (suppressRedirect.delete(file)) return; // explicitly opened via vane.openGeneratedGoFile
-
-  const editor = vscode.window.activeTextEditor;
-  if (!editor || editor.document.fileName !== file) return; // user moved on already
-
-  const activeTab = vscode.window.tabGroups.activeTabGroup.activeTab;
-  if (!activeTab || !activeTab.isPreview) return;
+async function maybeRedirectVaneGoFile(file, editor) {
+  if (suppressRedirect.delete(file)) {
+    log(`[redirect] SKIP: ${file} suppressed (vane.openGeneratedGoFile)`);
+    return;
+  }
 
   const vaneFile = file.replace(/_vane\.go$/, '.vane');
-  if (!fs.existsSync(vaneFile)) return;
+  if (!fs.existsSync(vaneFile)) {
+    log(`[redirect] SKIP: no matching .vane file for ${file} (looked for ${vaneFile})`);
+    return;
+  }
 
+  log(`[redirect] REDIRECTING ${file} -> ${vaneFile}`);
   const goLine = editor.selection.active.line;
   const vaneLine = vaneLineFromGoContent(editor.document.getText(), goLine);
   const vaneUri = vscode.Uri.file(vaneFile);

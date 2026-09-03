@@ -230,3 +230,10 @@ var tutorialTOCItems = []tocItem{
 	{"step-5-filter-by-route", "Step 5: Filter by route"},
 	{"next-steps", "What's next"},
 }
+
+var vscodeExtensionTOCItems = []tocItem{
+	{"install", "Install"},
+	{"what-it-does", "What it does"},
+	{"workspace-settings", "Workspace settings it manages"},
+	{"commands", "Commands"},
+}
