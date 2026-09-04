@@ -1,0 +1,29 @@
+package pages
+
+import "github.com/filipejohansson/vane/core"
+
+var lifecycleCleanups = core.NewSignal(0)
+
+func Lifecycle() core.Node {
+	count := core.NewSignal(0)
+	effectRuns := core.NewSignal(0)
+	runs := 0
+
+	core.OnDispose(func() {
+		lifecycleCleanups.Set(lifecycleCleanups.Get() + 1)
+	})
+	core.Effect(func() func() {
+		_ = count.Get()
+		runs++
+		effectRuns.Set(runs)
+		return func() {}
+	})
+
+	return (
+		<section aria-label="Lifecycle">
+			<div data-testid="effect-runs">{effectRuns.Get()}</div>
+			<div data-testid="lifecycle-cleanups">{lifecycleCleanups.Get()}</div>
+			<button onClick={func(core.MouseEvent) { count.Set(count.Get() + 1) }}>Run effect</button>
+		</section>
+	)
+}

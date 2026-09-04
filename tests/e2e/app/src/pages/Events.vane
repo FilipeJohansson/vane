@@ -4,6 +4,8 @@ import "github.com/filipejohansson/vane/core"
 
 func Events() core.Node {
 	name := core.NewSignal("")
+	lastKey := core.NewSignal("")
+	submitStatus := core.NewSignal("")
 
 	return (
 		<section aria-label="Input events">
@@ -12,6 +14,12 @@ func Events() core.Node {
 				<input aria-label="Name" onInput={func(e core.InputEvent) { name.Set(e.Value) }} />
 			</label>
 			<div data-testid="input-output">{name.Get()}</div>
+			<input aria-label="Keyboard input" onKeyDown={func(e core.KeyEvent) { lastKey.Set(e.Key) }} />
+			<div data-testid="last-key">{lastKey.Get()}</div>
+			<form aria-label="Submit form" onSubmit={func(core.SubmitEvent) { submitStatus.Set("submitted") }}>
+				<button type="submit">Submit</button>
+			</form>
+			<div data-testid="submit-status">{submitStatus.Get()}</div>
 		</section>
 	)
 }

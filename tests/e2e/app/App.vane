@@ -14,12 +14,14 @@ func App() core.Node {
 				<a href="#/smoke">Smoke</a>
 				<a href="#/signals">Signals</a>
 				<a href="#/events">Events</a>
+				<a href="#/lifecycle">Lifecycle</a>
 				<a href="#/users/42">User</a>
 			</nav>
 			{router.Router(
 				router.Route("/smoke", pages.Smoke, "Smoke - Vane E2E"),
 				router.Route("/signals", pages.Signals, "Signals - Vane E2E"),
 				router.Route("/events", pages.Events, "Events - Vane E2E"),
+				router.Route("/lifecycle", pages.Lifecycle, "Lifecycle - Vane E2E"),
 				router.Route("/users/:id", pages.User, "User - Vane E2E"),
 			)}
 		</div>

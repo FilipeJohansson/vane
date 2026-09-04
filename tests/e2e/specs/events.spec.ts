@@ -13,4 +13,11 @@ test('updates a signal from browser input events', async ({ page }) => {
 
   await input.fill('Ada Lovelace')
   await expect(output).toHaveText('Ada Lovelace')
+
+  const keyboardInput = page.getByLabel('Keyboard input')
+  await keyboardInput.press('Enter')
+  await expect(page.getByTestId('last-key')).toHaveText('Enter')
+
+  await page.getByRole('button', { name: 'Submit' }).click()
+  await expect(page.getByTestId('submit-status')).toHaveText('submitted')
 })
