@@ -348,7 +348,7 @@ func buildWasm(dir, gcflags, sourceURLBase string, rebuild, release, skipOptimiz
 	if err != nil {
 		return err
 	}
-	if info, err := os.Stat(abs); err == nil && !info.IsDir() {
+	if info, err := os.Stat(abs); err == nil && !info.IsDir() { // #nosec G703 -- abs is the developer-selected project directory
 		return fmt.Errorf("%s is a file, but vane build expects a project directory\n  to build the project:     vane build <dir>", filepath.Base(abs))
 	}
 
@@ -367,7 +367,7 @@ func buildWasm(dir, gcflags, sourceURLBase string, rebuild, release, skipOptimiz
 		if candidate == "." {
 			p = filepath.Join(abs, "main.go")
 		}
-		if _, err := os.Stat(p); err == nil {
+		if _, err := os.Stat(p); err == nil { // #nosec G703 -- p is derived from the validated project directory
 			if candidate == "." {
 				mainPkgDir = abs
 			} else {
@@ -412,11 +412,11 @@ func buildWasm(dir, gcflags, sourceURLBase string, rebuild, release, skipOptimiz
 	// forever, e.g. a __vane_map.json a previous --debug run wrote never gets
 	// deleted by a later plain/--release build, since nothing ever removed it.
 	if !rebuild {
-		if err := os.RemoveAll(distDir); err != nil {
+		if err := os.RemoveAll(distDir); err != nil { // #nosec G703 -- distDir is inside the selected project directory
 			return err
 		}
 	}
-	if err := os.MkdirAll(distDir, 0750); err != nil {
+	if err := os.MkdirAll(distDir, 0750); err != nil { // #nosec G703 -- distDir is inside the selected project directory
 		return err
 	}
 	wasmOut := filepath.Join(distDir, "app.wasm")
@@ -451,13 +451,13 @@ func buildWasm(dir, gcflags, sourceURLBase string, rebuild, release, skipOptimiz
 	// Write source map for debug builds so the browser can resolve .vane lines.
 	if sourceURLBase != "" && srcMap != nil && len(srcMap.Files) > 0 {
 		if smData, err := json.MarshalIndent(srcMap, "", "  "); err == nil {
-			_ = os.WriteFile(filepath.Join(distDir, "__vane_map.json"), smData, 0o600)
+			_ = os.WriteFile(filepath.Join(distDir, "__vane_map.json"), smData, 0o600) // #nosec G703 -- output stays inside the selected project directory
 		}
 	}
 
 	// Copy public/ → dist/ (index.html, wasm_exec.js, global CSS, images, …)
 	publicDir := filepath.Join(abs, "public")
-	if _, err := os.Stat(publicDir); err == nil {
+	if _, err := os.Stat(publicDir); err == nil { // #nosec G703 -- publicDir is inside the selected project directory
 		if err := copyDir(publicDir, distDir); err != nil {
 			return fmt.Errorf("copy public: %w", err)
 		}
@@ -478,7 +478,7 @@ func buildWasm(dir, gcflags, sourceURLBase string, rebuild, release, skipOptimiz
 	}
 
 	sizeStr := ""
-	if info, statErr := os.Stat(wasmOut); statErr == nil {
+	if info, statErr := os.Stat(wasmOut); statErr == nil { // #nosec G703 -- wasmOut is inside the selected project directory
 		sizeStr = fmt.Sprintf(" %s(%s)%s", clDim, formatSize(info.Size()), clReset)
 	}
 	verb := "built"
@@ -654,7 +654,7 @@ func buildDistMux(distDir, srcDir string, hub *hotreload.Hub) *http.ServeMux {
 	mux := http.NewServeMux()
 
 	serveIndex := func(w http.ResponseWriter) {
-		content, err := os.ReadFile(filepath.Join(distDir, "index.html")) // #nosec G304 -- "index.html" is a hardcoded literal, not r.URL.Path; dynamic paths below go through http.FileServer(http.Dir), which is traversal-safe
+		content, err := os.ReadFile(filepath.Join(distDir, "index.html")) // #nosec G304 G703 -- index.html is fixed inside the selected project output
 		if err != nil {
 			http.Error(w, "not found", http.StatusNotFound)
 			return
@@ -693,7 +693,7 @@ func buildDistMux(distDir, srcDir string, hub *hotreload.Hub) *http.ServeMux {
 // join, so a request can't escape distDir.
 func distFileExists(distDir, urlPath string) bool {
 	full := filepath.Join(distDir, filepath.Clean("/"+urlPath))
-	info, err := os.Stat(full)
+	info, err := os.Stat(full) // #nosec G703 -- full is constrained to the selected project output directory
 	return err == nil && !info.IsDir()
 }
 
@@ -728,7 +728,7 @@ func buildOverlay(projectDir, sourceURLBase string) (overlayPath string, files [
 
 	skipDirs := map[string]bool{"dist": true, "public": true}
 
-	walkErr := filepath.WalkDir(projectDir, func(path string, d fs.DirEntry, e error) error {
+	walkErr := filepath.WalkDir(projectDir, func(path string, d fs.DirEntry, e error) error { // #nosec G703 -- projectDir is the developer-selected project directory
 		if e != nil {
 			return e
 		}
@@ -896,7 +896,7 @@ func copyWasmExec(destDir string) error {
 
 // copyDir recursively copies all files from src into dst, creating dirs as needed.
 func copyDir(src, dst string) error {
-	return filepath.WalkDir(src, func(path string, d fs.DirEntry, err error) error {
+	return filepath.WalkDir(src, func(path string, d fs.DirEntry, err error) error { // #nosec G703 -- src is the selected project's own public directory
 		if err != nil {
 			return err
 		}
@@ -922,7 +922,7 @@ func copyDir(src, dst string) error {
 // and vane build will include it in the output.
 func copyCSSFiles(projectDir, distDir string) error {
 	skipDirs := map[string]bool{"dist": true, "public": true}
-	return filepath.WalkDir(projectDir, func(path string, d fs.DirEntry, err error) error {
+	return filepath.WalkDir(projectDir, func(path string, d fs.DirEntry, err error) error { // #nosec G703 -- projectDir is the developer-selected project directory
 		if err != nil {
 			return err
 		}
@@ -961,7 +961,7 @@ var cssImportRe = regexp.MustCompile(`(?m)^@import\s+['"]([^'"]+)['"]\s*;[ \t]*\
 // would break the "edit Button.css, see it instantly" loop.
 func bundleCSS(distDir string) error {
 	stylePath := filepath.Join(distDir, "style.css")
-	data, err := os.ReadFile(stylePath) // #nosec G304 -- stylePath is the project's own dist/style.css, not attacker input
+	data, err := os.ReadFile(stylePath) // #nosec G304 G703 -- stylePath is the project's own dist/style.css, not attacker input
 	if err != nil {
 		if os.IsNotExist(err) {
 			return nil
@@ -978,7 +978,7 @@ func bundleCSS(distDir string) error {
 	imported := make([]string, 0, len(matches))
 	for _, m := range matches {
 		name := filepath.Base(m[1])
-		content, err := os.ReadFile(filepath.Join(distDir, name)) // #nosec G304 -- import target resolved against the project's own dist/, base-name only
+		content, err := os.ReadFile(filepath.Join(distDir, name)) // #nosec G304 G703 -- import target is reduced to a base name inside the project's own dist/
 		if err != nil {
 			return fmt.Errorf("import %q: %w", m[1], err)
 		}
@@ -1521,7 +1521,7 @@ func tabExpandedWidth(line string, bytePos int) int {
 func findModuleRoot(dir string) (string, error) {
 	abs := dir
 	for {
-		if _, err := os.Stat(filepath.Join(abs, "go.mod")); err == nil {
+		if _, err := os.Stat(filepath.Join(abs, "go.mod")); err == nil { // #nosec G703 -- abs is the developer-selected directory being searched for its module root
 			return abs, nil
 		}
 		parent := filepath.Dir(abs)

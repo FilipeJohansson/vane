@@ -45,7 +45,7 @@ jobs:
           version: v2.12.2
 
       - name: Run security scan
-        uses: securego/gosec@master
+        uses: securego/gosec@v2.22.8
         with:
           args: ./...
 
