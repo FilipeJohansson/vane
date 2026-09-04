@@ -1,0 +1,94 @@
+package docs
+
+import (
+	"github.com/filipejohansson/vane/core"
+
+	"vane-page/src/components"
+)
+
+func Lifecycle() core.Node {
+	core.Head(func() core.HeadConfig {
+		return core.HeadConfig{
+			Title:       "Lifecycle | Vane Docs",
+			Description: "How Vane mounts components, reruns effects, disposes cleanup, and tears down route scopes.",
+		}
+	})
+
+	items := lifecycleTOCItems
+
+	return (
+		<div className="docs-page">
+			<article className="docs-article">
+				{docsHeader(
+					"Advanced",
+					"Lifecycle",
+					"The execution model for components, Effects, cleanup, and route disposal in Vane.",
+				)}
+
+				<h2 className="docs-h2" id="mount">Mount and setup</h2>
+				<p className="docs-p">
+					A component function runs once when it mounts. That setup phase creates the DOM,
+					registers any local signals, and installs the Effects and cleanup hooks that belong
+					to that component scope.
+				</p>
+				<p className="docs-p">
+					This is different from a re-render model: Vane does not call the component again just
+					because a value changed. Instead, the component stays mounted and only the specific
+					bindings and Effects that read the changed signal are scheduled to re-run.
+				</p>
+
+				<h2 className="docs-h2" id="effects">Effects and reruns</h2>
+				<p className="docs-p">
+					An Effect runs immediately when created, then re-runs only when one of the signals it
+					reads changes. The effect tracks its dependencies automatically during the run and
+					re-registers them on each subsequent run.
+				</p>
+				{components.CodeBlock("effect.go", `core.Effect(func() func() {
+    count := count.Get()
+    console.Log("count changed:", count)
+    return nil
+})`)}
+				<p className="docs-p">
+					If the Effect reads no signal, it has no reactive dependency and does not re-run on
+					state changes. In that case, its cleanup only runs when the component is disposed.
+				</p>
+
+				<h2 className="docs-h2" id="cleanup">Cleanup and disposal</h2>
+				<p className="docs-p">
+					Cleanup is part of the Effect lifecycle. When an Effect is about to re-run because a
+					dependency changed, Vane calls the previous cleanup first. This gives you a chance to
+					detach listeners, stop timers, cancel subscriptions, and release temporary resources.
+				</p>
+				<p className="docs-p">
+					The same cleanup path also runs on unmount. Any <code>core.OnDispose</code> callbacks
+					registered in the component scope are invoked as the scope is torn down.
+				</p>
+
+				<h2 className="docs-h2" id="routes">Route disposal</h2>
+				<p className="docs-p">
+					Route changes dispose the previous route scope. That means any Effects, subscriptions,
+					or other resources created while the old route was active are cleaned up before the new
+					route becomes active.
+				</p>
+				<p className="docs-p">
+					In practice, this is the lifecycle boundary that keeps route-local state from leaking
+					across navigations.
+				</p>
+
+				<h2 className="docs-h2" id="signals">Signal lifetime</h2>
+				<p className="docs-p">
+					Signals created inside a component belong to that component's lifetime. They are
+					disposable with the same scope that owns the component's Effects, so they stop being
+					active when the component is disposed or the route scope is torn down.
+				</p>
+				<p className="docs-p">
+					This is the key mental model: the scope owns the reactive resources that were created
+					for that node of the UI, and the cleanup lifecycle is what tears them down.
+				</p>
+
+				{pageNav("lifecycle")}
+			</article>
+			{toc(items)}
+		</div>
+	)
+}

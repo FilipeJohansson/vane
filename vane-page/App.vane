@@ -5,6 +5,7 @@ import (
 	"vane-page/src/layouts"
 	"vane-page/src/pages"
 	"vane-page/src/pages/docs"
+
 	"github.com/filipejohansson/vane/core"
 	"github.com/filipejohansson/vane/core/router"
 )
@@ -22,6 +23,7 @@ func App() core.Node {
 						router.Route("routing", docs.Routing, "Routing | Vane Docs"),
 						router.Route("components", docs.Components, "Components | Vane Docs"),
 						router.Route("concepts", docs.Concepts, "Concepts | Vane Docs"),
+						router.Route("lifecycle", docs.Lifecycle, "Lifecycle | Vane Docs"),
 						router.Route("portal", docs.Portal, "Portal | Vane Docs"),
 						router.Route("installation", docs.Installation, "Installation | Vane Docs"),
 						router.Route("jsx-syntax", docs.JSXSyntax, "JSX Syntax | Vane Docs"),

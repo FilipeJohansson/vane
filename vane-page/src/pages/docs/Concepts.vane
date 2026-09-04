@@ -92,6 +92,16 @@ func Concepts() core.Node {
 					re-render.</strong> The component function runs exactly once. Reactive updates come
 					from signals and Effects inside it, not from calling the function again.
 				</p>
+				<p className="docs-p">
+					A component runs once on mount. Its bindings and Effects track the signals they read,
+					cleanup runs before an Effect is re-executed and again on unmount, and route changes
+					dispose the previous route scope. Signals created inside a component live with that
+					component and are cleaned up with the same disposal boundary.
+				</p>
+				<p className="docs-p">
+					For the exact execution model, rerun order, cleanup timing, and route disposal rules,
+					see the <a className="docs-inline-link" href="#/docs/lifecycle">Lifecycle guide</a>.
+				</p>
 				{components.CodeBlock("Counter.vane", conceptsCounterSnippet)}
 				<p className="docs-p">
 					If <code>count</code> changes, <code>Counter()</code> is not called again. Vane
