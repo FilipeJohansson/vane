@@ -19,8 +19,8 @@ export default defineConfig({
   expect: {
     timeout: 5000,
   },
-  /* Run tests in files in parallel */
-  fullyParallel: true,
+  /* Keep the shared fixture deterministic across tests. */
+  fullyParallel: false,
   /* Fail the build on CI if you accidentally left test.only in the source code. */
   forbidOnly: !!process.env.CI,
   /* Retry on CI only */
@@ -85,5 +85,6 @@ export default defineConfig({
     command: `${vaneCommand} run tests/e2e/app --port 4173`,
     url: 'http://localhost:4173',
     reuseExistingServer: !process.env.CI,
+    timeout: 120 * 1000,
   },
 });

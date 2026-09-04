@@ -6,9 +6,9 @@
   "scripts": {
     "e2e": "playwright test tests/e2e/specs",
     "e2e:headed": "playwright test tests/e2e/specs --project=chromium --headed",
-    "e2e:chromium": "playwright test --project=chromium",
-    "e2e:firefox": "playwright test --project=firefox",
-    "e2e:webkit": "playwright test --project=webkit",
+    "e2e:chromium": "playwright test tests/e2e/specs --project=chromium",
+    "e2e:firefox": "playwright test tests/e2e/specs --project=firefox",
+    "e2e:webkit": "playwright test tests/e2e/specs --project=webkit",
     "e2e:ui": "playwright test --ui",
     "e2e:debug": "playwright test --debug",
     "e2e:report": "playwright show-report"
