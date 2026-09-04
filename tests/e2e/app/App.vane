@@ -18,6 +18,7 @@ func App() core.Node {
 				<a href="#/lifecycle">Lifecycle</a>
 				<a href="#/portals">Portals</a>
 				<a href="#/nested">Nested</a>
+				<a href="#/errors">Errors</a>
 				<a href="#/users/42">User</a>
 			</nav>
 			{router.Router(
@@ -31,6 +32,7 @@ func App() core.Node {
 					router.Route("", pages.NestedHome, "Nested Home - Vane E2E"),
 					router.Route("detail", pages.NestedDetail, "Nested Detail - Vane E2E"),
 				),
+				router.Route("/errors", pages.Errors, "Errors - Vane E2E"),
 				router.Route("/users/:id", pages.User, "User - Vane E2E"),
 			)}
 			<div data-testid="portal-host"></div>

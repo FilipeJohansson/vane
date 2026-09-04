@@ -1,0 +1,58 @@
+package pages
+
+import (
+	"fmt"
+
+	"github.com/filipejohansson/vane/core"
+)
+
+func Errors() core.Node {
+	outerPanic := core.NewSignal(false)
+	innerPanic := core.NewSignal(false)
+	value := core.NewSignal("healthy")
+	outside := core.NewSignal(0)
+	innerValue := func() string {
+		if innerPanic.Get() {
+			panic("inner failure")
+		}
+		return value.Get()
+	}
+
+	return (
+		<section aria-label="Error boundaries">
+			<h1 data-testid="errors-heading">Errors</h1>
+			<div data-testid="outside-content">outside</div>
+			<button onClick={func(core.MouseEvent) { outside.Set(outside.Get() + 1) }}>Update outside</button>
+			<div data-testid="outside-count">{outside.Get()}</div>
+
+			<div data-testid="sync-boundary">
+				{core.Try(
+					func() core.Node {
+						panic("sync failure")
+					},
+					func(err any) core.Node {
+						return <p data-testid="sync-fallback">{fmt.Sprint(err)}</p>
+					},
+				)}
+			</div>
+
+			<button onClick={func(core.MouseEvent) { outerPanic.Set(!outerPanic.Get()) }}>Toggle reactive panic</button>
+			{func() core.Node {
+				return core.Try(
+					func() core.Node {
+						if outerPanic.Get() {
+							panic("reactive failure")
+						}
+						return <p data-testid="recovered-value">{value.Get()}</p>
+					},
+					func(err any) core.Node {
+						return <p data-testid="reactive-fallback">{fmt.Sprint(err)}</p>
+					},
+				)
+			}()}
+
+			<button onClick={func(core.MouseEvent) { innerPanic.Set(!innerPanic.Get()) }}>Toggle inner panic</button>
+			<p data-testid="inner-binding">{innerValue()}</p>
+		</section>
+	)
+}
