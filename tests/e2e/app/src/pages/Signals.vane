@@ -4,12 +4,18 @@ import "github.com/filipejohansson/vane/core"
 
 func Signals() core.Node {
 	count := core.NewSignal(0)
+	step := core.NewSignal(10)
+	doubled := core.ComputedOf(func(_ int) int { return count.Get() * 2 })
+	total := core.ComputedOf(func(_ int) int { return count.Get() + step.Get() })
 
 	return (
 		<section aria-label="Signal reactivity">
 			<button onClick={func(core.MouseEvent) { count.Set(count.Get() - 1) }}>-</button>
 			<span data-testid="signal-count">{count.Get()}</span>
 			<button onClick={func(core.MouseEvent) { count.Set(count.Get() + 1) }}>+</button>
+			<div data-testid="computed-double">{doubled.Get()}</div>
+			<div data-testid="multiple-dependencies">{total.Get()}</div>
+			<button onClick={func(core.MouseEvent) { step.Set(step.Get() + 1) }}>Add dependency</button>
 		</section>
 	)
 }
