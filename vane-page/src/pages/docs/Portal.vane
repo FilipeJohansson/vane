@@ -6,11 +6,15 @@ import (
 	"vane-page/src/components"
 )
 
-const portalSnippet = `func Modal(title string) core.Node {
+const portalSnippet = `func Modal(open *core.Signal[bool]) core.Node {
     return core.Portal("#modal-root", func() core.Node {
+		if !open.Get() {
+			return nil
+		}
+
         return (
             <div className="modal">
-                <h2>{title}</h2>
+				<h2>Hello</h2>
             </div>
         )
     })
@@ -22,12 +26,12 @@ func App() core.Node {
     return (
         <div>
             <button onClick={func(core.MouseEvent) {
-                open.Set(true)
+				open.Set(!open.Get())
             }}>
-                Open
+				Toggle
             </button>
 
-            {if open.Get() { Modal("Hello") }}
+			{Modal(open)}
         </div>
     )
 }`

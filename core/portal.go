@@ -29,6 +29,23 @@ func Portal(target any, fn func() Node) Node {
 	var disposePortal func()
 	disposed := false
 
+	// Register cleanup while the caller's component scope is active. The first
+	// render below is asynchronous and must not decide ownership from a later
+	// goroutine context.
+	signal.RegisterDispose(func() {
+		disposed = true
+		if disposePortal != nil {
+			disposePortal()
+		}
+		if portalScope != nil {
+			portalScope.Dispose()
+			portalScope = nil
+		}
+		if current.Truthy() {
+			current.Call("remove")
+		}
+	})
+
 	// Start the reactive Effect in a goroutine so that the parent's DOM is
 	// fully mounted before we do querySelector. In WASM cooperative
 	// scheduling this runs after the current goroutine yields (i.e. after
@@ -100,20 +117,6 @@ func Portal(target any, fn func() Node) Node {
 			})
 		})
 	}()
-
-	signal.RegisterDispose(func() {
-		disposed = true
-		if disposePortal != nil {
-			disposePortal()
-		}
-		if portalScope != nil {
-			portalScope.Dispose()
-			portalScope = nil
-		}
-		if current.Truthy() {
-			current.Call("remove")
-		}
-	})
 
 	return Empty()
 }

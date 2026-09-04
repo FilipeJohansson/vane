@@ -196,3 +196,58 @@ func TestPortalCleanupRemovesContentOnScopeDispose(t *testing.T) {
 		t.Errorf("textContent after scope disposed = %q, want empty (Portal content must be removed on unmount)", got)
 	}
 }
+
+func TestPortalCreatedByDynChildCleansUpWhenOwnerScopeDisposes(t *testing.T) {
+	target := newAttachedDiv(t, "portal-root-dynchild-cleanup")
+	parent := core.El("div")
+
+	scope := signal.RunScoped(func() {
+		core.DynChild(parent, func() any {
+			return core.Portal("#portal-root-dynchild-cleanup", func() core.Node {
+				return core.Text("mounted")
+			})
+		})
+	})
+	waitForChildText(t, target, "mounted")
+
+	scope.Dispose()
+
+	if got := target.Get("textContent").String(); got != "" {
+		t.Errorf("textContent after owner scope disposed = %q, want empty", got)
+	}
+}
+
+func TestPortalCleanupIsIdempotent(t *testing.T) {
+	target := newAttachedDiv(t, "portal-root-idempotent")
+
+	scope := signal.RunScoped(func() {
+		core.Portal("#portal-root-idempotent", func() core.Node {
+			return core.Text("mounted")
+		})
+	})
+	waitForChildText(t, target, "mounted")
+
+	scope.Dispose()
+	scope.Dispose()
+
+	if got := target.Get("textContent").String(); got != "" {
+		t.Errorf("textContent after repeated scope disposal = %q, want empty", got)
+	}
+}
+
+func TestPortalDisposedBeforeFirstRenderDoesNotMountContent(t *testing.T) {
+	target := newAttachedDiv(t, "portal-root-disposed-before-render")
+
+	scope := signal.RunScoped(func() {
+		core.Portal("#portal-root-disposed-before-render", func() core.Node {
+			return core.Text("must not mount")
+		})
+	})
+	scope.Dispose()
+
+	time.Sleep(50 * time.Millisecond)
+
+	if got := target.Get("textContent").String(); got != "" {
+		t.Errorf("textContent after disposal before first render = %q, want empty", got)
+	}
+}
