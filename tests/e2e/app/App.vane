@@ -22,6 +22,7 @@ func App() core.Node {
 				<a href="#/users/42">User</a>
 			</nav>
 			{router.Router(
+				router.Route("/", pages.Smoke, "Smoke - Vane E2E"),
 				router.Route("/smoke", pages.Smoke, "Smoke - Vane E2E"),
 				router.Route("/rendering", pages.Rendering, "Rendering - Vane E2E"),
 				router.Route("/signals", pages.Signals, "Signals - Vane E2E"),

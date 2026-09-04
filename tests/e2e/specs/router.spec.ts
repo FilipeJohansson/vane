@@ -13,6 +13,13 @@ test('navigates between fixture pages', async ({ page }) => {
   await expect(page).toHaveTitle('Signals - Vane E2E')
 })
 
+test('boots the fixture from the root route', async ({ page }) => {
+  await page.goto('/')
+
+  await expect(page.getByTestId('app-ready')).toHaveText('ready')
+  await expect(page).toHaveTitle('Smoke - Vane E2E')
+})
+
 test('renders a route parameter and the built-in 404 fallback', async ({ page }) => {
   await page.goto('/#/users/42')
 
