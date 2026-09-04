@@ -1,5 +1,7 @@
 import { defineConfig, devices } from '@playwright/test';
 
+const vaneCommand = process.platform === 'win32' ? 'vane.exe' : './vane';
+
 /**
  * Read environment variables from file.
  * https://github.com/motdotla/dotenv
@@ -80,7 +82,7 @@ export default defineConfig({
 
   /* Run your local dev server before starting the tests */
   webServer: {
-    command: 'vane run tests/e2e/app --port 4173',
+    command: `${vaneCommand} run tests/e2e/app --port 4173`,
     url: 'http://localhost:4173',
     reuseExistingServer: !process.env.CI,
   },
