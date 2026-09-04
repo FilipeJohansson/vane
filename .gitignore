@@ -1,3 +1,27 @@
 dist/
 *.exe
 vane
+
+### Playwright ###
+# Logs
+.pnpm-debug.log*
+npm-debug.log*
+logs
+*.log
+
+# Coverage
+coverage
+*.lcov
+
+# Dependency directories
+node_modules/
+
+# TypeScript cache
+*.tsbuildinfo
+
+# Playwright
+/test-results/
+/playwright-report/
+/blob-report/
+/playwright/.cache/
+/playwright/.auth/

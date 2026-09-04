@@ -1,0 +1,59 @@
+package pages
+
+import "github.com/filipejohansson/vane/core"
+
+func renderingBadge() core.Node {
+	return <span data-testid="nested-child">nested child</span>
+}
+
+func renderingItem(value string) core.Node {
+	return <li data-testid="dynamic-item">{value}</li>
+}
+
+func Rendering() core.Node {
+	showDetails := core.NewSignal(false)
+	items := core.NewSignal([]string{"first", "second"})
+
+	list := func() []core.Node {
+		values := items.Get()
+		nodes := make([]core.Node, len(values))
+		for i, value := range values {
+			nodes[i] = renderingItem(value)
+		}
+		return nodes
+	}
+
+	return (
+		<>
+			<section aria-label="Rendering scenarios">
+				<h1 data-testid="rendering-heading">Rendering</h1>
+				<div data-testid="nested-component">{renderingBadge()}</div>
+				<div data-testid="fragment">
+					<span data-testid="fragment-first">fragment first</span>
+					<span data-testid="fragment-second">fragment second</span>
+				</div>
+				<button onClick={func(core.MouseEvent) { showDetails.Set(!showDetails.Get()) }}>
+					Toggle details
+				</button>
+				{if showDetails.Get() {
+					<p data-testid="conditional-content">details visible</p>
+				}}
+				<ul data-testid="dynamic-list">{list()...}</ul>
+				<button onClick={func(core.MouseEvent) {
+					values := items.Get()
+					items.Set(append(values, "third"))
+				}}>
+					Add item
+				</button>
+				<button onClick={func(core.MouseEvent) {
+					values := items.Get()
+					if len(values) > 0 {
+						items.Set(values[:len(values)-1])
+					}
+				}}>
+					Remove item
+				</button>
+			</section>
+		</>
+	)
+}

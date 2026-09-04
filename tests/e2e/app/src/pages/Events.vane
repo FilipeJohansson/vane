@@ -1,0 +1,56 @@
+package pages
+
+import "github.com/filipejohansson/vane/core"
+
+func Events() core.Node {
+	clicks := core.NewSignal(0)
+	name := core.NewSignal("")
+	choice := core.NewSignal("")
+	lastKey := core.NewSignal("")
+	lastKeyUp := core.NewSignal("")
+	submitStatus := core.NewSignal("")
+	prevented := core.NewSignal("")
+	parentClicks := core.NewSignal(0)
+	stoppedParentClicks := core.NewSignal(0)
+
+	return (
+		<section aria-label="Input events">
+			<button onClick={func(core.MouseEvent) { clicks.Set(clicks.Get() + 1) }}>Click</button>
+			<div data-testid="click-count">{clicks.Get()}</div>
+			<label>
+				Name
+				<input aria-label="Name" onInput={func(e core.InputEvent) { name.Set(e.Value) }} />
+			</label>
+			<div data-testid="input-output">{name.Get()}</div>
+			<label>
+				Choice
+				<select aria-label="Choice" onChange={func(e core.InputEvent) { choice.Set(e.Value) }}>
+					<option value="one">One</option>
+					<option value="two">Two</option>
+				</select>
+			</label>
+			<div data-testid="change-output">{choice.Get()}</div>
+			<input aria-label="Keyboard input" onKeyDown={func(e core.KeyEvent) { lastKey.Set(e.Key) }} />
+			<div data-testid="last-key">{lastKey.Get()}</div>
+			<input aria-label="Keyup input" onKeyUp={func(e core.KeyEvent) { lastKeyUp.Set(e.Key) }} />
+			<div data-testid="last-key-up">{lastKeyUp.Get()}</div>
+			<form aria-label="Submit form" onSubmit={func(core.SubmitEvent) { submitStatus.Set("submitted") }}>
+				<button type="submit">Submit</button>
+			</form>
+			<div data-testid="submit-status">{submitStatus.Get()}</div>
+			<a href="#/smoke" onClick={func(e core.MouseEvent) {
+				e.PreventDefault()
+				prevented.Set("yes")
+			}}>Prevent navigation</a>
+			<div data-testid="prevented">{prevented.Get()}</div>
+			<div onClick={func(core.MouseEvent) { parentClicks.Set(parentClicks.Get() + 1) }}>
+				<button>Bubble</button>
+			</div>
+			<div data-testid="parent-clicks">{parentClicks.Get()}</div>
+			<div onClick={func(core.MouseEvent) { stoppedParentClicks.Set(stoppedParentClicks.Get() + 1) }}>
+				<button onClick={func(e core.MouseEvent) { e.StopPropagation() }}>Stop bubble</button>
+			</div>
+			<div data-testid="stopped-parent-clicks">{stoppedParentClicks.Get()}</div>
+		</section>
+	)
+}

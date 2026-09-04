@@ -1,0 +1,24 @@
+{
+  "name": "vane-e2e",
+  "version": "0.1.0",
+  "private": true,
+  "description": "End-to-end browser tests for the Vane Go/WebAssembly framework",
+  "scripts": {
+    "e2e": "playwright test tests/e2e/specs",
+    "e2e:headed": "playwright test tests/e2e/specs --project=chromium --headed",
+    "e2e:chromium": "playwright test tests/e2e/specs --project=chromium",
+    "e2e:firefox": "playwright test tests/e2e/specs --project=firefox",
+    "e2e:webkit": "playwright test tests/e2e/specs --project=webkit",
+    "e2e:ui": "playwright test --ui",
+    "e2e:debug": "playwright test --debug",
+    "e2e:report": "playwright show-report"
+  },
+  "keywords": ["vane", "e2e", "playwright", "webassembly"],
+  "author": "Filipe Johansson",
+  "license": "MIT",
+  "packageManager": "pnpm@10.30.2",
+  "devDependencies": {
+    "@playwright/test": "^1.62.1",
+    "@types/node": "^26.4.1"
+  }
+}

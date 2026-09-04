@@ -47,6 +47,12 @@ func DynChild(parent Node, fn func() any) {
 	p.Call(dom.AppendChild, start)
 	p.Call(dom.AppendChild, end)
 	var childScope *signal.Scope
+	signal.RegisterDispose(func() {
+		if childScope != nil {
+			childScope.Dispose()
+			childScope = nil
+		}
+	})
 
 	signal.Effect(func() {
 		if childScope != nil {

@@ -1,0 +1,42 @@
+package main
+
+import (
+	"vane-e2e-app/src/pages"
+
+	"github.com/filipejohansson/vane/core"
+	"github.com/filipejohansson/vane/core/router"
+)
+
+func App() core.Node {
+	return (
+		<div>
+			<nav aria-label="Test pages">
+				<a href="#/smoke">Smoke</a>
+				<a href="#/rendering">Rendering</a>
+				<a href="#/signals">Signals</a>
+				<a href="#/events">Events</a>
+				<a href="#/lifecycle">Lifecycle</a>
+				<a href="#/portals">Portals</a>
+				<a href="#/nested">Nested</a>
+				<a href="#/errors">Errors</a>
+				<a href="#/users/42">User</a>
+			</nav>
+			{router.Router(
+				router.Route("/", pages.Smoke, "Smoke - Vane E2E"),
+				router.Route("/smoke", pages.Smoke, "Smoke - Vane E2E"),
+				router.Route("/rendering", pages.Rendering, "Rendering - Vane E2E"),
+				router.Route("/signals", pages.Signals, "Signals - Vane E2E"),
+				router.Route("/events", pages.Events, "Events - Vane E2E"),
+				router.Route("/lifecycle", pages.Lifecycle, "Lifecycle - Vane E2E"),
+				router.Route("/portals", pages.Portals, "Portals - Vane E2E"),
+				router.Layout("/nested", pages.NestedLayout,
+					router.Route("", pages.NestedHome, "Nested Home - Vane E2E"),
+					router.Route("detail", pages.NestedDetail, "Nested Detail - Vane E2E"),
+				),
+				router.Route("/errors", pages.Errors, "Errors - Vane E2E"),
+				router.Route("/users/:id", pages.User, "User - Vane E2E"),
+			)}
+			<div data-testid="portal-host"></div>
+		</div>
+	)
+}

@@ -94,7 +94,7 @@ func buildWasmTinyGo(dir string, debug bool, sourceURLBase string, release, skip
 	}()
 
 	n := 0
-	walkErr := filepath.WalkDir(abs, func(path string, d fs.DirEntry, e error) error {
+	walkErr := filepath.WalkDir(abs, func(path string, d fs.DirEntry, e error) error { // #nosec G703 -- abs is the developer-selected project directory
 		if e != nil {
 			return e
 		}
@@ -147,7 +147,7 @@ func buildWasmTinyGo(dir string, debug bool, sourceURLBase string, release, skip
 		if candidate == "." {
 			p = filepath.Join(abs, "main.go")
 		}
-		if _, err := os.Stat(p); err == nil {
+		if _, err := os.Stat(p); err == nil { // #nosec G703 -- p is derived from the validated project directory
 			if candidate != "." {
 				mainPkgDir = filepath.Join(abs, candidate)
 			}
@@ -156,7 +156,7 @@ func buildWasmTinyGo(dir string, debug bool, sourceURLBase string, release, skip
 	}
 
 	distDir := filepath.Join(abs, "dist")
-	if err := os.MkdirAll(distDir, 0750); err != nil {
+	if err := os.MkdirAll(distDir, 0750); err != nil { // #nosec G703 -- distDir is inside the selected project directory
 		return err
 	}
 	wasmOut := filepath.Join(distDir, "app.wasm")
@@ -181,7 +181,7 @@ func buildWasmTinyGo(dir string, debug bool, sourceURLBase string, release, skip
 
 	// Copy public/ → dist/
 	publicDir := filepath.Join(abs, "public")
-	if _, err := os.Stat(publicDir); err == nil {
+	if _, err := os.Stat(publicDir); err == nil { // #nosec G703 -- publicDir is inside the selected project directory
 		if err := copyDir(publicDir, distDir); err != nil {
 			return fmt.Errorf("copy public: %w", err)
 		}
