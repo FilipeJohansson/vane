@@ -1,4 +1,4 @@
-.PHONY: all build force install dev test test-dom lint security install-hooks clean
+.PHONY: all build force install dev test test-dom test-e2e test-e2e-chromium test-e2e-firefox test-e2e-webkit lint security install-hooks clean
 
 all: build
 
@@ -25,6 +25,18 @@ test:
 test-dom:
 	cd tools/wasmtest && npm install --silent
 	GOOS=js GOARCH=wasm go test -exec="node $(CURDIR)/tools/wasmtest/wasm_test_exec.js" ./core/... ./core/router/...
+
+test-e2e:
+	pnpm e2e
+
+test-e2e-chromium:
+	pnpm e2e:chromium
+
+test-e2e-firefox:
+	pnpm e2e:firefox
+
+test-e2e-webkit:
+	pnpm e2e:webkit
 
 lint:
 	golangci-lint run
