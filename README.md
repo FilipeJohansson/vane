@@ -56,6 +56,12 @@ func main() {
 }
 ```
 
+## Compatibility
+
+- Go: `1.24+`
+- Browsers: current desktop versions of Chrome, Edge, Firefox, and Safari
+- TinyGo: experimental build target for smaller WASM binaries; not part of the default compatibility contract
+
 ## A counter
 
 ```go
@@ -94,7 +100,7 @@ The full docs site is at [filipejohansson.github.io/vane](https://filipejohansso
 
 ## Known limitations
 
-Vane is pre-`0.1.0`, the API can still change.
+Vane is in the `pre-v1.0.0` phase, so the API can still change before the v1.0.0 stability milestone.
 
 - **No public VS Code extension yet.** One is in development, syntax highlighting, autocomplete, go-to-definition, and it's what was used to build Vane's own docs site, but it's still rough with several open issues, not ready to publish.
 - **WASM binary size.** 2.5–10MB per app with the standard Go compiler, normal for Go WASM but larger than a typical JS bundle. `vane build --tinygo` cuts that to roughly a third (needs a separate TinyGo + binaryen install), at the cost of `//line`-accurate breakpoints in `vane run --debug --tinygo` (TinyGo's WASM DWARF output isn't compatible with Chrome's breakpoint engine).

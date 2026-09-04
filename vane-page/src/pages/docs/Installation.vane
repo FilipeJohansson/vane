@@ -36,9 +36,15 @@ func Installation() core.Node {
 
 				<h2 className="docs-h2" id="prerequisites">Prerequisites</h2>
 				<p className="docs-p">
-					Vane needs <code>Go 1.24</code> or later on your <code>PATH</code>. The CLI and
-					every project it scaffolds compile with the standard <code>GOOS=js GOARCH=wasm</code>{" "}
-					target, nothing else to install for the default build.
+					Vane currently targets <code>Go 1.24+</code> and the standard <code>GOOS=js GOARCH=wasm</code>{" "}
+					toolchain. The CLI and every scaffolded app build with the default Go WASM target,
+					so there's no extra runtime install required for the normal path.
+				</p>
+				<p className="docs-p">
+					Current desktop versions of Chrome, Edge, Firefox, and Safari are the supported
+					baseline. Mobile browsers are not formally guaranteed or validated yet, and TinyGo
+					remains an experimental build target rather than part of the default compatibility
+					contract.
 				</p>
 				{callout("tip", "Tip", "TinyGo and wasm-opt are optional, used only for --tinygo and the automatic --release size optimization. Skip them for now, nothing else on this page needs them.")}
 
