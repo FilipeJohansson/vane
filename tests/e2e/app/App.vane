@@ -12,6 +12,7 @@ func App() core.Node {
 		<div>
 			<nav aria-label="Test pages">
 				<a href="#/smoke">Smoke</a>
+				<a href="#/rendering">Rendering</a>
 				<a href="#/signals">Signals</a>
 				<a href="#/events">Events</a>
 				<a href="#/lifecycle">Lifecycle</a>
@@ -20,6 +21,7 @@ func App() core.Node {
 			</nav>
 			{router.Router(
 				router.Route("/smoke", pages.Smoke, "Smoke - Vane E2E"),
+				router.Route("/rendering", pages.Rendering, "Rendering - Vane E2E"),
 				router.Route("/signals", pages.Signals, "Signals - Vane E2E"),
 				router.Route("/events", pages.Events, "Events - Vane E2E"),
 				router.Route("/lifecycle", pages.Lifecycle, "Lifecycle - Vane E2E"),
