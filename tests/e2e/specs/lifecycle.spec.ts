@@ -24,13 +24,15 @@ test('runs component cleanup when leaving the route', async ({ page }) => {
 
 test('disposes window listeners when leaving the route', async ({ page }) => {
   await page.goto('/#/lifecycle')
-  await page.keyboard.press('a')
+  await expect(page.getByTestId('effect-runs')).toHaveText('1')
+  await page.evaluate(() => window.dispatchEvent(new KeyboardEvent('keydown', { key: 'a' })))
   await expect(page.getByTestId('listener-calls')).toHaveText('1')
 
   await page.goto('/#/smoke')
-  await page.keyboard.press('b')
+  await page.evaluate(() => window.dispatchEvent(new KeyboardEvent('keydown', { key: 'b' })))
   await page.goto('/#/lifecycle')
 
   await expect(page.getByTestId('listener-calls')).toHaveText('1')
   await expect(page.getByTestId('listener-cleanups')).toHaveText('1')
+  await expect(page.getByTestId('unmount-probe')).toHaveText('1')
 })
