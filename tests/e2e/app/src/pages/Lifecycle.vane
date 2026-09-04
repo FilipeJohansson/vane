@@ -3,10 +3,13 @@ package pages
 import "github.com/filipejohansson/vane/core"
 
 var lifecycleCleanups = core.NewSignal(0)
+var lifecycleListenerCalls = core.NewSignal(0)
+var lifecycleListenerCleanups = core.NewSignal(0)
 
 func Lifecycle() core.Node {
 	count := core.NewSignal(0)
 	effectRuns := core.NewSignal(0)
+	effectCleanups := core.NewSignal(0)
 	runs := 0
 
 	core.OnDispose(func() {
@@ -16,13 +19,22 @@ func Lifecycle() core.Node {
 		_ = count.Get()
 		runs++
 		effectRuns.Set(runs)
-		return func() {}
+		return func() { effectCleanups.Set(effectCleanups.Get() + 1) }
+	})
+	core.OnWindowKeyDown(func(core.KeyEvent) {
+		lifecycleListenerCalls.Set(lifecycleListenerCalls.Get() + 1)
+	})
+	core.OnDispose(func() {
+		lifecycleListenerCleanups.Set(lifecycleListenerCleanups.Get() + 1)
 	})
 
 	return (
 		<section aria-label="Lifecycle">
 			<div data-testid="effect-runs">{effectRuns.Get()}</div>
+			<div data-testid="effect-cleanups">{effectCleanups.Get()}</div>
 			<div data-testid="lifecycle-cleanups">{lifecycleCleanups.Get()}</div>
+			<div data-testid="listener-calls">{lifecycleListenerCalls.Get()}</div>
+			<div data-testid="listener-cleanups">{lifecycleListenerCleanups.Get()}</div>
 			<button onClick={func(core.MouseEvent) { count.Set(count.Get() + 1) }}>Run effect</button>
 		</section>
 	)

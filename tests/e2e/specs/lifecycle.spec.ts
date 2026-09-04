@@ -8,6 +8,7 @@ test('runs effects on mount and when dependencies change', async ({ page }) => {
 
   await page.getByRole('button', { name: 'Run effect' }).click()
   await expect(effectRuns).toHaveText('2')
+  await expect(page.getByTestId('effect-cleanups')).toHaveText('1')
 })
 
 test('runs component cleanup when leaving the route', async ({ page }) => {
@@ -19,4 +20,17 @@ test('runs component cleanup when leaving the route', async ({ page }) => {
 
   await page.goto('/#/lifecycle')
   await expect(page.getByTestId('lifecycle-cleanups')).toHaveText('1')
+})
+
+test('disposes window listeners when leaving the route', async ({ page }) => {
+  await page.goto('/#/lifecycle')
+  await page.keyboard.press('a')
+  await expect(page.getByTestId('listener-calls')).toHaveText('1')
+
+  await page.goto('/#/smoke')
+  await page.keyboard.press('b')
+  await page.goto('/#/lifecycle')
+
+  await expect(page.getByTestId('listener-calls')).toHaveText('1')
+  await expect(page.getByTestId('listener-cleanups')).toHaveText('1')
 })
