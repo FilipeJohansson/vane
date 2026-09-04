@@ -1,0 +1,32 @@
+package pages
+
+import (
+	"github.com/filipejohansson/vane/core"
+	"github.com/filipejohansson/vane/core/router"
+)
+
+var nestedLayoutMounts = 0
+
+func NestedLayout() core.Node {
+	nestedLayoutMounts++
+	outlet := router.Outlet()
+
+	return (
+		<section data-testid="nested-layout">
+			<div data-testid="layout-mounts">{nestedLayoutMounts}</div>
+			<nav aria-label="Nested pages">
+				<a href="#/nested">Nested home</a>
+				<a href="#/nested/detail">Nested detail</a>
+			</nav>
+			<div data-testid="nested-outlet">{outlet}</div>
+		</section>
+	)
+}
+
+func NestedHome() core.Node {
+	return <h1 data-testid="nested-page">Nested home</h1>
+}
+
+func NestedDetail() core.Node {
+	return <h1 data-testid="nested-page">Nested detail</h1>
+}
