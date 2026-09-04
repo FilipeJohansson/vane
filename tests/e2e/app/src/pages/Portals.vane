@@ -1,0 +1,25 @@
+package pages
+
+import "github.com/filipejohansson/vane/core"
+
+func Portals() core.Node {
+	open := core.NewSignal(false)
+
+	return (
+		<section aria-label="Portals">
+			<div data-testid="portal-source">source</div>
+			<button onClick={func(core.MouseEvent) { open.Set(true) }}>Open portal</button>
+			{core.Portal("[data-testid='portal-host']", func() core.Node {
+				if !open.Get() {
+					return nil
+				}
+				return (
+					<div data-testid="portal-content">
+						<span>mounted outside route</span>
+						<button onClick={func(core.MouseEvent) { open.Set(false) }}>Close portal</button>
+					</div>
+				)
+			})}
+		</section>
+	)
+}
