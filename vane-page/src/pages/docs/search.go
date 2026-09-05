@@ -43,12 +43,10 @@ type SearchResult struct {
 	Category string
 }
 
-// RoutePath is the /docs route for this result's page, with no anchor.
-// router.Navigate/pushState never triggers the browser's native
-// scroll-to-fragment (that only happens on a real, non-scripted navigation),
-// so a heading's AnchorID can't just be appended here as "#id" and left for
-// the browser - it has to be applied as a separate scroll step
-// (scrollAfterNavigate) after the route itself has mounted.
+// RoutePath is the /docs route for this result's page, with no anchor -
+// callers append "#" + AnchorID themselves before calling router.Navigate
+// when AnchorID is set, letting the router's own AnchorID/scroll-to-anchor
+// handling (core/router) scroll to the heading once the route mounts.
 func (r SearchResult) RoutePath() string {
 	if r.Slug == "" {
 		return "/docs"

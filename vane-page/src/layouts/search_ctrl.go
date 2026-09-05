@@ -4,7 +4,6 @@ package layouts
 
 import (
 	"strings"
-	"time"
 
 	"github.com/filipejohansson/vane/core"
 )
@@ -36,25 +35,4 @@ func setupSearchShortcut(ctrl *searchCtrl) {
 			ctrl.Open()
 		}
 	})
-}
-
-// scrollAfterNavigate scrolls to id once it shows up in the DOM, retrying
-// briefly. router.Navigate (js.Global "location.hash" set) triggers the new
-// route's Effect on the scheduler goroutine, asynchronously, there's no
-// public "route finished mounting" hook to await instead (signal.WaitEffects
-// is test-only, see internal_docs/testing.md), so this polls rather than
-// assuming a fixed delay is always enough.
-func scrollAfterNavigate(id string) {
-	if id == "" {
-		return
-	}
-	go func() {
-		for i := 0; i < 40; i++ {
-			if el, ok := core.GetElementByID(id); ok {
-				core.ScrollIntoView(el, true)
-				return
-			}
-			time.Sleep(25 * time.Millisecond)
-		}
-	}()
 }

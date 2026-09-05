@@ -57,8 +57,11 @@ func searchModal(ctrl *searchCtrl) core.Node {
 		selectResult := func(r docs.SearchResult) func() {
 			return func() {
 				ctrl.Close()
-				router.Navigate(r.RoutePath())
-				scrollAfterNavigate(r.AnchorID)
+				to := r.RoutePath()
+				if r.AnchorID != "" {
+					to += "#" + r.AnchorID
+				}
+				router.Navigate(to)
 			}
 		}
 
