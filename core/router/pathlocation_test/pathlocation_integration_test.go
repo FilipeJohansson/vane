@@ -59,6 +59,24 @@ func waitForPath(t *testing.T, want string) {
 	t.Fatalf("router.Path() did not become %q within timeout (stuck at %q)", want, router.Path().Get())
 }
 
+// waitNextTick blocks until a core.NextTick callback fires. router.go's
+// scroll-to-anchor decision (ensureInit's OnChange) is itself deferred via
+// core.NextTick, so a test asserting on it must wait for one too - queued
+// strictly after the router's own (FIFO microtask ordering), this
+// guarantees the router's callback has already run by the time this
+// returns, rather than relying on some other incidental yield (e.g.
+// waitForPath's time.Sleep) to have given it a chance in the meantime.
+func waitNextTick(t *testing.T) {
+	t.Helper()
+	done := make(chan struct{})
+	core.NextTick(func() { close(done) })
+	select {
+	case <-done:
+	case <-time.After(time.Second):
+		t.Fatal("NextTick never ran fn")
+	}
+}
+
 func navigateAndRestore(t *testing.T, to string) {
 	t.Helper()
 	t.Cleanup(func() {
@@ -210,6 +228,7 @@ func TestNavigateToAnchorScrollsToElementInsteadOfTop(t *testing.T) {
 		waitForPath(t, "/")
 	})
 	waitForPath(t, "/settings")
+	waitNextTick(t)
 
 	if scrollIntoViewCalls != 1 {
 		t.Errorf("target element's scrollIntoView called %d times, want 1", scrollIntoViewCalls)
@@ -234,6 +253,7 @@ func TestNavigateWithoutAnchorStillScrollsToTop(t *testing.T) {
 	t.Cleanup(func() { window.Set("scrollTo", original) })
 
 	navigateAndRestore(t, "/reports")
+	waitNextTick(t)
 
 	if scrollToCalls != 1 {
 		t.Errorf("window.scrollTo called %d times, want 1 (plain navigation with no anchor should scroll to top)", scrollToCalls)
