@@ -10,7 +10,7 @@ func Lifecycle() core.Node {
 	core.Head(func() core.HeadConfig {
 		title := "Lifecycle | Vane Docs"
 		description := "How Vane mounts components, reruns effects, disposes cleanup, and tears down route scopes."
-		url := core.Window().Get("location").Get("origin").String() + "/vane/#/docs/lifecycle"
+		url := core.Window().Get("location").Get("origin").String() + "/vane/docs/lifecycle"
 		return core.HeadConfig{
 			Title:         title,
 			Description:   description,

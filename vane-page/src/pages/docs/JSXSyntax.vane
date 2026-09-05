@@ -130,7 +130,7 @@ func JSXSyntax() core.Node {
 	core.Head(func() core.HeadConfig {
 		title := "JSX Syntax | Vane Docs"
 		description := "Full prop/event table, JSX rules, inline for/if/switch, and reactive lists."
-		url := core.Window().Get("location").Get("origin").String() + "/vane/#/docs/jsx-syntax"
+		url := core.Window().Get("location").Get("origin").String() + "/vane/docs/jsx-syntax"
 		return core.HeadConfig{
 			Title:         title,
 			Description:   description,

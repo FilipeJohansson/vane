@@ -119,7 +119,7 @@ func Components() core.Node {
 	core.Head(func() core.HeadConfig {
 		title := "Components | Vane Docs"
 		description := "Building reusable UI with components, children, HTMLProps, and controller/view APIs."
-		url := core.Window().Get("location").Get("origin").String() + "/vane/#/docs/components"
+		url := core.Window().Get("location").Get("origin").String() + "/vane/docs/components"
 		return core.HeadConfig{
 			Title:         title,
 			Description:   description,

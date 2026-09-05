@@ -65,7 +65,7 @@ func DataFetching() core.Node {
 	core.Head(func() core.HeadConfig {
 		title := "Data Fetching | Vane Docs"
 		description := "Fetch data with a goroutine and net/http, no async library or special signal type needed."
-		url := core.Window().Get("location").Get("origin").String() + "/vane/#/docs/data-fetching"
+		url := core.Window().Get("location").Get("origin").String() + "/vane/docs/data-fetching"
 		return core.HeadConfig{
 			Title:         title,
 			Description:   description,

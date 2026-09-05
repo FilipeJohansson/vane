@@ -48,6 +48,24 @@ jobs:
       - name: Build vane-page (release)
         run: ./vane build vane-page --release
 
+      # vane-page/public/index.html references its own assets (style.css,
+      # wasm_exec.js, boot.js, favicon.svg) with root-absolute paths, which
+      # is correct for the local dev server (always served at "/") and for
+      # any app deployed at its domain's root, but wrong here: this is a
+      # GitHub Pages *project* page, served under the "/vane/" sub-path
+      # instead of domain root, so those paths would otherwise resolve
+      # against https://filipejohansson.github.io/ and 404. Prefixing them
+      # at this one deploy-specific step keeps public/index.html itself
+      # correct for every other use (local dev, `vane build` in general).
+      - name: Fix asset paths for the /vane/ sub-path
+        run: |
+          sed -i \
+            -e 's|href="/favicon.svg"|href="/vane/favicon.svg"|' \
+            -e 's|href="/style.css"|href="/vane/style.css"|' \
+            -e 's|src="/wasm_exec.js"|src="/vane/wasm_exec.js"|' \
+            -e 's|src="/boot.js"|src="/vane/boot.js"|' \
+            vane-page/dist/index.html
+
       - uses: actions/upload-pages-artifact@v3
         with:
           path: vane-page/dist

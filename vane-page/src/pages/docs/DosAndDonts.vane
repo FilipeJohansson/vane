@@ -66,7 +66,7 @@ func DosAndDonts() core.Node {
 	core.Head(func() core.HeadConfig {
 		title := "Do's and Don'ts | Vane Docs"
 		description := "Where Vane syntax is allowed to appear, reading signals where they'll actually re-run, and wrapping manual component calls in Untrack."
-		url := core.Window().Get("location").Get("origin").String() + "/vane/#/docs/dos-and-donts"
+		url := core.Window().Get("location").Get("origin").String() + "/vane/docs/dos-and-donts"
 		return core.HeadConfig{
 			Title:         title,
 			Description:   description,

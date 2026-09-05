@@ -46,7 +46,7 @@ func Style() core.Node {
 	core.Head(func() core.HeadConfig {
 		title := "Styles and CSS | Vane Docs"
 		description := "The core.Style struct for reactive inline styles, the static-string escape hatch, and co-located CSS files."
-		url := core.Window().Get("location").Get("origin").String() + "/vane/#/docs/style"
+		url := core.Window().Get("location").Get("origin").String() + "/vane/docs/style"
 		return core.HeadConfig{
 			Title:         title,
 			Description:   description,

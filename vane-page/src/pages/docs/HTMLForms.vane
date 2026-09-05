@@ -121,7 +121,7 @@ func HTMLForms() core.Node {
 	core.Head(func() core.HeadConfig {
 		title := "Build HTML Forms | Vane Docs"
 		description := "Controlled inputs, skipping signals for values you only need at submit time, validation with core.Effect, handling submit, and reusable field components."
-		url := core.Window().Get("location").Get("origin").String() + "/vane/#/docs/html-forms"
+		url := core.Window().Get("location").Get("origin").String() + "/vane/docs/html-forms"
 		return core.HeadConfig{
 			Title:         title,
 			Description:   description,

@@ -95,7 +95,7 @@ func ProjectStructure() core.Node {
 	core.Head(func() core.HeadConfig {
 		title := "Project Structure | Vane Docs"
 		description := "What vane init scaffolds, and where application code, static assets, and co-located styles live."
-		url := core.Window().Get("location").Get("origin").String() + "/vane/#/docs/project-structure"
+		url := core.Window().Get("location").Get("origin").String() + "/vane/docs/project-structure"
 		return core.HeadConfig{
 			Title:         title,
 			Description:   description,
