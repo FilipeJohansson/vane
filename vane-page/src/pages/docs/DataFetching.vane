@@ -2,6 +2,7 @@ package docs
 
 import (
 	"github.com/filipejohansson/vane/core"
+	"github.com/filipejohansson/vane/core/router"
 
 	"vane-page/src/components"
 )
@@ -100,7 +101,7 @@ func DataFetching() core.Node {
 				<p className="docs-p">
 					A second signal for status turns a bare fetch into the loading/error/done
 					states every real fetch needs. This is the same shape used by{" "}
-					<a href="#/docs/routing">Routing</a>'s examples elsewhere in these docs,
+					{router.Link(router.LinkProps{To: "/docs/routing"}, "Routing")}'s examples elsewhere in these docs,
 					just with <code>net/http</code> instead of a mocked delay:
 				</p>
 				{components.CodeBlock("Quote.vane", dataFetchingStatesSnippet)}
@@ -119,7 +120,7 @@ func DataFetching() core.Node {
 					before the response arrives, it just sets a signal nobody reads anymore.
 					For a fetch that fires once per user action (a button click, this page's
 					own live demo) that's harmless. For anything longer-lived, tickers,
-					subscriptions, polling, see <a href="#/docs/patterns">Patterns</a>'
+					subscriptions, polling, see {router.Link(router.LinkProps{To: "/docs/patterns"}, "Pattern")}'s
 					"Goroutines and cleanup" section for the <code>core.OnDispose</code> version.
 				</p>
 

@@ -4,6 +4,7 @@ import (
 	"strconv"
 
 	"github.com/filipejohansson/vane/core"
+	"github.com/filipejohansson/vane/core/router"
 )
 
 // docsHeader is the title block every doc page starts with.
@@ -102,11 +103,10 @@ func code(s string) core.Node {
 // (3.5rem) plus the reading-progress bar, with a little breathing room.
 const scrollSpyOffset = 90.0
 
-// scrollToHeading is used instead of a plain href="#id" anchor: this app's
-// router treats any hash not starting with "#/" as a bare "/" navigation
-// (see core/router), so a real anchor would silently jump to the homepage
-// instead of scrolling. scroll-margin-top on .docs-h2 keeps the heading
-// clear of the sticky nav once scrollIntoView lands.
+// scrollToHeading backs the TOC's onClick (a <button>, not an <a href="#id">,
+// so it never touches the URL at all - simplest option, works the same
+// regardless of which router.Location is active). scroll-margin-top on
+// .docs-h2 keeps the heading clear of the sticky nav once scrollIntoView lands.
 func scrollToHeading(id string) {
 	el, ok := core.GetElementByID(id)
 	if !ok {
@@ -204,11 +204,18 @@ func navCard(dir, slug, title string) core.Node {
 	if dir == "prev" {
 		label = "Previous"
 	}
+	return router.Link(router.LinkProps{
+		To:        to,
+		HTMLProps: core.HTMLProps{Class: "docs-pagenav-card docs-pagenav-card--" + dir},
+	}, navCardBody(label, title))
+}
+
+func navCardBody(label, title string) core.Node {
 	return (
-		<a className={"docs-pagenav-card docs-pagenav-card--" + dir} href={"#" + to}>
+		<>
 			<span className="docs-pagenav-label">{label}</span>
 			<span className="docs-pagenav-title">{title}</span>
-		</a>
+		</>
 	)
 }
 

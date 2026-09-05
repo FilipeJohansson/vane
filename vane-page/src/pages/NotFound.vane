@@ -36,7 +36,7 @@ func NotFound() core.Node {
 					}, "Back home")}
 					{components.Button(components.ButtonProps{
 						Variant: "ghost",
-						Href:    "#/docs",
+						Href:    "/docs",
 					}, "Read the docs")}
 				</div>
 			</div>

@@ -1,14 +1,24 @@
 package components
 
-import "github.com/filipejohansson/vane/core"
+import (
+	"github.com/filipejohansson/vane/core"
+	"github.com/filipejohansson/vane/core/router"
+)
 
-func docCard(title, desc, slug string) core.Node {
+func docCardBody(title, desc string) core.Node {
 	return (
-		<a className="doc-card" href={"#/docs/" + slug}>
+		<>
 			<h3 className="doc-card-title">{title}</h3>
 			<p className="doc-card-desc">{desc}</p>
-		</a>
+		</>
 	)
+}
+
+func docCard(title, desc, slug string) core.Node {
+	return router.Link(router.LinkProps{
+		To:        "/docs/" + slug,
+		HTMLProps: core.HTMLProps{Class: "doc-card"},
+	}, docCardBody(title, desc))
 }
 
 func DocsCards() core.Node {
