@@ -93,9 +93,16 @@ const psCSSImportSnippet = `/* public/style.css: @import must be at the top */
 
 func ProjectStructure() core.Node {
 	core.Head(func() core.HeadConfig {
+		title := "Project Structure | Vane Docs"
+		description := "What vane init scaffolds, and where application code, static assets, and co-located styles live."
+		url := core.Window().Get("location").Get("origin").String() + "/vane/#/docs/project-structure"
 		return core.HeadConfig{
-			Title:       "Project Structure | Vane Docs",
-			Description: "What vane init scaffolds, and where application code, static assets, and co-located styles live.",
+			Title:         title,
+			Description:   description,
+			Canonical:     url,
+			OGTitle:       title,
+			OGDescription: description,
+			OGURL:         url,
 		}
 	})
 

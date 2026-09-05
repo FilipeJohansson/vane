@@ -19,9 +19,16 @@ const conceptsCounterSnippet = `func Counter() core.Node {
 
 func Concepts() core.Node {
 	core.Head(func() core.HeadConfig {
+		title := "Concepts | Vane Docs"
+		description := "The mental model behind Vane."
+		url := core.Window().Get("location").Get("origin").String() + "/vane/#/docs/concepts"
 		return core.HeadConfig{
-			Title:       "Concepts | Vane Docs",
-			Description: "The mental model behind Vane.",
+			Title:         title,
+			Description:   description,
+			Canonical:     url,
+			OGTitle:       title,
+			OGDescription: description,
+			OGURL:         url,
 		}
 	})
 

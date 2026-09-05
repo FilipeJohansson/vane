@@ -66,9 +66,16 @@ const activeLinkSnippet = `router.ActiveLink(router.ActiveLinkProps{
 
 func Routing() core.Node {
 	core.Head(func() core.HeadConfig {
+		title := "Routing | Vane Docs"
+		description := "Hash-based routing with router.Route, router.Layout, URL params, Link, and ActiveLink."
+		url := core.Window().Get("location").Get("origin").String() + "/vane/#/docs/routing"
 		return core.HeadConfig{
-			Title:       "Routing | Vane Docs",
-			Description: "Hash-based routing with router.Route, router.Layout, URL params, Link, and ActiveLink.",
+			Title:         title,
+			Description:   description,
+			Canonical:     url,
+			OGTitle:       title,
+			OGDescription: description,
+			OGURL:         url,
 		}
 	})
 

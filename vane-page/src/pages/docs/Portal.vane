@@ -56,9 +56,16 @@ const guardSnippet = `func Modal(ctrl *ModalCtrl) core.Node {
 
 func Portal() core.Node {
 	core.Head(func() core.HeadConfig {
+		title := "Portal | Vane Docs"
+		description := "Render components outside their parent's DOM hierarchy."
+		url := core.Window().Get("location").Get("origin").String() + "/vane/#/docs/portal"
 		return core.HeadConfig{
-			Title:       "Portal | Vane Docs",
-			Description: "Render components outside their parent's DOM hierarchy.",
+			Title:         title,
+			Description:   description,
+			Canonical:     url,
+			OGTitle:       title,
+			OGDescription: description,
+			OGURL:         url,
 		}
 	})
 

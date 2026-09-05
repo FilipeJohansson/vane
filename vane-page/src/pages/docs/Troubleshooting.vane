@@ -60,9 +60,16 @@ return (<ul>{items()...}</ul>)`
 
 func Troubleshooting() core.Node {
 	core.Head(func() core.HeadConfig {
+		title := "Troubleshooting | Vane Docs"
+		description := "Known gotchas: infinite reactive update loops, ref timing, silent effect panics, missing Portal targets, and DynList key warnings, and how to diagnose each in the console."
+		url := core.Window().Get("location").Get("origin").String() + "/vane/#/docs/troubleshooting"
 		return core.HeadConfig{
-			Title:       "Troubleshooting | Vane Docs",
-			Description: "Known gotchas: infinite reactive update loops, ref timing, silent effect panics, missing Portal targets, and DynList key warnings, and how to diagnose each in the console.",
+			Title:         title,
+			Description:   description,
+			Canonical:     url,
+			OGTitle:       title,
+			OGDescription: description,
+			OGURL:         url,
 		}
 	})
 

@@ -28,9 +28,16 @@ const securityURLSnippet = `<a href={userSuppliedURL}>Visit</a>
 
 func Security() core.Node {
 	core.Head(func() core.HeadConfig {
+		title := "Security | Vane Docs"
+		description := "Vane's default-safe rendering model, the DangerousInnerHTML escape hatch, and how URL props are handled."
+		url := core.Window().Get("location").Get("origin").String() + "/vane/#/docs/security"
 		return core.HeadConfig{
-			Title:       "Security | Vane Docs",
-			Description: "Vane's default-safe rendering model, the DangerousInnerHTML escape hatch, and how URL props are handled.",
+			Title:         title,
+			Description:   description,
+			Canonical:     url,
+			OGTitle:       title,
+			OGDescription: description,
+			OGURL:         url,
 		}
 	})
 

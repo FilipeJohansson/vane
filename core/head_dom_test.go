@@ -81,16 +81,32 @@ func TestHeadSetsDescriptionMeta(t *testing.T) {
 // property instead of the attribute crawlers actually read.
 func TestHeadSetsOpenGraphTags(t *testing.T) {
 	runHeadScoped(t, core.HeadConfig{
-		OGTitle: "OG Title",
-		OGImage: "/img/og.png",
-		OGType:  "website",
+		OGTitle:           "OG Title",
+		OGImage:           "/img/og.png",
+		OGType:            "website",
+		OGURL:             "https://example.com/page",
+		OGAudio:           "https://example.com/audio.mp3",
+		OGDescription:     "A test description",
+		OGDeterminer:      "the",
+		OGLocale:          "en_US",
+		OGLocaleAlternate: "pt_BR",
+		OGSiteName:        "Test Site",
+		OGVideo:           "https://example.com/video.mp4",
 	})
 
 	head := headDoc(t).Get("head")
 	cases := map[string]string{
-		"og:title": "OG Title",
-		"og:image": "/img/og.png",
-		"og:type":  "website",
+		"og:title":            "OG Title",
+		"og:image":            "/img/og.png",
+		"og:type":             "website",
+		"og:url":              "https://example.com/page",
+		"og:audio":            "https://example.com/audio.mp3",
+		"og:description":      "A test description",
+		"og:determiner":       "the",
+		"og:locale":           "en_US",
+		"og:locale:alternate": "pt_BR",
+		"og:site_name":        "Test Site",
+		"og:video":            "https://example.com/video.mp4",
 	}
 	for prop, want := range cases {
 		el := head.Call("querySelector", `meta[property="`+prop+`"]`)

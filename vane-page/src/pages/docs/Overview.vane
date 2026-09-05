@@ -48,9 +48,16 @@ func highlightCard(t Topic) core.Node {
 
 func Overview() core.Node {
 	core.Head(func() core.HeadConfig {
+		title := "Docs | Vane"
+		description := "Documentation for Vane: signals, components, JSX syntax, routing, and more."
+		url := core.Window().Get("location").Get("origin").String() + "/vane/docs"
 		return core.HeadConfig{
-			Title:       "Docs | Vane",
-			Description: "Documentation for Vane: signals, components, JSX syntax, routing, and more.",
+			Title:         title,
+			Description:   description,
+			Canonical:     url,
+			OGTitle:       title,
+			OGDescription: description,
+			OGURL:         url,
 		}
 	})
 

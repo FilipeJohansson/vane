@@ -121,9 +121,16 @@ func TestCartTotal(t *testing.T) {
 
 func Patterns() core.Node {
 	core.Head(func() core.HeadConfig {
+		title := "Patterns | Vane Docs"
+		description := "Practical recipes: fine-grained signals, reactive lists, goroutines with cleanup, Portal's reactive boundary, and testing signal logic without a browser."
+		url := core.Window().Get("location").Get("origin").String() + "/vane/#/docs/patterns"
 		return core.HeadConfig{
-			Title:       "Patterns | Vane Docs",
-			Description: "Practical recipes: fine-grained signals, reactive lists, goroutines with cleanup, Portal's reactive boundary, and testing signal logic without a browser.",
+			Title:         title,
+			Description:   description,
+			Canonical:     url,
+			OGTitle:       title,
+			OGDescription: description,
+			OGURL:         url,
 		}
 	})
 

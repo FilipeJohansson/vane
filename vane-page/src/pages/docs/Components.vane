@@ -117,9 +117,16 @@ func App() core.Node {
 
 func Components() core.Node {
 	core.Head(func() core.HeadConfig {
+		title := "Components | Vane Docs"
+		description := "Building reusable UI with components, children, HTMLProps, and controller/view APIs."
+		url := core.Window().Get("location").Get("origin").String() + "/vane/#/docs/components"
 		return core.HeadConfig{
-			Title:       "Components | Vane Docs",
-			Description: "Building reusable UI with components, children, HTMLProps, and controller/view APIs.",
+			Title:         title,
+			Description:   description,
+			Canonical:     url,
+			OGTitle:       title,
+			OGDescription: description,
+			OGURL:         url,
 		}
 	})
 

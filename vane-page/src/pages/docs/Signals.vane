@@ -53,9 +53,16 @@ const untrackSnippet = `core.Untrack(func() {
 
 func Signals() core.Node {
 	core.Head(func() core.HeadConfig {
+		title := "Signals & Reactivity | Vane Docs"
+		description := "core.NewSignal, Effect, OnDispose, ComputedOf, and Untrack: Vane's fine-grained reactivity primitives."
+		url := core.Window().Get("location").Get("origin").String() + "/vane/#/docs/signals"
 		return core.HeadConfig{
-			Title:       "Signals & Reactivity | Vane Docs",
-			Description: "core.NewSignal, Effect, OnDispose, ComputedOf, and Untrack: Vane's fine-grained reactivity primitives.",
+			Title:         title,
+			Description:   description,
+			Canonical:     url,
+			OGTitle:       title,
+			OGDescription: description,
+			OGURL:         url,
 		}
 	})
 
