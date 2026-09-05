@@ -4,7 +4,6 @@ package router
 
 import (
 	"strings"
-	"syscall/js"
 
 	"github.com/filipejohansson/vane/core"
 	"github.com/filipejohansson/vane/core/signal"
@@ -39,48 +38,56 @@ type routerCtx struct {
 }
 
 var (
-	ctxStack     []routerCtx
-	pathSignal   *signal.Signal[string]
-	pathReadOnly *signal.ReadOnlySignal[string]
+	ctxStack       []routerCtx
+	pathSignal     *signal.Signal[string]
+	pathReadOnly   *signal.ReadOnlySignal[string]
+	activeLocation Location = &HashLocation{}
+	initialized    bool
 )
 
-func init() {
-	pathSignal = signal.New(currentLocation())
-	pathReadOnly = pathSignal.ReadOnly()
-	listenLocation(func(p string) { pathSignal.Set(p) })
-}
-
-func currentLocation() string {
-	hash := js.Global().Get("location").Get("hash").String()
-	// Only hashes starting with "#/" are router paths. Plain anchor hashes like
-	// "#section-id" are native browser scroll targets, so those are treated as "/".
-	if hash == "" || hash == "#" || !strings.HasPrefix(hash, "#/") {
-		return "/"
+// ensureInit lazily wires pathSignal to activeLocation on first use, so that
+// SetLocation has a chance to run first (see SetLocation).
+func ensureInit() {
+	if initialized {
+		return
 	}
-	return hash[1:]
+	initialized = true
+	pathSignal = signal.New(activeLocation.Path())
+	pathReadOnly = pathSignal.ReadOnly()
+	activeLocation.OnChange(func() {
+		old := pathSignal.Get()
+		next := activeLocation.Path()
+		pathSignal.Set(next)
+		if next != old {
+			dom.Window.Call("scrollTo", 0, 0)
+		}
+	})
 }
 
-func listenLocation(fn func(string)) {
-	js.Global().Get("window").Call(dom.AddEventListener, dom.EventHashChange, js.FuncOf(
-		func(_ js.Value, _ []js.Value) interface{} {
-			hash := js.Global().Get("location").Get("hash").String()
-			fn(currentLocation())
-			if strings.HasPrefix(hash, "#/") {
-				js.Global().Get("window").Call("scrollTo", 0, 0)
-			}
-			return nil
-		},
-	))
+// SetLocation configures how the router represents its current route in the
+// browser's URL. By default the router uses HashLocation; call SetLocation
+// to opt into a different one (e.g. PathLocation). Must be called before the
+// router is used (before Router, Navigate, Replace, Path, Link, etc.), panics
+// otherwise.
+func SetLocation(loc Location) {
+	if initialized {
+		panic("router.SetLocation must be called before the router is used")
+	}
+	activeLocation = loc
 }
 
 // Path returns the current path as a reactive read-only signal.
 // Use as an escape hatch for manual routing logic.
-func Path() *signal.ReadOnlySignal[string] { return pathReadOnly }
+func Path() *signal.ReadOnlySignal[string] {
+	ensureInit()
+	return pathReadOnly
+}
 
 // Params returns the route params for the current component as a reactive signal.
 // Must be called during component setup (sync), not inside an Effect.
 // Returns an empty signal if called outside a router context.
 func Params() *signal.ReadOnlySignal[map[string]string] {
+	ensureInit()
 	if len(ctxStack) == 0 {
 		core.Warn("router.Params() called outside a router context, returning an empty signal")
 		return signal.New(map[string]string{}).ReadOnly()
@@ -126,6 +133,7 @@ func Layout(prefix string, shell func() core.Node, children ...Entry) Entry {
 // Router renders the first matching entry for the current path.
 // Returns a stable container element; contents replace reactively on navigation.
 func Router(entries ...Entry) core.Node {
+	ensureInit()
 	container := core.El("div")
 	state := &routerState{}
 	signal.Effect(func() {
@@ -135,9 +143,19 @@ func Router(entries ...Entry) core.Node {
 	return container
 }
 
-// Navigate programmatically changes the current route.
+// Navigate programmatically changes the current route, pushing a new browser
+// history entry (back returns to the previous route).
 func Navigate(to string) {
-	js.Global().Get("location").Set("hash", to)
+	ensureInit()
+	activeLocation.Navigate(to)
+}
+
+// Replace programmatically changes the current route without pushing a new
+// browser history entry (back skips over it, going straight to whatever
+// route preceded it).
+func Replace(to string) {
+	ensureInit()
+	activeLocation.Replace(to)
 }
 
 // LinkProps configures a Link element.
@@ -151,8 +169,9 @@ type LinkProps struct {
 
 // Link renders an anchor element that navigates to the given path.
 func Link(props LinkProps, children ...any) core.Node {
+	ensureInit()
 	if props.To == "" {
-		core.Warn("router.Link called with an empty To, which creates a link to \"#\" that navigates to \"/\"")
+		core.Warn("router.Link called with an empty To, which creates a link that navigates to \"/\"")
 	}
 	return core.ElWithProps("a", linkHTMLProps(props), core.Nodes(children...)...)
 }
@@ -166,7 +185,7 @@ func linkHTMLProps(props LinkProps) core.HTMLProps {
 	for k, v := range p.Extra {
 		extra[k] = v
 	}
-	extra["href"] = "#" + props.To
+	extra["href"] = activeLocation.Href(props.To)
 	if props.Target != "" {
 		extra["target"] = props.Target
 	}
@@ -193,6 +212,7 @@ type ActiveLinkProps struct {
 // current path matches To (prefix match; "/" uses exact match; set
 // ActiveLinkProps.Exact to force exact match for any other To).
 func ActiveLink(props ActiveLinkProps, children ...any) core.Node {
+	ensureInit()
 	if props.To == "" {
 		core.Warn("router.ActiveLink called with an empty To, so the link will always be marked active (matches every path)")
 	}
@@ -223,6 +243,7 @@ func ActiveLink(props ActiveLinkProps, children ...any) core.Node {
 // matches to (prefix match; "/" uses exact match).
 // Call during component setup so the underlying Effect is scoped to the component.
 func IsActive(to string) *signal.ReadOnlySignal[bool] {
+	ensureInit()
 	if to == "" {
 		core.Warn("router.IsActive called with an empty to, and it will always report active (matches every path)")
 	}

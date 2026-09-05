@@ -11,6 +11,7 @@ package router_test
 // t.Cleanup so later tests still see the expected initial state.
 
 import (
+	"syscall/js"
 	"testing"
 	"time"
 
@@ -216,5 +217,52 @@ func TestPathReflectsNavigation(t *testing.T) {
 
 	if got := router.Path().Get(); got != "/reports" {
 		t.Errorf("Path() = %q, want %q", got, "/reports")
+	}
+}
+
+// TestSetLocationPanicsAfterFirstUse guards the ensureInit/SetLocation
+// ordering rule: SetLocation must run before the router is first used
+// (Router, Navigate, Path, Link, ...), and panics otherwise. router.Path()
+// below just guarantees ensureInit has already run by the time SetLocation
+// is called, regardless of what other tests in this package ran first.
+func TestSetLocationPanicsAfterFirstUse(t *testing.T) {
+	router.Path()
+
+	defer func() {
+		if r := recover(); r == nil {
+			t.Fatal("router.SetLocation did not panic when called after the router was already in use")
+		}
+	}()
+	router.SetLocation(&router.HashLocation{})
+}
+
+// TestNavigatePushesReplaceDoesNot exercises ensureInit's wiring end to end
+// through the two ways it can be notified of a path change: Navigate (via
+// HashLocation setting location.hash, browser fires "hashchange") and
+// Replace (via updateHistory's manual notify, since history.replaceState
+// fires no event on its own). Both must land in router.Path(); only Navigate
+// should grow the browser's history.
+func TestNavigatePushesReplaceDoesNot(t *testing.T) {
+	before := js.Global().Get("history").Get("length").Int()
+
+	t.Cleanup(func() {
+		router.Navigate("/")
+		waitForPath(t, "/")
+	})
+
+	router.Navigate("/reports")
+	waitForPath(t, "/reports")
+	afterNavigate := js.Global().Get("history").Get("length").Int()
+	if afterNavigate != before+1 {
+		t.Errorf("history.length after Navigate = %d, want %d (Navigate should push a new entry)", afterNavigate, before+1)
+	}
+
+	router.Replace("/reports/summary")
+	if got := router.Path().Get(); got != "/reports/summary" {
+		t.Fatalf("Path() after Replace = %q, want %q", got, "/reports/summary")
+	}
+	afterReplace := js.Global().Get("history").Get("length").Int()
+	if afterReplace != afterNavigate {
+		t.Errorf("history.length after Replace = %d, want %d (Replace should not push a new entry)", afterReplace, afterNavigate)
 	}
 }
