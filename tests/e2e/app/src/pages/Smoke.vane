@@ -1,7 +1,23 @@
 package pages
 
-import "github.com/filipejohansson/vane/core"
+import (
+	"github.com/filipejohansson/vane/core"
+	"github.com/filipejohansson/vane/core/router"
+)
 
 func Smoke() core.Node {
-	return <div data-testid="app-ready">ready</div>
+	return (
+		<>
+			<div data-testid="app-ready">ready</div>
+			<button data-testid="replace-to-signals" onClick={func(core.MouseEvent) { router.Replace("/signals") }}>
+				Replace with Signals
+			</button>
+			<button data-testid="scroll-to-anchor" onClick={func(core.MouseEvent) { router.Navigate("/smoke#target-section") }}>
+				Scroll to anchor
+			</button>
+			<div id="target-section" data-testid="target-section" style="margin-top: 2000px">
+				Target section
+			</div>
+		</>
+	)
 }

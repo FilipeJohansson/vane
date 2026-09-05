@@ -11,6 +11,8 @@ import (
 )
 
 func App() core.Node {
+	router.SetLocation(&router.PathLocation{})
+
 	return (
 		<div className="app">
 			{components.Nav()}

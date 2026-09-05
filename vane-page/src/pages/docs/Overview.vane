@@ -2,6 +2,7 @@ package docs
 
 import (
 	"github.com/filipejohansson/vane/core"
+	"github.com/filipejohansson/vane/core/router"
 
 	"vane-page/src/components"
 )
@@ -26,24 +27,38 @@ func scaffoldStep(label, cmd string) core.Node {
 
 // quickstartCard is one of the three "what to read first" entry points
 // below the scaffold command.
-func quickstartCard(step, title, desc, slug string) core.Node {
+func quickstartCardBody(step, title, desc string) core.Node {
 	return (
-		<a className="docs-quickstart-card" href={"#/docs/" + slug}>
+		<>
 			<span className="docs-quickstart-step">{step}</span>
 			<h3 className="docs-quickstart-title">{title}</h3>
 			<p className="docs-quickstart-desc">{desc}</p>
-		</a>
+		</>
+	)
+}
+
+func quickstartCard(step, title, desc, slug string) core.Node {
+	return router.Link(router.LinkProps{
+		To:        "/docs/" + slug,
+		HTMLProps: core.HTMLProps{Class: "docs-quickstart-card"},
+	}, quickstartCardBody(step, title, desc))
+}
+
+func highlightCardBody(t Topic) core.Node {
+	return (
+		<>
+			<h3 className="docs-card-title">{t.Title}</h3>
+			<p className="docs-card-desc">{t.Summary}</p>
+			<span className="docs-card-cta">Read more →</span>
+		</>
 	)
 }
 
 func highlightCard(t Topic) core.Node {
-	return (
-		<a className="docs-card" href={"#/docs/" + t.Slug}>
-			<h3 className="docs-card-title">{t.Title}</h3>
-			<p className="docs-card-desc">{t.Summary}</p>
-			<span className="docs-card-cta">Read more →</span>
-		</a>
-	)
+	return router.Link(router.LinkProps{
+		To:        "/docs/" + t.Slug,
+		HTMLProps: core.HTMLProps{Class: "docs-card"},
+	}, highlightCardBody(t))
 }
 
 func Overview() core.Node {

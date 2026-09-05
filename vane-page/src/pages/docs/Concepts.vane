@@ -2,6 +2,7 @@ package docs
 
 import (
 	"github.com/filipejohansson/vane/core"
+	"github.com/filipejohansson/vane/core/router"
 
 	"vane-page/src/components"
 )
@@ -107,7 +108,7 @@ func Concepts() core.Node {
 				</p>
 				<p className="docs-p">
 					For the exact execution model, rerun order, cleanup timing, and route disposal rules,
-					see the <a className="docs-inline-link" href="#/docs/lifecycle">Lifecycle guide</a>.
+					see the {router.Link(router.LinkProps{To: "/docs/lifecycle", HTMLProps: core.HTMLProps{Class: "docs-inline-link"}}, "Lifecycle guide")}.
 				</p>
 				{components.CodeBlock("Counter.vane", conceptsCounterSnippet)}
 				<p className="docs-p">

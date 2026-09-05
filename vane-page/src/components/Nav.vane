@@ -9,6 +9,30 @@ const githubSVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" st
 
 const githubHref = "https://github.com/filipejohansson/vane"
 
+// sectionLink returns an onClick handler for a nav link to a section (id)
+// that only exists on the home page. href="/#id" already gets same-page
+// anchor scrolling right for free once on "/" (see PathLocation's click
+// interception, which leaves a same-page fragment click to the browser).
+// From any other page, though, router.Navigate needs to be called
+// explicitly instead of letting the plain href reload the page - passing
+// the fragment along ("/#id", not just "/") is what lets the router's own
+// AnchorID/scroll-to-anchor handling (core/router) scroll to the section
+// once the home page actually mounts, instead of scrolling to top. Left/
+// unmodified clicks only - anything else (new tab, modifier keys) is left
+// for the browser to handle via the plain href.
+func sectionLink(id string) func(core.MouseEvent) {
+	return func(e core.MouseEvent) {
+		if e.Button != 0 || e.Ctrl || e.Meta || e.Shift || e.Alt {
+			return
+		}
+		if router.Path().Get() == "/" {
+			return
+		}
+		e.PreventDefault()
+		router.Navigate("/#" + id)
+	}
+}
+
 func Nav() core.Node {
 	menuOpen := core.NewSignal(false)
 
@@ -30,12 +54,12 @@ func Nav() core.Node {
 
 	return (
 		<header className="nav">
-			<a href="#" className="nav-brand" onClick={func(core.MouseEvent) { closeMenu() }}>Vane</a>
+			<a href="/" className="nav-brand" onClick={func(core.MouseEvent) { closeMenu() }}>Vane</a>
 			<nav className="nav-links" aria-label="Section">
-				<a href="#reactivity" className="nav-link">Reactivity</a>
-				<a href="#features" className="nav-link">Features</a>
-				<a href="#examples" className="nav-link">Examples</a>
-				<a href="#/docs" className="nav-link">Documentation</a>
+				<a href="/#reactivity" className="nav-link" onClick={sectionLink("reactivity")}>Reactivity</a>
+				<a href="/#features" className="nav-link" onClick={sectionLink("features")}>Features</a>
+				<a href="/#examples" className="nav-link" onClick={sectionLink("examples")}>Examples</a>
+				{router.Link(router.LinkProps{To: "/docs", HTMLProps: core.HTMLProps{Class: "nav-link"}}, "Documentation")}
 			</nav>
 			<div className="nav-actions">
 				<a
@@ -66,10 +90,16 @@ func Nav() core.Node {
 			}}
 			{if menuOpen.Get() {
 				<div className="nav-mobile-panel">
-					<a href="#reactivity" className="nav-mobile-link" onClick={func(core.MouseEvent) { closeMenu() }}>Reactivity</a>
-					<a href="#features" className="nav-mobile-link" onClick={func(core.MouseEvent) { closeMenu() }}>Features</a>
-					<a href="#docs" className="nav-mobile-link" onClick={func(core.MouseEvent) { closeMenu() }}>Docs</a>
-					<a href="#examples" className="nav-mobile-link" onClick={func(core.MouseEvent) { closeMenu() }}>Examples</a>
+					<a href="/#reactivity" className="nav-mobile-link" onClick={func(e core.MouseEvent) { closeMenu(); sectionLink("reactivity")(e) }}>Reactivity</a>
+					<a href="/#features" className="nav-mobile-link" onClick={func(e core.MouseEvent) { closeMenu(); sectionLink("features")(e) }}>Features</a>
+					{router.Link(router.LinkProps{
+						To: "/docs",
+						HTMLProps: core.HTMLProps{
+							Class:   "nav-mobile-link",
+							OnClick: func(core.MouseEvent) { closeMenu() },
+						},
+					}, "Docs")}
+					<a href="/#examples" className="nav-mobile-link" onClick={func(e core.MouseEvent) { closeMenu(); sectionLink("examples")(e) }}>Examples</a>
 					<div className="nav-mobile-social">
 						<a
 							className="nav-mobile-icon"

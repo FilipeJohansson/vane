@@ -1,25 +1,41 @@
 package main
 
 import (
+	"strings"
+	"syscall/js"
+
 	"vane-e2e-app/src/pages"
 
 	"github.com/filipejohansson/vane/core"
 	"github.com/filipejohansson/vane/core/router"
 )
 
+// A pathname under /path-mode boots this fixture with PathLocation instead
+// of the default HashLocation, so the same app/routes serve both the
+// existing hash-based specs and the path-routing ones (see
+// tests/e2e/specs/router-path.spec.ts). BasePath doubles as the gate: it's
+// baked into the pathname itself, so it survives reloads and pushState
+// navigation alike, unlike a query param that PathLocation.Navigate has no
+// reason to preserve.
+const pathModeBase = "/path-mode"
+
 func App() core.Node {
+	if strings.HasPrefix(js.Global().Get("location").Get("pathname").String(), pathModeBase) {
+		router.SetLocation(&router.PathLocation{BasePath: pathModeBase})
+	}
+
 	return (
 		<div>
 			<nav aria-label="Test pages">
-				<a href="#/smoke">Smoke</a>
-				<a href="#/rendering">Rendering</a>
-				<a href="#/signals">Signals</a>
-				<a href="#/events">Events</a>
-				<a href="#/lifecycle">Lifecycle</a>
-				<a href="#/portals">Portals</a>
-				<a href="#/nested">Nested</a>
-				<a href="#/errors">Errors</a>
-				<a href="#/users/42">User</a>
+				{router.Link(router.LinkProps{To: "/smoke"}, "Smoke")}
+				{router.Link(router.LinkProps{To: "/rendering"}, "Rendering")}
+				{router.Link(router.LinkProps{To: "/signals"}, "Signals")}
+				{router.Link(router.LinkProps{To: "/events"}, "Events")}
+				{router.Link(router.LinkProps{To: "/lifecycle"}, "Lifecycle")}
+				{router.Link(router.LinkProps{To: "/portals"}, "Portals")}
+				{router.Link(router.LinkProps{To: "/nested"}, "Nested")}
+				{router.Link(router.LinkProps{To: "/errors"}, "Errors")}
+				{router.Link(router.LinkProps{To: "/users/42"}, "User")}
 			</nav>
 			{router.Router(
 				router.Route("/", pages.Smoke, "Smoke - Vane E2E"),

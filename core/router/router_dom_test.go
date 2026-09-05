@@ -11,6 +11,7 @@ package router_test
 // t.Cleanup so later tests still see the expected initial state.
 
 import (
+	"syscall/js"
 	"testing"
 	"time"
 
@@ -32,18 +33,41 @@ func waitEffects(t *testing.T) {
 // scheduler. signal.WaitEffects alone is not enough: it can return "idle"
 // before the hashchange listener has even run, since no Go effect has been
 // triggered yet. Polling with a sleep between checks lets Go yield back to
-// the JS event loop long enough for the pending jsdom task to run.
+// the JS event loop long enough for the pending jsdom task to run. Also
+// waits for the scroll decision every navigation schedules (see
+// waitNextTick) so it never survives past the test that triggered it - left
+// pending, it would run during a LATER test instead, acting on whatever
+// DOM/stubs (e.g. a stubbed window.scrollTo) that other test happens to have
+// set up at the time.
 func waitForPath(t *testing.T, want string) {
 	t.Helper()
 	deadline := time.Now().Add(2 * time.Second)
 	for time.Now().Before(deadline) {
 		if router.Path().Get() == want {
 			waitEffects(t) // let dependent effects (ActiveLink, IsActive) finish reacting
+			waitNextTick(t)
 			return
 		}
 		time.Sleep(5 * time.Millisecond)
 	}
 	t.Fatalf("router.Path() did not become %q within timeout (stuck at %q)", want, router.Path().Get())
+}
+
+// waitNextTick blocks until a core.NextTick callback fires. router.go's
+// scroll decision (ensureInit's OnChange) is itself deferred via
+// core.NextTick, so a test asserting on it - or a later test sharing this
+// package's singleton router - must wait for one too: queued strictly after
+// the router's own (FIFO microtask ordering), this guarantees the router's
+// callback has already run by the time this returns.
+func waitNextTick(t *testing.T) {
+	t.Helper()
+	done := make(chan struct{})
+	core.NextTick(func() { close(done) })
+	select {
+	case <-done:
+	case <-time.After(time.Second):
+		t.Fatal("NextTick never ran fn")
+	}
 }
 
 // navigateAndRestore navigates to `to` and restores "/" (the test baseline)
@@ -216,5 +240,90 @@ func TestPathReflectsNavigation(t *testing.T) {
 
 	if got := router.Path().Get(); got != "/reports" {
 		t.Errorf("Path() = %q, want %q", got, "/reports")
+	}
+}
+
+// TestSetLocationPanicsAfterFirstUse guards the ensureInit/SetLocation
+// ordering rule: SetLocation must run before the router is first used
+// (Router, Navigate, Path, Link, ...), and panics otherwise. router.Path()
+// below just guarantees ensureInit has already run by the time SetLocation
+// is called, regardless of what other tests in this package ran first.
+func TestSetLocationPanicsAfterFirstUse(t *testing.T) {
+	router.Path()
+
+	defer func() {
+		if r := recover(); r == nil {
+			t.Fatal("router.SetLocation did not panic when called after the router was already in use")
+		}
+	}()
+	router.SetLocation(&router.HashLocation{})
+}
+
+// TestNavigatePushesReplaceDoesNot exercises ensureInit's wiring end to end
+// through the two ways it can be notified of a path change: Navigate (via
+// HashLocation setting location.hash, browser fires "hashchange") and
+// Replace (via updateHistory's manual notify, since history.replaceState
+// fires no event on its own). Both must land in router.Path(); only Navigate
+// should grow the browser's history.
+func TestNavigatePushesReplaceDoesNot(t *testing.T) {
+	before := js.Global().Get("history").Get("length").Int()
+
+	t.Cleanup(func() {
+		router.Navigate("/")
+		waitForPath(t, "/")
+	})
+
+	router.Navigate("/reports")
+	waitForPath(t, "/reports")
+	afterNavigate := js.Global().Get("history").Get("length").Int()
+	if afterNavigate != before+1 {
+		t.Errorf("history.length after Navigate = %d, want %d (Navigate should push a new entry)", afterNavigate, before+1)
+	}
+
+	router.Replace("/reports/summary")
+	if got := router.Path().Get(); got != "/reports/summary" {
+		t.Fatalf("Path() after Replace = %q, want %q", got, "/reports/summary")
+	}
+	afterReplace := js.Global().Get("history").Get("length").Int()
+	if afterReplace != afterNavigate {
+		t.Errorf("history.length after Replace = %d, want %d (Replace should not push a new entry)", afterReplace, afterNavigate)
+	}
+}
+
+// TestHashLocationIgnoresNonRouteHashChange guards the Part G fix for a
+// scroll-to-top regression: a same-page anchor hash change (e.g. "#section")
+// also fires "hashchange", but isn't a route change at all - HashLocation's
+// documented quirk maps any hash not starting with "#/" to "/", and before
+// this fix the router treated that fallback as a real navigation, scrolling
+// to top and fighting the browser's own scroll-to-anchor behavior (the same
+// class of problem PathLocation.handleClick already avoids for its
+// equivalent case, see TestPathLocationHandleClick/same-page_fragment).
+// window.scrollTo is stubbed to prove it's never invoked; router.Path()
+// must also stay put, since none of this should be seen as a navigation.
+func TestHashLocationIgnoresNonRouteHashChange(t *testing.T) {
+	navigateAndRestore(t, "/reports")
+
+	window := js.Global().Get("window")
+	original := window.Get("scrollTo")
+	scrollCalls := 0
+	window.Set("scrollTo", js.FuncOf(func(_ js.Value, _ []js.Value) interface{} {
+		scrollCalls++
+		return nil
+	}))
+	t.Cleanup(func() { window.Set("scrollTo", original) })
+
+	js.Global().Get("location").Set("hash", "#section")
+
+	// Nothing should happen here, so there's no target state to poll for
+	// (unlike waitForPath) - just give the async hashchange task (see
+	// waitForPath's comment) a generous chance to run before asserting.
+	time.Sleep(100 * time.Millisecond)
+	waitEffects(t)
+
+	if got := router.Path().Get(); got != "/reports" {
+		t.Errorf("Path() = %q after a same-page \"#section\" hash change, want it unchanged (%q)", got, "/reports")
+	}
+	if scrollCalls != 0 {
+		t.Errorf("window.scrollTo called %d times, want 0", scrollCalls)
 	}
 }
