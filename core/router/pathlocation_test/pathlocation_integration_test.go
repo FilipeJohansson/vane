@@ -175,3 +175,67 @@ func TestActiveLinkAndIsActiveUnderPathLocationWithBasePath(t *testing.T) {
 		t.Error("IsActive(\"/settings\") = false after navigating to /settings, want true")
 	}
 }
+
+// TestNavigateToAnchorScrollsToElementInsteadOfTop is scenario 38: a
+// navigation whose target URL carries a fragment (Href's fix in
+// PathLocation preserves it as a real in-page anchor, not folded away) must
+// scroll to that element instead of the page top - even though the path
+// itself did change (a case that would otherwise hit the scroll-to-top
+// branch first). scrollIntoView is stubbed on the specific element instance
+// (not a global), so it can't leak into unrelated tests.
+func TestNavigateToAnchorScrollsToElementInsteadOfTop(t *testing.T) {
+	target := core.El("div")
+	core.SetProp(target, "id", "target-section")
+	js.Global().Get("document").Get("body").Call("appendChild", core.Unwrap(target))
+	t.Cleanup(func() { js.Global().Get("document").Get("body").Call("removeChild", core.Unwrap(target)) })
+
+	scrollIntoViewCalls := 0
+	core.Unwrap(target).Set("scrollIntoView", js.FuncOf(func(_ js.Value, _ []js.Value) interface{} {
+		scrollIntoViewCalls++
+		return nil
+	}))
+
+	window := js.Global().Get("window")
+	original := window.Get("scrollTo")
+	scrollToCalls := 0
+	window.Set("scrollTo", js.FuncOf(func(_ js.Value, _ []js.Value) interface{} {
+		scrollToCalls++
+		return nil
+	}))
+	t.Cleanup(func() { window.Set("scrollTo", original) })
+
+	router.Navigate("/settings#target-section")
+	t.Cleanup(func() {
+		router.Navigate("/")
+		waitForPath(t, "/")
+	})
+	waitForPath(t, "/settings")
+
+	if scrollIntoViewCalls != 1 {
+		t.Errorf("target element's scrollIntoView called %d times, want 1", scrollIntoViewCalls)
+	}
+	if scrollToCalls != 0 {
+		t.Errorf("window.scrollTo called %d times, want 0 (the anchor should take priority)", scrollToCalls)
+	}
+}
+
+// TestNavigateWithoutAnchorStillScrollsToTop is scenario 39: the ordinary
+// case (a plain navigation, no fragment) must keep scrolling to top - the
+// scenario 38 fix must not have swallowed this by, say, always short-
+// circuiting on AnchorID().
+func TestNavigateWithoutAnchorStillScrollsToTop(t *testing.T) {
+	window := js.Global().Get("window")
+	original := window.Get("scrollTo")
+	scrollToCalls := 0
+	window.Set("scrollTo", js.FuncOf(func(_ js.Value, _ []js.Value) interface{} {
+		scrollToCalls++
+		return nil
+	}))
+	t.Cleanup(func() { window.Set("scrollTo", original) })
+
+	navigateAndRestore(t, "/reports")
+
+	if scrollToCalls != 1 {
+		t.Errorf("window.scrollTo called %d times, want 1 (plain navigation with no anchor should scroll to top)", scrollToCalls)
+	}
+}

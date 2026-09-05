@@ -72,3 +72,14 @@ test('supports a direct load and a refresh of a nested route', async ({ page }) 
   await expect(page).toHaveURL(/\/path-mode\/users\/42$/)
   await expect(page.getByTestId('user-id')).toHaveText('42')
 })
+
+test('a navigation with a fragment scrolls to that element instead of the page top', async ({ page }) => {
+  await page.goto('/path-mode/smoke')
+  await expect(page.getByTestId('app-ready')).toHaveText('ready')
+  await expect(page.getByTestId('target-section')).not.toBeInViewport()
+
+  await page.getByTestId('scroll-to-anchor').click()
+
+  await expect(page).toHaveURL(/\/path-mode\/smoke#target-section$/)
+  await expect(page.getByTestId('target-section')).toBeInViewport()
+})

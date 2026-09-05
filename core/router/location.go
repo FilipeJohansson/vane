@@ -29,6 +29,12 @@ type Location interface {
 	// OnChange registers fn to run whenever the browser's URL changes to a new
 	// route. Called once by the router at startup.
 	OnChange(fn func())
+	// AnchorID returns the id of an element the current URL wants scrolled
+	// into view (the text after a "#" that isn't itself the routing
+	// mechanism), or "" if there is none. The router calls this after every
+	// navigation to decide between scrolling to that element and the default
+	// scroll-to-top.
+	AnchorID() string
 }
 
 var (
@@ -101,13 +107,30 @@ func (l *PathLocation) Path() string {
 // any URL outside the current origin, and Navigate/Replace both build their
 // href through this method, so this is what keeps them safe to call with an
 // arbitrary string.
+//
+// A path that's only a fragment ("#section") or only a query ("?tab=2") is
+// resolved relative to the current URL instead of being joined with
+// BasePath, so it preserves the current path (already part of that URL) -
+// same as a plain <a href="#section">, whose target inherits the current
+// page's path under WHATWG URL resolution rules, rather than jumping to the
+// app's root.
 func (l *PathLocation) Href(path string) string {
+	if strings.HasPrefix(path, "#") || strings.HasPrefix(path, "?") {
+		return resolveSameOrigin(path)
+	}
 	base := l.base()
 	joined := normalizePath(path)
 	if base != "/" {
 		joined = base + joined
 	}
 	return resolveSameOrigin(joined)
+}
+
+// AnchorID returns the current URL's fragment, without the leading "#", if
+// any. PathLocation never uses the fragment for routing (see Path()), so any
+// fragment present is always a genuine in-page anchor target.
+func (l *PathLocation) AnchorID() string {
+	return strings.TrimPrefix(js.Global().Get("location").Get("hash").String(), "#")
 }
 
 // resolveSameOrigin resolves href against the current document location and
@@ -248,6 +271,13 @@ func (l *HashLocation) OnChange(fn func()) {
 			return nil
 		},
 	))
+}
+
+// AnchorID always returns "" - HashLocation uses the fragment as the routing
+// mechanism itself (see Path()'s doc comment on the accepted quirk), so
+// there's no separate in-page anchor for the router to scroll to.
+func (l *HashLocation) AnchorID() string {
+	return ""
 }
 
 // updateHistory pushes or replaces a browser history entry with href. Unlike

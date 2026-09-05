@@ -58,6 +58,16 @@ func ensureInit() {
 		old := pathSignal.Get()
 		next := activeLocation.Path()
 		pathSignal.Set(next)
+		// A navigation that targets an in-page anchor (see AnchorID) scrolls
+		// to that element instead of the page top - same priority order as a
+		// plain <a href="#section"> click: the anchor wins even for a
+		// genuine route change to a URL that also carries a fragment.
+		if id := activeLocation.AnchorID(); id != "" {
+			if el := dom.Document.Call(dom.GetElementById, id); el.Truthy() {
+				el.Call("scrollIntoView")
+				return
+			}
+		}
 		if next != old {
 			dom.Window.Call("scrollTo", 0, 0)
 		}

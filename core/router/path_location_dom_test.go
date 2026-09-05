@@ -133,6 +133,38 @@ func TestPathLocationNavigateWithCrossOriginToDoesNotPanic(t *testing.T) {
 	}
 }
 
+// TestPathLocationHrefFragmentOnlyPreservesCurrentPath guards scenarios 34
+// and 35: a To that's only a fragment or only a query resolves relative to
+// the current URL, preserving its path - same as a plain <a href="#section">
+// (a fragment/query-only reference inherits the base URL's path under
+// WHATWG URL resolution), instead of jumping to the app root.
+func TestPathLocationHrefFragmentOnlyPreservesCurrentPath(t *testing.T) {
+	resetPathname(t)
+	js.Global().Get("history").Call("pushState", js.Null(), "", "/docs/concepts?tab=2")
+
+	loc := &router.PathLocation{}
+	if got := loc.Href("#section"); got != "/docs/concepts?tab=2#section" {
+		t.Errorf("Href(%q) = %q, want %q (current path+query preserved)", "#section", got, "/docs/concepts?tab=2#section")
+	}
+	if got := loc.Href("?tab=3"); got != "/docs/concepts?tab=3" {
+		t.Errorf("Href(%q) = %q, want %q (current path preserved, query replaced)", "?tab=3", got, "/docs/concepts?tab=3")
+	}
+}
+
+// TestPathLocationHrefFragmentOnlyPreservesBasePath is scenario 36: the same
+// resolution works automatically under a configured BasePath, since it
+// resolves against the real current URL (which already carries BasePath),
+// rather than re-deriving BasePath by hand.
+func TestPathLocationHrefFragmentOnlyPreservesBasePath(t *testing.T) {
+	resetPathname(t)
+	js.Global().Get("history").Call("pushState", js.Null(), "", "/vane/docs/concepts")
+
+	loc := &router.PathLocation{BasePath: "/vane"}
+	if got := loc.Href("#section"); got != "/vane/docs/concepts#section" {
+		t.Errorf("Href(%q) with BasePath /vane = %q, want %q", "#section", got, "/vane/docs/concepts#section")
+	}
+}
+
 // --- Navigate() / Replace(): pushState/replaceState mechanics. Safe on a
 // fresh instance with no OnChange registered - both tolerate a nil
 // callback, so these don't need the shared, OnChange-registered instance
