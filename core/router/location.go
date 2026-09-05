@@ -42,6 +42,12 @@ var (
 // server to fall back to index.html for unknown paths, since a direct
 // load or refresh of e.g. "/docs" is a real request for that path.
 //
+// A plain <a href="/docs"> would otherwise make the browser reload the page;
+// PathLocation intercepts same-origin, unmodified left-clicks on in-app
+// links to navigate via the router instead, letting everything else
+// (modified clicks, new-tab, external/cross-origin links, target="_blank",
+// download links, or a click already handled by the app) through untouched.
+//
 //	router.SetLocation(&router.PathLocation{BasePath: "/vane"})
 type PathLocation struct {
 	// BasePath is the path prefix the app is served under (e.g. "/vane" when
@@ -105,7 +111,8 @@ func (l *PathLocation) Replace(path string) {
 	updateHistory(l.Href(path), true, l.onChange)
 }
 
-// OnChange registers fn to run on "popstate" (browser back/forward).
+// OnChange registers fn to run on "popstate" (browser back/forward) and on
+// an intercepted in-app link click (see handleClick).
 func (l *PathLocation) OnChange(fn func()) {
 	l.onChange = fn
 	dom.Window.Call(dom.AddEventListener, dom.EventPopState, js.FuncOf(
@@ -114,6 +121,58 @@ func (l *PathLocation) OnChange(fn func()) {
 			return nil
 		},
 	))
+	dom.Document.Call(dom.AddEventListener, dom.EventClick, js.FuncOf(l.handleClick))
+}
+
+// handleClick intercepts a document-level click so a plain <a href="/x">
+// navigates via the router (pushState) instead of the browser reloading the
+// page. Left as a no-op for anything that isn't a plain, unmodified,
+// same-origin, in-app left-click on a link (see PathLocation's doc comment
+// for the exact list of what's left untouched).
+func (l *PathLocation) handleClick(_ js.Value, args []js.Value) interface{} {
+	event := args[0]
+
+	if event.Get("defaultPrevented").Bool() {
+		return nil
+	}
+	if event.Get("button").Int() != 0 {
+		return nil
+	}
+	if event.Get("ctrlKey").Bool() || event.Get("metaKey").Bool() ||
+		event.Get("shiftKey").Bool() || event.Get("altKey").Bool() {
+		return nil
+	}
+
+	anchor := event.Get("target").Call("closest", "a")
+	if !anchor.Truthy() {
+		return nil
+	}
+	if target := anchor.Get("target").String(); target != "" && target != "_self" {
+		return nil
+	}
+	if anchor.Call("hasAttribute", "download").Bool() {
+		return nil
+	}
+
+	loc := js.Global().Get("location")
+	if anchor.Get("origin").String() != loc.Get("origin").String() {
+		return nil
+	}
+	// A same-page fragment link (e.g. href="#section") only ever changes the
+	// hash: nothing for the router to do, and intercepting it would replace
+	// the browser's native scroll-to-anchor behavior with a silent pushState.
+	if anchor.Get("hash").String() != "" &&
+		anchor.Get("pathname").String() == loc.Get("pathname").String() &&
+		anchor.Get("search").String() == loc.Get("search").String() {
+		return nil
+	}
+	if _, ok := l.stripBase(anchor.Get("pathname").String()); !ok {
+		return nil
+	}
+
+	event.Call(dom.PreventDefault)
+	updateHistory(anchor.Get("href").String(), false, l.onChange)
+	return nil
 }
 
 // HashLocation represents the router's state in the hash fragment of the

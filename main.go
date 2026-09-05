@@ -1028,10 +1028,10 @@ func indexHTMLTemplate(name string) string {
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>%s</title>
-  <link rel="icon" type="image/svg+xml" href="favicon.svg">
-  <link rel="stylesheet" href="style.css">
-  <script src="wasm_exec.js"></script>
-  <script src="boot.js"></script>
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+  <link rel="stylesheet" href="/style.css">
+  <script src="/wasm_exec.js"></script>
+  <script src="/boot.js"></script>
 </head>
 <body>
   <div id="root"></div>
@@ -1040,19 +1040,22 @@ func indexHTMLTemplate(name string) string {
 `, name)
 }
 
-// bootJSTemplate is the hash-redirect + WASM-boot code indexHTMLTemplate
-// points at via a same-origin <script src>. Kept out of index.html so an
-// app's CSP can use script-src 'self' (plus 'wasm-unsafe-eval' for the
-// instantiate call) instead of being forced into 'unsafe-inline', which
-// would defeat most of what a CSP buys against XSS.
+// bootJSTemplate is the WASM-boot code indexHTMLTemplate points at via a
+// same-origin <script src>. Kept out of index.html so an app's CSP can use
+// script-src 'self' (plus 'wasm-unsafe-eval' for the instantiate call)
+// instead of being forced into 'unsafe-inline', which would defeat most of
+// what a CSP buys against XSS.
+//
+// base is resolved from this script's own (always-absolute) src rather than
+// hardcoded as "/": the SPA fallback (see buildDistMux) serves this same
+// index.html/boot.js for any unmatched path, e.g. a PathLocation route
+// like "/docs/concepts", and a plain relative fetch("app.wasm") would then
+// resolve against that path instead of the app's real root.
 func bootJSTemplate() string {
 	return `const base = new URL(".", document.currentScript.src).pathname
-if (!location.hash && location.pathname !== base) {
-  history.replaceState(null, "", base + "#" + location.pathname.slice(base.length) + location.search)
-}
 
 const go = new Go()
-WebAssembly.instantiateStreaming(fetch("app.wasm"), go.importObject)
+WebAssembly.instantiateStreaming(fetch(base + "app.wasm"), go.importObject)
   .then(r => go.run(r.instance))
 `
 }

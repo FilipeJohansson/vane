@@ -324,22 +324,23 @@ func TestGitignoreTemplateContainsDist(t *testing.T) {
 	}
 }
 
-// TestIndexHTMLTemplateRewritesPathnameToHash guards against a direct load
-// of a path other than "/" (a shared link, a typo, a bookmark) leaving a
-// stale pathname in the address bar forever. The router is hash-based and
-// only ever reads location.hash, so boot.js seeds the hash from the
-// pathname on boot - via history.replaceState, which rewrites the visible
-// URL, not a bare "location.hash = ..." assignment, which leaves the
-// original pathname sitting in front of the hash for the rest of the
-// session (e.g. clicking a link home would land on "/gsdg#/" instead of
-// "/#/").
-func TestIndexHTMLTemplateRewritesPathnameToHash(t *testing.T) {
-	html := bootJSTemplate()
-	if !strings.Contains(html, "history.replaceState") {
-		t.Error("bootJSTemplate: expected a history.replaceState call to rewrite the pathname into the hash")
-	}
-	if strings.Contains(html, "location.hash = \"#\" + location.pathname") {
-		t.Error("bootJSTemplate: found the old bare location.hash assignment, which leaves the original pathname in the URL")
+// TestIndexHTMLTemplateUsesRootAbsoluteAssetPaths guards against a
+// regression of a real PathLocation bug: buildDistMux's SPA fallback serves
+// this same index.html for any unmatched path (e.g. a direct load or
+// refresh of "/docs/concepts"), and a relative href/src like "style.css"
+// would then resolve against that path instead of the app's root, 404ing
+// and leaving the app blank.
+func TestIndexHTMLTemplateUsesRootAbsoluteAssetPaths(t *testing.T) {
+	html := indexHTMLTemplate("my-app")
+	for _, want := range []string{
+		`href="/favicon.svg"`,
+		`href="/style.css"`,
+		`<script src="/wasm_exec.js"></script>`,
+		`<script src="/boot.js"></script>`,
+	} {
+		if !strings.Contains(html, want) {
+			t.Errorf("indexHTMLTemplate: expected to contain %q", want)
+		}
 	}
 }
 
@@ -349,11 +350,26 @@ func TestIndexHTMLTemplateRewritesPathnameToHash(t *testing.T) {
 // of being forced into 'unsafe-inline'.
 func TestIndexHTMLTemplateUsesExternalBootJS(t *testing.T) {
 	html := indexHTMLTemplate("my-app")
-	if !strings.Contains(html, `<script src="boot.js"></script>`) {
-		t.Error("indexHTMLTemplate: expected a <script src=\"boot.js\"></script> reference")
+	if !strings.Contains(html, `<script src="/boot.js"></script>`) {
+		t.Error(`indexHTMLTemplate: expected a <script src="/boot.js"></script> reference`)
 	}
 	if strings.Contains(html, "instantiateStreaming") {
 		t.Error("indexHTMLTemplate: found inline WASM-boot code, expected it to live in boot.js instead")
+	}
+}
+
+// TestBootJSFetchesWasmRelativeToItsOwnScript guards the same PathLocation
+// fallback scenario as TestIndexHTMLTemplateUsesRootAbsoluteAssetPaths:
+// boot.js must resolve app.wasm from its own script src (always absolute),
+// not a bare fetch("app.wasm") that would resolve against whatever path the
+// SPA fallback happened to serve this script for.
+func TestBootJSFetchesWasmRelativeToItsOwnScript(t *testing.T) {
+	js := bootJSTemplate()
+	if !strings.Contains(js, `fetch(base + "app.wasm")`) {
+		t.Error(`bootJSTemplate: expected fetch(base + "app.wasm"), got a path not anchored to the script's own src`)
+	}
+	if strings.Contains(js, `fetch("app.wasm")`) {
+		t.Error(`bootJSTemplate: found a bare fetch("app.wasm"), which 404s when served as a fallback for a non-root path`)
 	}
 }
 
