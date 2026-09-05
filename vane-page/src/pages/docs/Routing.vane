@@ -44,10 +44,24 @@ func DashboardShell() core.Node {
     )
 }`
 
+const locationSnippet = `router.SetLocation(&router.PathLocation{})
+
+func App() core.Node {
+    return router.Router(...)
+}`
+
+const basePathSnippet = `router.SetLocation(&router.PathLocation{BasePath: "/my-app"})`
+
 const navigationSnippet = `router.Link(router.LinkProps{To: "/about"}, "About")
 
 func goToAbout() {
     router.Navigate("/about")
+}`
+
+const replaceSnippet = `func requireAuth() {
+    if !isLoggedIn() {
+        router.Replace("/login")
+    }
 }`
 
 const navigationChildrenSnippet = `// Link/ActiveLink children accept core.Node as well as string
@@ -67,7 +81,7 @@ const activeLinkSnippet = `router.ActiveLink(router.ActiveLinkProps{
 func Routing() core.Node {
 	core.Head(func() core.HeadConfig {
 		title := "Routing | Vane Docs"
-		description := "Hash-based routing with router.Route, router.Layout, URL params, Link, and ActiveLink."
+		description := "Routing with router.Route, router.Layout, URL params, Link, and ActiveLink - hash-based by default, or real paths via PathLocation."
 		url := core.Window().Get("location").Get("origin").String() + "/vane/#/docs/routing"
 		return core.HeadConfig{
 			Title:         title,
@@ -87,7 +101,7 @@ func Routing() core.Node {
 				{docsHeader(
 					"Data & Navigation",
 					"Routing",
-					"A hash-based router. Components run once on mount, the previous route's effects are disposed on navigation.",
+					"Components run once on mount, the previous route's effects are disposed on navigation. Hash-based URLs by default, or real paths via PathLocation.",
 				)}
 
 				<h2 className="docs-h2" id="basic-routes">Basic routes</h2>
@@ -97,6 +111,29 @@ func Routing() core.Node {
 					<code>document.title</code> on navigation.
 				</p>
 				{components.CodeBlock("App.vane", basicRoutesSnippet)}
+
+				<h2 className="docs-h2" id="url-modes">Hash vs Path routing</h2>
+				<p className="docs-p">
+					The router represents the current route in the browser's URL through a{" "}
+					<code>router.Location</code>. The default, <code>router.HashLocation</code>,
+					stores the route after a <code>#</code> (e.g. <code>/#/dashboard</code>) and works
+					on any static host with zero server configuration - the fragment is never sent to
+					the server, so a page refresh or a shared link always resolves to the same file.
+				</p>
+				<p className="docs-p">
+					Call <code>router.SetLocation</code> before the router is first used to opt into{" "}
+					<code>router.PathLocation</code> instead, which represents the route as a real
+					pathname (e.g. <code>/dashboard</code>).
+				</p>
+				{components.CodeBlock("App.vane", locationSnippet)}
+				{callout("important", "Important", "PathLocation needs the host to serve index.html for any path that isn't a real file (a \"SPA fallback\"), since a direct load or refresh of e.g. /dashboard is a real request for that path. HashLocation never needs this: the server only ever sees \"/\".")}
+				<p className="docs-p">
+					Set <code>BasePath</code> when the app is deployed under a sub-path (e.g.{" "}
+					<code>https://example.com/my-app/</code>). It defaults to the root and doesn't need
+					to be set otherwise.
+				</p>
+				{components.CodeBlock("App.vane", basePathSnippet)}
+				{callout("tip", "Tip", "PathLocation doesn't use the URL fragment for routing, so a plain <a href=\"#section\"> keeps working as a native same-page anchor link - something HashLocation can't offer, since it treats the whole fragment as the route.")}
 
 				<h2 className="docs-h2" id="url-params">URL params</h2>
 				<p className="docs-p">
@@ -121,6 +158,13 @@ func Routing() core.Node {
 					<code>router.Navigate</code> does the same thing programmatically.
 				</p>
 				{components.CodeBlock("nav.go", navigationSnippet)}
+				<p className="docs-p">
+					<code>router.Replace</code> does the same thing as <code>router.Navigate</code>{" "}
+					but without pushing a new browser history entry, so the back button skips over it
+					entirely - useful for a redirect the user shouldn't have to back out of, like
+					bouncing an unauthenticated visitor from a protected route to a login page.
+				</p>
+				{components.CodeBlock("nav.go", replaceSnippet)}
 				<p className="docs-p">
 					<code>router.Link</code> and <code>router.ActiveLink</code> accept <code>core.Node</code>
 					children as well as plain <code>strings</code>, so an icon component works as part of the label.

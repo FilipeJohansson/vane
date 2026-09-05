@@ -138,6 +138,7 @@ var refsAndDomTOCItems = []tocItem{
 
 var routingTOCItems = []tocItem{
 	{"basic-routes", "Basic routes"},
+	{"url-modes", "Hash vs Path routing"},
 	{"url-params", "URL params"},
 	{"layouts", "Layouts"},
 	{"navigation", "Navigation"},
