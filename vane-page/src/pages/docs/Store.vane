@@ -84,9 +84,16 @@ var IsLoggedIn = core.ComputedOf(func(prev bool) bool {
 
 func Store() core.Node {
 	core.Head(func() core.HeadConfig {
+		title := "Global Store | Vane Docs"
+		description := "Package-level signals as the idiomatic way to share reactive state across components, with real Login/Navbar and theme-persistence examples."
+		url := core.Window().Get("location").Get("origin").String() + "/vane/#/docs/store"
 		return core.HeadConfig{
-			Title:       "Global Store | Vane Docs",
-			Description: "Package-level signals as the idiomatic way to share reactive state across components, with real Login/Navbar and theme-persistence examples.",
+			Title:         title,
+			Description:   description,
+			Canonical:     url,
+			OGTitle:       title,
+			OGDescription: description,
+			OGURL:         url,
 		}
 	})
 

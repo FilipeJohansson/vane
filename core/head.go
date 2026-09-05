@@ -13,14 +13,29 @@ import (
 // HeadConfig describes the document head state for one component scope.
 // Fields left empty are ignored, so partial updates are fine.
 type HeadConfig struct {
-	Title       string            // document.title
-	Description string            // <meta name="description">
-	OGTitle     string            // <meta property="og:title">
-	OGImage     string            // <meta property="og:image">
-	OGType      string            // <meta property="og:type">
-	Canonical   string            // <link rel="canonical">
-	Meta        map[string]string // extra <meta name=...> → content
-	Link        map[string]string // extra <link rel=...> → href
+	Title       string // document.title
+	Description string // <meta name="description">
+	Canonical   string // <link rel="canonical">
+
+	// Open Graph tags are used by social media platforms to generate rich link previews.
+	// Check https://ogp.me/ for the full spec.
+
+	OGTitle           string // <meta property="og:title">
+	OGImage           string // <meta property="og:image">
+	OGType            string // <meta property="og:type">
+	OGURL             string // <meta property="og:url">
+	OGAudio           string // <meta property="og:audio">
+	OGDescription     string // <meta property="og:description">
+	OGDeterminer      string // <meta property="og:determiner">
+	OGLocale          string // <meta property="og:locale">
+	OGLocaleAlternate string // <meta property="og:locale:alternate">
+	OGSiteName        string // <meta property="og:site_name">
+	OGVideo           string // <meta property="og:video">
+
+	// Meta and Link allow arbitrary <meta> and <link> tags to be added to the document head.
+
+	Meta map[string]string // extra <meta name=...> → content
+	Link map[string]string // extra <link rel=...> → href
 }
 
 // Head applies fn() to the document <head> reactively.
@@ -63,10 +78,13 @@ func applyHeadConfig(cfg HeadConfig) []func() {
 		dom.Document.Set("title", cfg.Title)
 		restores = append(restores, func() { dom.Document.Set("title", prev) })
 	}
-
 	if cfg.Description != "" {
 		restores = append(restores, upsertMetaName("description", cfg.Description))
 	}
+	if cfg.Canonical != "" {
+		restores = append(restores, upsertLink("canonical", "href", cfg.Canonical))
+	}
+
 	if cfg.OGTitle != "" {
 		restores = append(restores, upsertMetaProp("og:title", cfg.OGTitle))
 	}
@@ -76,8 +94,29 @@ func applyHeadConfig(cfg HeadConfig) []func() {
 	if cfg.OGType != "" {
 		restores = append(restores, upsertMetaProp("og:type", cfg.OGType))
 	}
-	if cfg.Canonical != "" {
-		restores = append(restores, upsertLink("canonical", "href", cfg.Canonical))
+	if cfg.OGURL != "" {
+		restores = append(restores, upsertMetaProp("og:url", cfg.OGURL))
+	}
+	if cfg.OGAudio != "" {
+		restores = append(restores, upsertMetaProp("og:audio", cfg.OGAudio))
+	}
+	if cfg.OGDescription != "" {
+		restores = append(restores, upsertMetaProp("og:description", cfg.OGDescription))
+	}
+	if cfg.OGDeterminer != "" {
+		restores = append(restores, upsertMetaProp("og:determiner", cfg.OGDeterminer))
+	}
+	if cfg.OGLocale != "" {
+		restores = append(restores, upsertMetaProp("og:locale", cfg.OGLocale))
+	}
+	if cfg.OGLocaleAlternate != "" {
+		restores = append(restores, upsertMetaProp("og:locale:alternate", cfg.OGLocaleAlternate))
+	}
+	if cfg.OGSiteName != "" {
+		restores = append(restores, upsertMetaProp("og:site_name", cfg.OGSiteName))
+	}
+	if cfg.OGVideo != "" {
+		restores = append(restores, upsertMetaProp("og:video", cfg.OGVideo))
 	}
 
 	for name, content := range cfg.Meta {

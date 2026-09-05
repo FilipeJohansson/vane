@@ -31,9 +31,13 @@ func stubContent(slug string) core.Node {
 	}
 
 	core.Head(func() core.HeadConfig {
+		title := t.Title + " | Vane Docs"
+		description := t.Summary
 		return core.HeadConfig{
-			Title:       t.Title + " | Vane Docs",
-			Description: t.Summary,
+			Title:         title,
+			Description:   description,
+			OGTitle:       title,
+			OGDescription: description,
 		}
 	})
 
@@ -69,7 +73,11 @@ func stubContent(slug string) core.Node {
 
 func NotFound() core.Node {
 	core.Head(func() core.HeadConfig {
-		return core.HeadConfig{Title: "Not found | Vane Docs"}
+		title :=  "Not found | Vane Docs"
+		return core.HeadConfig{
+			Title:         title,
+			OGTitle:       title,
+		}
 	})
 	return (
 		<div className="docs-article">

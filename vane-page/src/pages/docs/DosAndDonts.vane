@@ -64,9 +64,16 @@ const dndUntrackFixSnippet = `func untrackedMount(fn func() core.Node) core.Node
 
 func DosAndDonts() core.Node {
 	core.Head(func() core.HeadConfig {
+		title := "Do's and Don'ts | Vane Docs"
+		description := "Where Vane syntax is allowed to appear, reading signals where they'll actually re-run, and wrapping manual component calls in Untrack."
+		url := core.Window().Get("location").Get("origin").String() + "/vane/#/docs/dos-and-donts"
 		return core.HeadConfig{
-			Title:       "Do's and Don'ts | Vane Docs",
-			Description: "Where Vane syntax is allowed to appear, reading signals where they'll actually re-run, and wrapping manual component calls in Untrack.",
+			Title:         title,
+			Description:   description,
+			Canonical:     url,
+			OGTitle:       title,
+			OGDescription: description,
+			OGURL:         url,
 		}
 	})
 

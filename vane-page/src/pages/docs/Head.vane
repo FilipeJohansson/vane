@@ -40,9 +40,16 @@ const headExtraSnippet = `core.Head(func() core.HeadConfig {
 
 func Head() core.Node {
 	core.Head(func() core.HeadConfig {
+		title := "Head Management | Vane Docs"
+		description := "core.Head updates document.title and meta tags reactively, scoped so nested components never clobber each other."
+		url := core.Window().Get("location").Get("origin").String() + "/vane/#/docs/head"
 		return core.HeadConfig{
-			Title:       "Head Management | Vane Docs",
-			Description: "core.Head updates document.title and meta tags reactively, scoped so nested components never clobber each other.",
+			Title:         title,
+			Description:   description,
+			Canonical:     url,
+			OGTitle:       title,
+			OGDescription: description,
+			OGURL:         url,
 		}
 	})
 

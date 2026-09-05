@@ -16,9 +16,16 @@ const dabIsReleaseSnippet = `if !core.IsRelease() {
 
 func DevelopAndBuild() core.Node {
 	core.Head(func() core.HeadConfig {
+		title := "Develop & Build | Vane Docs"
+		description := "The dev loop with vane run, production builds with vane build, and deploying dist/."
+		url := core.Window().Get("location").Get("origin").String() + "/vane/#/docs/develop-and-build"
 		return core.HeadConfig{
-			Title:       "Develop & Build | Vane Docs",
-			Description: "The dev loop with vane run, production builds with vane build, and deploying dist/.",
+			Title:         title,
+			Description:   description,
+			Canonical:     url,
+			OGTitle:       title,
+			OGDescription: description,
+			OGURL:         url,
 		}
 	})
 

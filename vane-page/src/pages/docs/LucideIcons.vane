@@ -70,9 +70,16 @@ core.Effect(func() func() {
 
 func LucideIcons() core.Node {
 	core.Head(func() core.HeadConfig {
+		title := "Add Lucide Icons | Vane Docs"
+		description := "Wire up the Lucide icon library the same way this site's own Nav does: a data-lucide element plus a RefreshIcons helper, no Go-native port required."
+		url := core.Window().Get("location").Get("origin").String() + "/vane/#/docs/lucide-icons"
 		return core.HeadConfig{
-			Title:       "Add Lucide Icons | Vane Docs",
-			Description: "Wire up the Lucide icon library the same way this site's own Nav does: a data-lucide element plus a RefreshIcons helper, no Go-native port required.",
+			Title:         title,
+			Description:   description,
+			Canonical:     url,
+			OGTitle:       title,
+			OGDescription: description,
+			OGURL:         url,
 		}
 	})
 

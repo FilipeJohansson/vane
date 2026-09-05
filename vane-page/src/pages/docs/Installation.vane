@@ -17,9 +17,16 @@ const installRunSnippet = `vane run`
 
 func Installation() core.Node {
 	core.Head(func() core.HeadConfig {
+		title := "Installation | Vane Docs"
+		description := "Install the vane CLI, scaffold a new project, and run the dev server."
+		url := core.Window().Get("location").Get("origin").String() + "/vane/#/docs/installation"
 		return core.HeadConfig{
-			Title:       "Installation | Vane Docs",
-			Description: "Install the vane CLI, scaffold a new project, and run the dev server.",
+			Title:         title,
+			Description:   description,
+			Canonical:     url,
+			OGTitle:       title,
+			OGDescription: description,
+			OGURL:         url,
 		}
 	})
 

@@ -44,9 +44,16 @@ const styleImportSnippet = `/* public/style.css: @import must be at the top */
 
 func Style() core.Node {
 	core.Head(func() core.HeadConfig {
+		title := "Styles and CSS | Vane Docs"
+		description := "The core.Style struct for reactive inline styles, the static-string escape hatch, and co-located CSS files."
+		url := core.Window().Get("location").Get("origin").String() + "/vane/#/docs/style"
 		return core.HeadConfig{
-			Title:       "Styles and CSS | Vane Docs",
-			Description: "The core.Style struct for reactive inline styles, the static-string escape hatch, and co-located CSS files.",
+			Title:         title,
+			Description:   description,
+			Canonical:     url,
+			OGTitle:       title,
+			OGDescription: description,
+			OGURL:         url,
 		}
 	})
 
