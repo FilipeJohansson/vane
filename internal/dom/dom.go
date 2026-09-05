@@ -6,6 +6,7 @@ import "syscall/js"
 
 var Document = js.Global().Get("document")
 var Window = js.Global().Get("window")
+var History = js.Global().Get("history")
 
 // Methods
 const (
@@ -77,4 +78,6 @@ const (
 	EventKeyDown    = "keydown"
 	EventMouseMove  = "mousemove"
 	EventHashChange = "hashchange"
+	EventPopState   = "popstate"
+	EventClick      = "click"
 )
