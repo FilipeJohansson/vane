@@ -1,7 +1,17 @@
 package pages
 
-import "github.com/filipejohansson/vane/core"
+import (
+	"github.com/filipejohansson/vane/core"
+	"github.com/filipejohansson/vane/core/router"
+)
 
 func Smoke() core.Node {
-	return <div data-testid="app-ready">ready</div>
+	return (
+		<>
+			<div data-testid="app-ready">ready</div>
+			<button data-testid="replace-to-signals" onClick={func(core.MouseEvent) { router.Replace("/signals") }}>
+				Replace with Signals
+			</button>
+		</>
+	)
 }

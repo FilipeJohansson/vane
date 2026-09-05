@@ -67,6 +67,22 @@ test('keeps nested layouts mounted while child routes change', async ({ page }) 
   await expect(page.getByTestId('layout-mounts')).toHaveText('1')
 })
 
+test('router.Replace does not push a history entry, so back skips the replaced route', async ({ page }) => {
+  await page.goto('/#/rendering')
+  await page.getByRole('link', { name: 'Smoke' }).click()
+  await expect(page).toHaveURL(/#\/smoke$/)
+
+  await page.getByTestId('replace-to-signals').click()
+  await expect(page).toHaveURL(/#\/signals$/)
+  await expect(page.getByTestId('signal-count')).toHaveText('0')
+
+  // If Replace had pushed a new entry instead of replacing, this would land
+  // back on /smoke; since it doesn't push, back must skip straight over the
+  // replaced entry to whatever preceded it (/rendering).
+  await page.goBack()
+  await expect(page).toHaveURL(/#\/rendering$/)
+})
+
 test('cleans route-scoped content when navigating away', async ({ page }) => {
   await page.goto('/#/lifecycle')
   await expect(page.getByTestId('lifecycle-cleanups')).toHaveText('0')
