@@ -58,7 +58,7 @@ func HandleErrors() core.Node {
 	core.Head(func() core.HeadConfig {
 		title := "Handle Errors | Vane Docs"
 		description := "core.Try as an error boundary, exactly what panic it catches, and what happens to panics it doesn't."
-		url := core.Window().Get("location").Get("origin").String() + "/vane/#/docs/handle-errors"
+		url := core.Window().Get("location").Get("origin").String() + "/vane/docs/error-boundary"
 		return core.HeadConfig{
 			Title:         title,
 			Description:   description,

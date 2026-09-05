@@ -63,7 +63,7 @@ func RefsAndDOM() core.Node {
 	core.Head(func() core.HeadConfig {
 		title := "Refs & DOM | Vane Docs"
 		description := "Capturing DOM nodes with ref={&var} and ref={func(el core.Node){...}}, window-level events and geometry reads, the core.Unwrap escape hatch, and NextTick for code that needs a live DOM connection."
-		url := core.Window().Get("location").Get("origin").String() + "/vane/#/docs/refs-and-dom"
+		url := core.Window().Get("location").Get("origin").String() + "/vane/docs/refs-and-dom"
 		return core.HeadConfig{
 			Title:         title,
 			Description:   description,

@@ -62,7 +62,7 @@ func Troubleshooting() core.Node {
 	core.Head(func() core.HeadConfig {
 		title := "Troubleshooting | Vane Docs"
 		description := "Known gotchas: infinite reactive update loops, ref timing, silent effect panics, missing Portal targets, and DynList key warnings, and how to diagnose each in the console."
-		url := core.Window().Get("location").Get("origin").String() + "/vane/#/docs/troubleshooting"
+		url := core.Window().Get("location").Get("origin").String() + "/vane/docs/troubleshooting"
 		return core.HeadConfig{
 			Title:         title,
 			Description:   description,

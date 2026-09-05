@@ -19,7 +19,7 @@ func Installation() core.Node {
 	core.Head(func() core.HeadConfig {
 		title := "Installation | Vane Docs"
 		description := "Install the vane CLI, scaffold a new project, and run the dev server."
-		url := core.Window().Get("location").Get("origin").String() + "/vane/#/docs/installation"
+		url := core.Window().Get("location").Get("origin").String() + "/vane/docs/installation"
 		return core.HeadConfig{
 			Title:         title,
 			Description:   description,

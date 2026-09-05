@@ -82,7 +82,7 @@ func Routing() core.Node {
 	core.Head(func() core.HeadConfig {
 		title := "Routing | Vane Docs"
 		description := "Routing with router.Route, router.Layout, URL params, Link, and ActiveLink - hash-based by default, or real paths via PathLocation."
-		url := core.Window().Get("location").Get("origin").String() + "/vane/#/docs/routing"
+		url := core.Window().Get("location").Get("origin").String() + "/vane/docs/routing"
 		return core.HeadConfig{
 			Title:         title,
 			Description:   description,

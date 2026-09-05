@@ -22,7 +22,7 @@ func Concepts() core.Node {
 	core.Head(func() core.HeadConfig {
 		title := "Concepts | Vane Docs"
 		description := "The mental model behind Vane."
-		url := core.Window().Get("location").Get("origin").String() + "/vane/#/docs/concepts"
+		url := core.Window().Get("location").Get("origin").String() + "/vane/docs/concepts"
 		return core.HeadConfig{
 			Title:         title,
 			Description:   description,

@@ -86,7 +86,7 @@ func Store() core.Node {
 	core.Head(func() core.HeadConfig {
 		title := "Global Store | Vane Docs"
 		description := "Package-level signals as the idiomatic way to share reactive state across components, with real Login/Navbar and theme-persistence examples."
-		url := core.Window().Get("location").Get("origin").String() + "/vane/#/docs/store"
+		url := core.Window().Get("location").Get("origin").String() + "/vane/docs/store"
 		return core.HeadConfig{
 			Title:         title,
 			Description:   description,

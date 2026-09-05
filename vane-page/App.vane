@@ -1,6 +1,8 @@
 package main
 
 import (
+	"strings"
+
 	"vane-page/src/components"
 	"vane-page/src/layouts"
 	"vane-page/src/pages"
@@ -11,7 +13,12 @@ import (
 )
 
 func App() core.Node {
-	router.SetLocation(&router.PathLocation{})
+	// window.__vaneBasePath (set by boot.js from its own script src) is "/"
+	// in local dev and "/vane" on GitHub Pages, where this app is served
+	// under a project-page sub-path rather than domain root. Reading it here
+	// instead of hardcoding "/vane" keeps this working in both places.
+	basePath := strings.TrimSuffix(core.Window().Get("__vaneBasePath").String(), "/")
+	router.SetLocation(&router.PathLocation{BasePath: basePath})
 
 	return (
 		<div className="app">

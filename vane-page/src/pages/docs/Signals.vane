@@ -55,7 +55,7 @@ func Signals() core.Node {
 	core.Head(func() core.HeadConfig {
 		title := "Signals & Reactivity | Vane Docs"
 		description := "core.NewSignal, Effect, OnDispose, ComputedOf, and Untrack: Vane's fine-grained reactivity primitives."
-		url := core.Window().Get("location").Get("origin").String() + "/vane/#/docs/signals"
+		url := core.Window().Get("location").Get("origin").String() + "/vane/docs/signals"
 		return core.HeadConfig{
 			Title:         title,
 			Description:   description,
