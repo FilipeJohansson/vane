@@ -36,6 +36,7 @@ var Manifest = []Topic{
 	{Slug: "store", Title: "Global Store", Summary: "Package-level signals for shared state.", Category: "Data & Navigation", HasSource: true},
 	{Slug: "refs-and-dom", Title: "Refs & DOM", Summary: "Reading and imperatively touching DOM nodes.", Category: "Data & Navigation", HasSource: true},
 
+	{Slug: "lifecycle", Title: "Lifecycle", Summary: "Mount, effect reruns, cleanup, and signal lifetime.", Category: "Advanced", HasSource: true},
 	{Slug: "portal", Title: "Portals", Summary: "Render into a DOM node outside the component tree.", Category: "Advanced", HasSource: true},
 	{Slug: "head", Title: "Head Management", Summary: "Reactive document.title and meta tags.", Category: "Advanced", HasSource: true},
 

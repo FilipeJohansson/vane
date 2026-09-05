@@ -36,13 +36,12 @@ jobs:
       - name: Build CLI
         run: go build -o vane .
 
-      # No tagged vane release exists yet (pre-0.1.0), so there's no real
-      # version for vane-page/go.mod's `require` to resolve to. Deploy the
-      # site against this same push's own core/internal instead, same
-      # mechanism ci.yml uses to test against a branch. Once real vX.Y.Z
-      # tags start getting published, switch this to `go get
-      # github.com/filipejohansson/vane@latest` (or a pinned tag) and drop
-      # this replace so the site tracks releases, not main.
+      # Deploy the docs against this checkout while local branch work is still
+      # being validated. Tagged release builds remain the canonical published
+      # module version; once Vane release tags are published consistently,
+      # switch this to `go get github.com/filipejohansson/vane@latest` (or a
+      # pinned tag) and remove the replace so the site tracks releases instead
+      # of the active branch.
       - name: Point vane-page at this checkout's vane module
         run: (cd vane-page && go mod edit -replace github.com/filipejohansson/vane=../)
 

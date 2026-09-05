@@ -91,6 +91,14 @@ var jsxSyntaxTOCItems = []tocItem{
 	{"reactive-lists", "Reactive lists"},
 }
 
+var lifecycleTOCItems = []tocItem{
+	{"mount", "Mount and setup"},
+	{"effects", "Effects and reruns"},
+	{"cleanup", "Cleanup and disposal"},
+	{"routes", "Route disposal"},
+	{"signals", "Signal lifetime"},
+}
+
 var lucideIconsTOCItems = []tocItem{
 	{"load-the-script", "Load the script"},
 	{"render-an-icon", "Render an icon"},
