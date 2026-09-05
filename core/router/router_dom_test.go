@@ -33,18 +33,41 @@ func waitEffects(t *testing.T) {
 // scheduler. signal.WaitEffects alone is not enough: it can return "idle"
 // before the hashchange listener has even run, since no Go effect has been
 // triggered yet. Polling with a sleep between checks lets Go yield back to
-// the JS event loop long enough for the pending jsdom task to run.
+// the JS event loop long enough for the pending jsdom task to run. Also
+// waits for the scroll decision every navigation schedules (see
+// waitNextTick) so it never survives past the test that triggered it - left
+// pending, it would run during a LATER test instead, acting on whatever
+// DOM/stubs (e.g. a stubbed window.scrollTo) that other test happens to have
+// set up at the time.
 func waitForPath(t *testing.T, want string) {
 	t.Helper()
 	deadline := time.Now().Add(2 * time.Second)
 	for time.Now().Before(deadline) {
 		if router.Path().Get() == want {
 			waitEffects(t) // let dependent effects (ActiveLink, IsActive) finish reacting
+			waitNextTick(t)
 			return
 		}
 		time.Sleep(5 * time.Millisecond)
 	}
 	t.Fatalf("router.Path() did not become %q within timeout (stuck at %q)", want, router.Path().Get())
+}
+
+// waitNextTick blocks until a core.NextTick callback fires. router.go's
+// scroll decision (ensureInit's OnChange) is itself deferred via
+// core.NextTick, so a test asserting on it - or a later test sharing this
+// package's singleton router - must wait for one too: queued strictly after
+// the router's own (FIFO microtask ordering), this guarantees the router's
+// callback has already run by the time this returns.
+func waitNextTick(t *testing.T) {
+	t.Helper()
+	done := make(chan struct{})
+	core.NextTick(func() { close(done) })
+	select {
+	case <-done:
+	case <-time.After(time.Second):
+		t.Fatal("NextTick never ran fn")
+	}
 }
 
 // navigateAndRestore navigates to `to` and restores "/" (the test baseline)

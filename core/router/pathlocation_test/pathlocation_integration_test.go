@@ -45,13 +45,18 @@ func waitEffects(t *testing.T) {
 // waitForPath polls until router.Path() reflects want - PathLocation's
 // Navigate/Replace notify synchronously, but poll anyway for the same reason
 // core/router's own tests do: it's a resilient way to wait for dependent
-// Effects (ActiveLink, IsActive) to finish reacting too.
+// Effects (ActiveLink, IsActive) to finish reacting too. Also waits for the
+// scroll decision every navigation schedules (see waitNextTick) so it never
+// survives past the test that triggered it - left pending, it would run
+// during a LATER test instead, acting on whatever DOM/stubs that other test
+// happens to have set up at the time.
 func waitForPath(t *testing.T, want string) {
 	t.Helper()
 	deadline := time.Now().Add(2 * time.Second)
 	for time.Now().Before(deadline) {
 		if router.Path().Get() == want {
 			waitEffects(t)
+			waitNextTick(t)
 			return
 		}
 		time.Sleep(5 * time.Millisecond)
@@ -228,7 +233,6 @@ func TestNavigateToAnchorScrollsToElementInsteadOfTop(t *testing.T) {
 		waitForPath(t, "/")
 	})
 	waitForPath(t, "/settings")
-	waitNextTick(t)
 
 	if scrollIntoViewCalls != 1 {
 		t.Errorf("target element's scrollIntoView called %d times, want 1", scrollIntoViewCalls)
@@ -253,7 +257,6 @@ func TestNavigateWithoutAnchorStillScrollsToTop(t *testing.T) {
 	t.Cleanup(func() { window.Set("scrollTo", original) })
 
 	navigateAndRestore(t, "/reports")
-	waitNextTick(t)
 
 	if scrollToCalls != 1 {
 		t.Errorf("window.scrollTo called %d times, want 1 (plain navigation with no anchor should scroll to top)", scrollToCalls)

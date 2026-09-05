@@ -57,6 +57,12 @@ func ensureInit() {
 	activeLocation.OnChange(func() {
 		old := pathSignal.Get()
 		next := activeLocation.Path()
+		// Captured now, at notification time, not re-read inside the
+		// deferred closure below: location.hash is global mutable state, and
+		// a later navigation can change it before this one's deferred
+		// decision runs (see the next comment), which would otherwise make
+		// this decision act on the WRONG (a newer) navigation's anchor.
+		anchorID := activeLocation.AnchorID()
 		pathSignal.Set(next)
 		// Deferred a tick: pathSignal.Set above only enqueues Router's
 		// mounting Effect (core/signal runs effects on its own goroutine,
@@ -71,8 +77,8 @@ func ensureInit() {
 			// priority order as a plain <a href="#section"> click: the
 			// anchor wins even for a genuine route change to a URL that
 			// also carries a fragment.
-			if id := activeLocation.AnchorID(); id != "" {
-				if el := dom.Document.Call(dom.GetElementById, id); el.Truthy() {
+			if anchorID != "" {
+				if el := dom.Document.Call(dom.GetElementById, anchorID); el.Truthy() {
 					el.Call("scrollIntoView")
 					return
 				}
