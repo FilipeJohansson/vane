@@ -92,13 +92,30 @@ func (l *PathLocation) Path() string {
 	return normalizePath(rest)
 }
 
-// Href joins the configured BasePath with path.
+// Href joins the configured BasePath with path, then resolves the result
+// against the current document location and keeps only its pathname, query
+// and fragment. That last step means the returned href can never point
+// outside the current origin, no matter what path contains (e.g. a
+// protocol-relative "//evil.com" would otherwise survive untouched, since it
+// already "starts with /"): pushState/replaceState throw a SecurityError for
+// any URL outside the current origin, and Navigate/Replace both build their
+// href through this method, so this is what keeps them safe to call with an
+// arbitrary string.
 func (l *PathLocation) Href(path string) string {
 	base := l.base()
-	if base == "/" {
-		return normalizePath(path)
+	joined := normalizePath(path)
+	if base != "/" {
+		joined = base + joined
 	}
-	return base + normalizePath(path)
+	return resolveSameOrigin(joined)
+}
+
+// resolveSameOrigin resolves href against the current document location and
+// returns only its pathname+search+hash, discarding any scheme/host it may
+// have picked up in the process.
+func resolveSameOrigin(href string) string {
+	u := js.Global().Get("URL").New(href, js.Global().Get("location").Get("href"))
+	return u.Get("pathname").String() + u.Get("search").String() + u.Get("hash").String()
 }
 
 // Navigate pushes a new history entry via history.pushState.
@@ -213,11 +230,20 @@ func (l *HashLocation) Replace(path string) {
 }
 
 // OnChange registers fn to run on "hashchange" (Navigate, or browser
-// back/forward).
+// back/forward), but only when the new hash is actually a route ("#/...").
+// A same-page anchor hash (e.g. "#section") also fires "hashchange", but
+// isn't a route change at all (see Path()'s doc comment on the quirk); the
+// router would otherwise treat it as a navigation to "/" and scroll to top,
+// fighting the browser's own scroll-to-anchor, the same class of problem
+// PathLocation.handleClick already avoids for its equivalent case.
 func (l *HashLocation) OnChange(fn func()) {
 	l.onChange = fn
 	dom.Window.Call(dom.AddEventListener, dom.EventHashChange, js.FuncOf(
 		func(_ js.Value, _ []js.Value) interface{} {
+			hash := js.Global().Get("location").Get("hash").String()
+			if !strings.HasPrefix(hash, "#/") {
+				return nil
+			}
 			fn()
 			return nil
 		},

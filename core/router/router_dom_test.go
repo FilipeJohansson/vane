@@ -266,3 +266,41 @@ func TestNavigatePushesReplaceDoesNot(t *testing.T) {
 		t.Errorf("history.length after Replace = %d, want %d (Replace should not push a new entry)", afterReplace, afterNavigate)
 	}
 }
+
+// TestHashLocationIgnoresNonRouteHashChange guards the Part G fix for a
+// scroll-to-top regression: a same-page anchor hash change (e.g. "#section")
+// also fires "hashchange", but isn't a route change at all - HashLocation's
+// documented quirk maps any hash not starting with "#/" to "/", and before
+// this fix the router treated that fallback as a real navigation, scrolling
+// to top and fighting the browser's own scroll-to-anchor behavior (the same
+// class of problem PathLocation.handleClick already avoids for its
+// equivalent case, see TestPathLocationHandleClick/same-page_fragment).
+// window.scrollTo is stubbed to prove it's never invoked; router.Path()
+// must also stay put, since none of this should be seen as a navigation.
+func TestHashLocationIgnoresNonRouteHashChange(t *testing.T) {
+	navigateAndRestore(t, "/reports")
+
+	window := js.Global().Get("window")
+	original := window.Get("scrollTo")
+	scrollCalls := 0
+	window.Set("scrollTo", js.FuncOf(func(_ js.Value, _ []js.Value) interface{} {
+		scrollCalls++
+		return nil
+	}))
+	t.Cleanup(func() { window.Set("scrollTo", original) })
+
+	js.Global().Get("location").Set("hash", "#section")
+
+	// Nothing should happen here, so there's no target state to poll for
+	// (unlike waitForPath) - just give the async hashchange task (see
+	// waitForPath's comment) a generous chance to run before asserting.
+	time.Sleep(100 * time.Millisecond)
+	waitEffects(t)
+
+	if got := router.Path().Get(); got != "/reports" {
+		t.Errorf("Path() = %q after a same-page \"#section\" hash change, want it unchanged (%q)", got, "/reports")
+	}
+	if scrollCalls != 0 {
+		t.Errorf("window.scrollTo called %d times, want 0", scrollCalls)
+	}
+}

@@ -96,6 +96,43 @@ func TestPathLocationHref(t *testing.T) {
 	}
 }
 
+// TestPathLocationHrefResolvesToSameOrigin guards against a "to" that looks
+// like a normal in-app path but actually escapes the current origin - a
+// protocol-relative "//host/path" already "starts with /", so a naive check
+// wouldn't catch it, and an absolute "scheme://host/path" wouldn't either
+// once naively prefixed with "/". Both would otherwise flow untouched into
+// history.pushState/replaceState (Navigate/Replace both build their href
+// through Href), which throws a SecurityError - surfacing as a Go panic via
+// syscall/js - for any URL outside the current origin.
+func TestPathLocationHrefResolvesToSameOrigin(t *testing.T) {
+	loc := &router.PathLocation{}
+
+	if got := loc.Href("//evil.example/x"); got != "/x" {
+		t.Errorf("Href(%q) = %q, want %q (host must be discarded, not folded into the path)", "//evil.example/x", got, "/x")
+	}
+	if got := loc.Href("https://evil.example/x"); got != "/https://evil.example/x" {
+		t.Errorf("Href(%q) = %q, want %q (an absolute cross-origin URL must not survive as-is)", "https://evil.example/x", got, "/https://evil.example/x")
+	}
+}
+
+// TestPathLocationNavigateWithCrossOriginToDoesNotPanic is the end-to-end
+// version of the same guard: Navigate must never hand pushState a URL
+// outside the current origin, regardless of what "to" contains, or the
+// underlying SecurityError would panic the whole program.
+func TestPathLocationNavigateWithCrossOriginToDoesNotPanic(t *testing.T) {
+	resetPathname(t)
+
+	loc := &router.PathLocation{}
+	loc.Navigate("//evil.example/x")
+
+	if got := js.Global().Get("location").Get("pathname").String(); got != "/x" {
+		t.Errorf("pathname after Navigate(%q) = %q, want %q (resolved same-origin)", "//evil.example/x", got, "/x")
+	}
+	if got := js.Global().Get("location").Get("origin").String(); got != "http://localhost" {
+		t.Errorf("origin changed to %q, want it to remain http://localhost", got)
+	}
+}
+
 // --- Navigate() / Replace(): pushState/replaceState mechanics. Safe on a
 // fresh instance with no OnChange registered - both tolerate a nil
 // callback, so these don't need the shared, OnChange-registered instance
