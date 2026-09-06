@@ -58,11 +58,24 @@ func activeScope() *Scope {
 
 // RunScoped runs fn inside a new Scope and returns it. Call Dispose() later to
 // clean up all effects created during fn.
+//
+// If fn panics, RunScoped never reaches its own return, so the caller gets
+// no reference to Dispose whatever the Scope collected up to the panic
+// point; RunScoped disposes it itself before letting the panic continue
+// propagating, so a partially-built subtree doesn't leak the effects and
+// listeners it managed to create.
 func RunScoped(fn func()) *Scope {
 	s := &Scope{}
 	pushScope(s)
-	defer popScope()
+	ok := false
+	defer func() {
+		popScope()
+		if !ok {
+			s.Dispose()
+		}
+	}()
 	fn()
+	ok = true
 	return s
 }
 

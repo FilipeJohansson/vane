@@ -505,6 +505,27 @@ func TestRunScopedSurvivesPanic(t *testing.T) {
 	}
 }
 
+// TestRunScopedDisposesPartialScopeOnPanic proves that a panic partway
+// through the function passed to RunScoped doesn't leave whatever that
+// Scope collected before the panic point permanently alive. RunScoped never
+// reaches its own return statement on panic, so the caller has no reference
+// to the partial Scope to Dispose it themselves; RunScoped has to.
+func TestRunScopedDisposesPartialScopeOnPanic(t *testing.T) {
+	before := signal.LiveEffectCount()
+
+	func() {
+		defer func() { recover() }()
+		signal.RunScoped(func() {
+			signal.Effect(func() {}) // collected before the panic point
+			panic("boom")
+		})
+	}()
+
+	if got := signal.LiveEffectCount(); got != before {
+		t.Fatalf("LiveEffectCount() = %d after a panicking RunScoped, want %d (the partial Scope's effect was never disposed)", got, before)
+	}
+}
+
 // TestEffectRunSurvivesPanic proves that an effect body panicking on a
 // scheduled re-run (the path flushEffects already recovers from) doesn't
 // leave that disposed effect permanently on top of effectStack. A leaked
