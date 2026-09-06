@@ -61,8 +61,8 @@ func activeScope() *Scope {
 func RunScoped(fn func()) *Scope {
 	s := &Scope{}
 	pushScope(s)
+	defer popScope()
 	fn()
-	popScope()
 	return s
 }
 
@@ -256,14 +256,15 @@ func (e *effect) run() {
 	effectLock.Lock()
 	effectStack = append(effectStack, e)
 	effectLock.Unlock()
+	defer func() {
+		effectLock.Lock()
+		effectStack = effectStack[:len(effectStack)-1]
+		effectLock.Unlock()
+	}()
 
 	e.clearDeps()
 
 	e.fn()
-
-	effectLock.Lock()
-	effectStack = effectStack[:len(effectStack)-1]
-	effectLock.Unlock()
 }
 
 // Global effect scheduler, one drain goroutine instead of one per effect.
