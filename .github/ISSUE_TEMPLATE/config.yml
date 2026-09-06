@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Questions and ideas
+    url: https://github.com/FilipeJohansson/vane/discussions
+    about: Ask a question, discuss a use case, or float an idea before filing an issue.
+  - name: Security vulnerability
+    url: https://github.com/FilipeJohansson/vane/security/policy
+    about: Do not open a public issue for security reports — see SECURITY.md.

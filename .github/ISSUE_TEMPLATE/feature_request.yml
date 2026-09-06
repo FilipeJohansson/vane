@@ -1,0 +1,32 @@
+name: Feature request
+description: Propose a new capability or improvement for Vane.
+labels: ['enhancement']
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Vane is pre-1.0.0 and intentionally resisting scope growth right
+        now — small, focused proposals with a clear real-world need are
+        more likely to land than large new subsystems. For open-ended
+        ideas or "what do you think about..." discussions, consider
+        [GitHub Discussions](https://github.com/FilipeJohansson/vane/discussions)
+        instead of an issue.
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem does this solve?
+      description: The concrete situation you hit, not just the feature you imagine.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed solution
+      description: What you'd like Vane to do. Code sketches welcome.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Workarounds you're already using, or other approaches you ruled out and why.
