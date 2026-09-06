@@ -104,7 +104,6 @@ Vane is in the `pre-v1.0.0` phase, so the API can still change before the v1.0.0
 
 - **No public VS Code extension yet.** One is in development, syntax highlighting, autocomplete, go-to-definition, and it's what was used to build Vane's own docs site, but it's still rough with several open issues, not ready to publish.
 - **WASM binary size.** 2.5–10MB per app with the standard Go compiler, normal for Go WASM but larger than a typical JS bundle. `vane build --tinygo` cuts that to roughly a third (needs a separate TinyGo + binaryen install), at the cost of `//line`-accurate breakpoints in `vane run --debug --tinygo` (TinyGo's WASM DWARF output isn't compatible with Chrome's breakpoint engine).
-- **Test coverage has a ceiling.** The DOM test suite runs against jsdom (no real browser), which has no layout engine, so anything depending on real layout (`offsetWidth`, `getBoundingClientRect`) isn't covered yet.
 - **No SSR.** SPA-only.
 
 ## Examples
