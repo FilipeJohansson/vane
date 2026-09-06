@@ -20,9 +20,12 @@ var EffectPanicHandler func(recovered any)
 var LoopWatchdogHandler func(message string)
 
 //* Scope
-// Scope tracks effects created during a component's setup.
-// Call Dispose to clean up all effects when the component unmounts.
 
+// Scope collects the disposers registered (via RegisterDispose) while fn runs
+// inside RunScoped, so Dispose can undo everything that setup created —
+// effects, DOM listeners, JS callbacks — in one call. This is Vane's cleanup
+// mechanism end to end: there is no virtual DOM diff or mount tracer deciding
+// what to tear down, only whatever scope-aware code registered itself.
 type Scope struct {
 	mu       sync.Mutex
 	disposes []func()
@@ -79,6 +82,9 @@ func RunScoped(fn func()) *Scope {
 	return s
 }
 
+// Dispose runs every disposer registered in s, most-recently-registered
+// first, then clears them. Safe to call more than once: the second call has
+// nothing left to run.
 func (s *Scope) Dispose() {
 	s.mu.Lock()
 	ds := s.disposes
@@ -89,6 +95,9 @@ func (s *Scope) Dispose() {
 	}
 }
 
+// RegisterDispose registers fn to run when the current Scope (the one
+// RunScoped is running) is disposed. No-op if there is no active scope, e.g.
+// called outside RunScoped or after it has already returned.
 func RegisterDispose(fn func()) {
 	if s := activeScope(); s != nil {
 		s.mu.Lock()
@@ -137,11 +146,19 @@ func (s *baseSignal) notify() {
 
 //* Signal[T]
 
+// Signal is a reactive container for a value of type T. Reading it via Get,
+// while an Effect or Computed is running, subscribes that computation to
+// future changes; Set stores a new value and re-runs every subscriber. There
+// is no equality check between the old and new value: Set always notifies,
+// even when v deep-equals the current value.
 type Signal[T any] struct {
 	baseSignal
 	value T
 }
 
+// New creates a Signal holding initial. Prefer core.NewSignal from component
+// code; this constructor is for code in core/signal itself and other code
+// that can't import core.
 func New[T any](initial T) *Signal[T] {
 	return &Signal[T]{
 		baseSignal: baseSignal{subscribers: make(map[computation]struct{})},
@@ -149,6 +166,8 @@ func New[T any](initial T) *Signal[T] {
 	}
 }
 
+// Get returns s's current value, subscribing the running Effect/Computed (if
+// any) to future changes.
 func (s *Signal[T]) Get() T {
 	current := currentComputation()
 	s.track(current)
@@ -157,6 +176,9 @@ func (s *Signal[T]) Get() T {
 	return s.value
 }
 
+// Set stores v and synchronously re-runs every subscriber that read s via
+// Get. Unconditional: there is no check against the previous value, so
+// setting the same value again still re-runs subscribers.
 func (s *Signal[T]) Set(v T) {
 	s.mutex.Lock()
 	s.value = v
@@ -164,6 +186,9 @@ func (s *Signal[T]) Set(v T) {
 	s.notify()
 }
 
+// ReadOnly returns a ReadOnlySignal backed by s, for exposing s to callers
+// that should read but never write it (e.g. a package-level store returning
+// its internal signal to the rest of the app).
 func (s *Signal[T]) ReadOnly() *ReadOnlySignal[T] {
 	return &ReadOnlySignal[T]{
 		source: s,
@@ -172,16 +197,24 @@ func (s *Signal[T]) ReadOnly() *ReadOnlySignal[T] {
 
 //* ReadOnlySignal[T]
 
+// ReadOnlySignal is a read-only view of a Signal: same subscription behavior
+// as Get, no Set. Returned by Signal.ReadOnly and NewReadOnly.
 type ReadOnlySignal[T any] struct {
 	source *Signal[T]
 }
 
+// NewReadOnly creates a standalone ReadOnlySignal holding initial, backed by
+// a Signal only this call has a reference to (so nothing else can ever call
+// Set on it). Prefer Signal.ReadOnly when exposing an existing, mutable
+// Signal read-only to callers instead.
 func NewReadOnly[T any](initial T) *ReadOnlySignal[T] {
 	return &ReadOnlySignal[T]{
 		source: New(initial),
 	}
 }
 
+// Get returns s's current value, subscribing the running Effect/Computed (if
+// any) to future changes — same behavior as Signal.Get.
 func (s *ReadOnlySignal[T]) Get() T {
 	return s.source.Get()
 }
@@ -424,10 +457,9 @@ func Untrack(fn func()) {
 }
 
 //* Computed[T]
-//
+
 // Computed is a read-only derived signal. Its value is recomputed whenever
 // any of its signal deps change. Think of it as a memoized signal.
-
 type Computed[T any] struct {
 	baseSignal
 	value  T
@@ -451,6 +483,10 @@ func ComputedOf[T any](fn func(prev T) T) *Computed[T] {
 	return c
 }
 
+// Get returns c's current (memoized) value, subscribing the running
+// Effect/Computed (if any) to future changes. Never re-runs fn itself: fn
+// only runs from the internal effect ComputedOf sets up, which recomputes
+// and calls notify whenever one of fn's own deps changes.
 func (c *Computed[T]) Get() T {
 	c.track(currentComputation())
 	c.mutex.Lock()

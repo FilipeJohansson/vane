@@ -34,7 +34,6 @@ const focusableSelector = `a[href], button:not([disabled]), input:not([disabled]
 // listener and restores focus to whatever was focused before the trap
 // engaged (the standard pattern for returning focus to the button that
 // opened the dialog).
-
 func FocusTrap(el Node) func() {
 	raw := Unwrap(el)
 	prevFocused := dom.Document.Get(dom.ActiveElement)
