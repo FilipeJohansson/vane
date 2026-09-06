@@ -1,0 +1,273 @@
+package docs
+
+import (
+	"github.com/filipejohansson/vane/core"
+	"github.com/filipejohansson/vane/core/router"
+)
+
+const corePkgURL = "https://pkg.go.dev/github.com/filipejohansson/vane/core?GOOS=js&GOARCH=wasm"
+const routerPkgURL = "https://pkg.go.dev/github.com/filipejohansson/vane/core/router?GOOS=js&GOARCH=wasm"
+const signalPkgURL = "https://pkg.go.dev/github.com/filipejohansson/vane/core/signal?GOOS=js&GOARCH=wasm"
+
+// pkgLink renders name as a <code> link to its anchor on a package's
+// pkg.go.dev page, always with ?GOOS=js&GOARCH=wasm: core and core/router
+// are gated behind that build tag, and pkg.go.dev's default platform shows
+// almost none of their real API without it.
+func pkgLink(baseURL, anchor, name string) core.Node {
+	return (
+		<a href={baseURL + "#" + anchor} target="_blank" rel="noopener noreferrer">
+			<code>{name}</code>
+		</a>
+	)
+}
+
+// apiDocLink is a same-site cross-reference from a reference blurb to the
+// guide page that covers a concept in depth (usage patterns, not just the
+// signature).
+func apiDocLink(slug, label string) core.Node {
+	return router.Link(router.LinkProps{
+		To:        "/docs/" + slug,
+		HTMLProps: core.HTMLProps{Class: "docs-inline-link"},
+	}, label)
+}
+
+// apiRow builds a two-cell [symbol link, blurb] row for docsTable, the
+// common case where the blurb is plain text with no inline link.
+func apiRow(baseURL, anchor, name, blurb string) []core.Node {
+	return []core.Node{pkgLink(baseURL, anchor, name), core.Text(blurb)}
+}
+
+func APIReference() core.Node {
+	core.Head(func() core.HeadConfig {
+		title := "API Reference | Vane Docs"
+		description := "Curated index of Vane's public API, grouped by concept, linking to the full generated reference on pkg.go.dev."
+		url := core.Window().Get("location").Get("origin").String() + "/vane/docs/api-reference"
+		return core.HeadConfig{
+			Title:         title,
+			Description:   description,
+			Canonical:     url,
+			OGTitle:       title,
+			OGDescription: description,
+			OGURL:         url,
+		}
+	})
+
+	items := apiReferenceTOCItems
+
+	return (
+		<div className="docs-page">
+			<article className="docs-article">
+				{docsHeader(
+					"API Reference",
+					"API Reference",
+					"An index of Vane's public API, organized by concept. Each entry links to its full generated documentation on pkg.go.dev; the guides linked alongside cover how and why to use it.",
+				)}
+
+				<h2 className="docs-h2" id="mounting-and-nodes">Mounting, Nodes & Structure</h2>
+				<p className="docs-p">
+					Everything a component returns is a <code>Node</code> — see{" "}
+					{apiDocLink("concepts", "Concepts")} for the mental model and{" "}
+					{apiDocLink("components", "Components")} for how components compose.
+				</p>
+				{docsTable(
+					[]string{"Symbol", "What it is"},
+					[][]core.Node{
+						apiRow(corePkgURL, "Mount", "Mount", "Renders a component into a root DOM element by ID. The entry point of every Vane app."),
+						apiRow(corePkgURL, "Node", "Node", "The sealed interface every element/component return value implements."),
+						apiRow(corePkgURL, "El", "El", "Creates a DOM element by tag name."),
+						apiRow(corePkgURL, "ElWithProps", "ElWithProps", "El, plus applying an HTMLProps-embedding struct and appending children in one call."),
+						apiRow(corePkgURL, "Fragment", "Fragment", "Groups nodes with no wrapper element."),
+						apiRow(corePkgURL, "Text", "Text", "Creates a static text node."),
+						apiRow(corePkgURL, "Empty", "Empty", "\"No element\" — use instead of a nil Node in conditionals."),
+						apiRow(corePkgURL, "DangerousInnerHTML", "DangerousInnerHTML", "Parses a string as raw markup. See Security before using this."),
+						apiRow(corePkgURL, "Nodes", "Nodes", "Normalizes a mixed string/Node/[]Node children list into []Node."),
+						apiRow(corePkgURL, "Spread", "Spread", "Converts a variadic children argument into []Node for {children...} spreads."),
+						apiRow(corePkgURL, "Unwrap", "Unwrap", "Escape hatch to the underlying js.Value, for third-party JS interop."),
+						apiRow(corePkgURL, "GetElementByID", "GetElementByID", "Looks up any element in the document by id, not just ones Vane mounted."),
+						apiRow(corePkgURL, "HTMLProps", "HTMLProps", "Common HTML attributes (Class, ID, Style, common events); embed it in component-specific props structs."),
+						apiRow(corePkgURL, "AppendChild", "AppendChild", "Imperatively appends a child Node — El + this is the low-level path DynChild/DynList build on."),
+						apiRow(corePkgURL, "AppendText", "AppendText", "Imperatively appends a static text node."),
+					},
+				)}
+
+				<h2 className="docs-h2" id="signals-and-reactivity">Signals & Reactivity</h2>
+				<p className="docs-p">
+					See {apiDocLink("signals", "Signals & Reactivity")} for the usage
+					guide and the mental model. <code>Signal</code>/<code>Computed</code>/
+					<code>ReadOnlySignal</code>/<code>Scope</code> are all type aliases
+					in <code>core</code> for their <code>core/signal</code> equivalents
+					(so app code never needs to import <code>core/signal</code>{" "}
+					directly) — their <code>Get</code>/<code>Set</code> methods are
+					documented on the <code>core/signal</code> page linked below, since
+					a Go alias doesn't re-publish its target's method docs.
+				</p>
+				{docsTable(
+					[]string{"Symbol", "What it is"},
+					[][]core.Node{
+						apiRow(corePkgURL, "NewSignal", "NewSignal", "Creates a new reactive signal."),
+						apiRow(signalPkgURL, "Signal.Get", "Signal.Get", "Reads the value; subscribes the enclosing Effect/Computed, if any."),
+						apiRow(signalPkgURL, "Signal.Set", "Signal.Set", "Writes a new value and re-runs every subscriber."),
+						apiRow(signalPkgURL, "Signal.ReadOnly", "Signal.ReadOnly", "Returns a read-only view of the signal, for exposing state safely."),
+						apiRow(corePkgURL, "Effect", "Effect", "Runs a function reactively; the returned cleanup runs before each re-run and on unmount."),
+						apiRow(corePkgURL, "ComputedOf", "ComputedOf", "Creates a derived, memoized signal from a function of the previous value."),
+						apiRow(signalPkgURL, "Computed.Get", "Computed.Get", "Reads the memoized value."),
+						apiRow(corePkgURL, "OnDispose", "OnDispose", "Registers non-reactive cleanup (timers, goroutines, subscriptions) for the current component scope."),
+						apiRow(corePkgURL, "Untrack", "Untrack", "Runs a function without subscribing the enclosing Effect to any signal it reads."),
+						apiRow(signalPkgURL, "NewReadOnly", "NewReadOnly", "Creates a standalone read-only signal (rare — prefer Signal.ReadOnly for an existing signal)."),
+						apiRow(signalPkgURL, "LiveEffectCount", "LiveEffectCount", "Count of effects created but not yet disposed — a coarse memory-leak signal, useful in tests or a debug panel."),
+					},
+				)}
+
+				<h2 className="docs-h2" id="reactive-dom-bindings">Reactive DOM Bindings</h2>
+				<p className="docs-p">
+					The primitives the compiler emits for <code>{"{expr}"}</code>,{" "}
+					<code>{"{slice...}"}</code>, and reactive props/styles — see{" "}
+					{apiDocLink("jsx-syntax", "JSX Syntax")} for the source-level syntax
+					these correspond to.
+				</p>
+				{docsTable(
+					[]string{"Symbol", "What it is"},
+					[][]core.Node{
+						apiRow(corePkgURL, "DynChild", "DynChild", "Reactive child content — what {expr} compiles to for non-text values."),
+						apiRow(corePkgURL, "DynText", "DynText", "Reactive text-only child — what {expr} compiles to for strings; cheaper than DynChild."),
+						apiRow(corePkgURL, "DynList", "DynList", "Reactive keyed list — what {slice...} compiles to."),
+						apiRow(corePkgURL, "DynProp", "DynProp", "Sets a property reactively — what prop={expr} compiles to."),
+						apiRow(corePkgURL, "DynStyle", "DynStyle", "Applies a Style struct reactively — what style={expr} compiles to."),
+						apiRow(corePkgURL, "SetProp", "SetProp", "Sets a property once, no reactivity — what a static prop=\"...\" compiles to."),
+						apiRow(corePkgURL, "SetStyle", "SetStyle", "Applies a Style struct once, no reactivity."),
+						apiRow(corePkgURL, "NextTick", "NextTick", "Defers a function to the next microtask — for code that needs the DOM already connected (e.g. moving focus)."),
+					},
+				)}
+
+				<h2 className="docs-h2" id="router">Router</h2>
+				<p className="docs-p">
+					See {apiDocLink("routing", "Routing")} for params, layouts, and
+					choosing between hash-based and path-based URLs.
+				</p>
+				{docsTable(
+					[]string{"Symbol", "What it is"},
+					[][]core.Node{
+						apiRow(routerPkgURL, "Router", "Router", "Renders the entry matching the current path."),
+						apiRow(routerPkgURL, "Route", "Route", "A leaf route entry."),
+						apiRow(routerPkgURL, "Layout", "Layout", "A persistent layout entry with nested child routes."),
+						apiRow(routerPkgURL, "Link", "Link", "An anchor that navigates via the router."),
+						apiRow(routerPkgURL, "ActiveLink", "ActiveLink", "Link that adds a class reactively when its path matches the current route."),
+						apiRow(routerPkgURL, "Navigate", "Navigate", "Programmatically changes route, pushing a history entry."),
+						apiRow(routerPkgURL, "Replace", "Replace", "Programmatically changes route without pushing a history entry."),
+						apiRow(routerPkgURL, "Path", "Path", "The current path as a reactive read-only signal."),
+						apiRow(routerPkgURL, "Params", "Params", "The current route's params as a reactive read-only signal."),
+						apiRow(routerPkgURL, "IsActive", "IsActive", "A reactive signal that's true when the current path matches a given one."),
+						apiRow(routerPkgURL, "Outlet", "Outlet", "The stable node a Layout's nested routes render into."),
+						apiRow(routerPkgURL, "SetLocation", "SetLocation", "Chooses how the router represents its route in the URL (HashLocation, the default, or PathLocation)."),
+						apiRow(routerPkgURL, "HashLocation", "HashLocation", "URL scheme using the hash fragment (#/path) — works on any static host."),
+						apiRow(routerPkgURL, "PathLocation", "PathLocation", "URL scheme using real pathnames via the History API — needs a server fallback to index.html."),
+					},
+				)}
+
+				<h2 className="docs-h2" id="events">Events</h2>
+				<p className="docs-p">
+					Every <code>On*</code> JSX prop (<code>onClick</code>,{" "}
+					<code>onInput</code>, <code>onSubmit</code>, and the rest) is
+					documented as a table in {apiDocLink("jsx-syntax", "JSX Syntax")},
+					with its handler signature — not repeated here. The event types
+					those handlers receive, and the few events with no JSX prop
+					(window-level listeners), are:
+				</p>
+				{docsTable(
+					[]string{"Symbol", "What it is"},
+					[][]core.Node{
+						apiRow(corePkgURL, "Event", "Event", "Generic decoded event (focus, blur, scroll, drag/drop)."),
+						apiRow(corePkgURL, "MouseEvent", "MouseEvent", "Click/pointer events: coordinates, button, modifiers."),
+						apiRow(corePkgURL, "InputEvent", "InputEvent", "onInput/onChange: the field's current value."),
+						apiRow(corePkgURL, "KeyEvent", "KeyEvent", "Keyboard events: key and modifiers."),
+						apiRow(corePkgURL, "CheckEvent", "CheckEvent", "onChecked: a checkbox/radio's current checked state."),
+						apiRow(corePkgURL, "SubmitEvent", "SubmitEvent", "onSubmit — preventDefault is already called before your handler runs."),
+						apiRow(corePkgURL, "TouchEvent", "TouchEvent", "Touch events: every active TouchPoint."),
+						apiRow(corePkgURL, "ListenerOpts", "ListenerOpts", "Configures OnWindowEvent (e.g. Passive)."),
+						apiRow(corePkgURL, "OnWindowEvent", "OnWindowEvent", "Attaches to a window-level event with no per-element JSX prop."),
+						apiRow(corePkgURL, "OnWindowKeyDown", "OnWindowKeyDown", "Global keyboard shortcuts (Ctrl/Cmd+K and friends)."),
+						apiRow(corePkgURL, "OnWindowMouseMove", "OnWindowMouseMove", "Tracks the pointer across the whole viewport, not one element."),
+					},
+				)}
+
+				<h2 className="docs-h2" id="head-management">Head Management</h2>
+				<p className="docs-p">
+					See {apiDocLink("head", "Head Management")} for the full guide,
+					including how nested routes layer their own head state.
+				</p>
+				{docsTable(
+					[]string{"Symbol", "What it is"},
+					[][]core.Node{
+						apiRow(corePkgURL, "Head", "Head", "Applies a HeadConfig to the document <head> reactively."),
+						apiRow(corePkgURL, "HeadConfig", "HeadConfig", "Title, description, canonical, and Open Graph fields."),
+					},
+				)}
+
+				<h2 className="docs-h2" id="portals-and-errors">Portals & Error Boundaries</h2>
+				<p className="docs-p">
+					See {apiDocLink("portal", "Portals")} and{" "}
+					{apiDocLink("error-boundary", "Handle Errors")} for the full guides.
+				</p>
+				{docsTable(
+					[]string{"Symbol", "What it is"},
+					[][]core.Node{
+						apiRow(corePkgURL, "Portal", "Portal", "Renders into a DOM element outside the current component hierarchy."),
+						apiRow(corePkgURL, "Try", "Try", "Renders a function safely, falling back to a recovery function if it panics."),
+					},
+				)}
+
+				<h2 className="docs-h2" id="style">Style</h2>
+				<p className="docs-p">
+					See {apiDocLink("style", "Styles and CSS")} for co-located CSS and
+					when to reach for a static string instead.
+				</p>
+				{docsTable(
+					[]string{"Symbol", "What it is"},
+					[][]core.Node{
+						apiRow(corePkgURL, "Style", "Style", "Common CSS properties as typed Go struct fields."),
+					},
+				)}
+
+				<h2 className="docs-h2" id="accessibility-and-browser-apis">Accessibility & Browser APIs</h2>
+				<p className="docs-p">
+					See {apiDocLink("accessibility", "Accessibility")} and{" "}
+					{apiDocLink("refs-and-dom", "Refs & DOM")} for the guides these
+					escape hatches support.
+				</p>
+				{docsTable(
+					[]string{"Symbol", "What it is"},
+					[][]core.Node{
+						apiRow(corePkgURL, "Announce", "Announce", "Speaks a message to screen readers via a shared live region."),
+						apiRow(corePkgURL, "Focus", "Focus", "Moves keyboard focus to an element."),
+						apiRow(corePkgURL, "FocusTrap", "FocusTrap", "Confines Tab/Shift+Tab cycling inside an element, for modals and dialogs."),
+						apiRow(corePkgURL, "BoundingRect", "BoundingRect", "An element's current position/size (getBoundingClientRect)."),
+						apiRow(corePkgURL, "Rect", "Rect", "The struct BoundingRect returns."),
+						apiRow(corePkgURL, "Viewport", "Viewport", "The browser window's inner width/height."),
+						apiRow(corePkgURL, "DocumentHeight", "DocumentHeight", "The document's scrollable and visible height."),
+						apiRow(corePkgURL, "ScrollIntoView", "ScrollIntoView", "Scrolls an element into the visible viewport."),
+						apiRow(corePkgURL, "ScrollTo", "ScrollTo", "Scrolls the window to a vertical position."),
+						apiRow(corePkgURL, "ScrollY", "ScrollY", "How far the page has scrolled vertically."),
+						apiRow(corePkgURL, "Window", "Window", "Escape hatch to the browser's window object."),
+						apiRow(corePkgURL, "Document", "Document", "Escape hatch to the browser's document object."),
+						apiRow(corePkgURL, "LocalStorage", "LocalStorage", "A handle onto the browser's localStorage."),
+						apiRow(corePkgURL, "WriteClipboardText", "WriteClipboardText", "Writes text to the system clipboard."),
+						apiRow(corePkgURL, "SetRootAttribute", "SetRootAttribute", "Sets an attribute on the root <html> element."),
+						apiRow(corePkgURL, "SetRootStyle", "SetRootStyle", "Sets an inline CSS property on the root <html> element."),
+					},
+				)}
+
+				<h2 className="docs-h2" id="dev-and-debug">Dev & Debug</h2>
+				{docsTable(
+					[]string{"Symbol", "What it is"},
+					[][]core.Node{
+						apiRow(corePkgURL, "IsRelease", "IsRelease", "Reports whether the binary was built with vane build --release."),
+						apiRow(corePkgURL, "Warn", "Warn", "Logs a developer-facing misuse warning once per message; no-op in release builds."),
+					},
+				)}
+
+				{pageNav("api-reference")}
+			</article>
+			{toc(items)}
+		</div>
+	)
+}

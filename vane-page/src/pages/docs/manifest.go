@@ -23,6 +23,8 @@ var Manifest = []Topic{
 	{Slug: "", Title: "Overview", Summary: "What Vane is and how the pieces fit together.", Category: "Getting Started", HasSource: true},
 	{Slug: "concepts", Title: "Concepts", Summary: "The mental model: components, signals, no virtual DOM.", Category: "Getting Started", HasSource: true},
 
+	{Slug: "tutorial", Title: "Tutorial: Build a Todo List", Summary: "A hands-on walkthrough: signals, events, a reactive keyed list, and routing.", Category: "Tutorial", HasSource: true},
+
 	{Slug: "installation", Title: "Installation", Summary: "Install the CLI and scaffold a project with vane init.", Category: "Start a New Project", HasSource: true},
 	{Slug: "project-structure", Title: "Project Structure", Summary: "What vane init scaffolds: App.vane, src/pages, src/components, public/.", Category: "Start a New Project"},
 	{Slug: "develop-and-build", Title: "Develop & Build", Summary: "The dev loop with vane run, production builds with vane build, deploying dist/.", Category: "Start a New Project"},
@@ -52,6 +54,8 @@ var Manifest = []Topic{
 	{Slug: "data-fetching", Title: "Data Fetching", Summary: "Fetch data with a goroutine and net/http, no async library needed.", Category: "How-to Patterns"},
 	{Slug: "html-forms", Title: "Build HTML Forms", Summary: "Controlled inputs, validation, and submit handling in Vane.", Category: "How-to Patterns"},
 	{Slug: "lucide-icons", Title: "Add Lucide Icons", Summary: "Wire up the Lucide icon library, the same way this site's own Nav does.", Category: "How-to Patterns"},
+
+	{Slug: "api-reference", Title: "API Reference", Summary: "Curated index of Vane's public API by concept, linking to pkg.go.dev.", Category: "Reference", HasSource: true},
 }
 
 // Categories returns the manifest grouped by Category, preserving the

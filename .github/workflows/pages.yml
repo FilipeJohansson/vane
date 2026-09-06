@@ -2,8 +2,7 @@ name: Deploy vane-page
 
 on:
   push:
-    branches: [master]
-    paths: ['vane-page/**', 'core/**', 'internal/**']
+    tags: ['v*']
   workflow_dispatch:
 
 permissions:
@@ -35,15 +34,6 @@ jobs:
 
       - name: Build CLI
         run: go build -o vane .
-
-      # Deploy the docs against this checkout while local branch work is still
-      # being validated. Tagged release builds remain the canonical published
-      # module version; once Vane release tags are published consistently,
-      # switch this to `go get github.com/filipejohansson/vane@latest` (or a
-      # pinned tag) and remove the replace so the site tracks releases instead
-      # of the active branch.
-      - name: Point vane-page at this checkout's vane module
-        run: (cd vane-page && go mod edit -replace github.com/filipejohansson/vane=../)
 
       - name: Build vane-page (release)
         run: ./vane build vane-page --release

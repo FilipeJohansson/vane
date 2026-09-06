@@ -10,6 +10,7 @@ import "strings"
 // "bundle-size", and "" for Overview) have no entry, section search simply
 // finds nothing for them.
 var SectionsBySlug = map[string][]tocItem{
+	"api-reference":     apiReferenceTOCItems,
 	"accessibility":     accessibilityTOCItems,
 	"components":        componentsTOCItems,
 	"concepts":          conceptsTOCItems,
@@ -31,6 +32,7 @@ var SectionsBySlug = map[string][]tocItem{
 	"store":             storeTOCItems,
 	"style":             styleTOCItems,
 	"troubleshooting":   troubleshootingTOCItems,
+	"tutorial":          tutorialTOCItems,
 }
 
 // SearchResult is one match: either a whole page (AnchorID == "") or a

@@ -10,5 +10,6 @@ use (
 	./examples/reactive-showcase
 	./examples/routing
 	./examples/shared-store
+	./examples/tutorial-todo
 	./vane-page
 )

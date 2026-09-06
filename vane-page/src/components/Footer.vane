@@ -1,11 +1,43 @@
 package components
 
 import (
+	"runtime/debug"
+
 	"github.com/filipejohansson/vane/core"
 	"github.com/filipejohansson/vane/core/router"
 )
 
+const vaneModulePath = "github.com/filipejohansson/vane"
+
+// vaneVersion returns the resolved version of the vane module this build was
+// compiled against (e.g. "v0.2.0"), or "" if that can't be determined. A
+// local dev build against a filesystem `replace` sets dep.Replace, and
+// dep.Version in that case is misleadingly the pre-replace `require` version
+// (stale, not what's actually compiled in) — checked first so it's treated
+// as unknown rather than reported. A plain `go build` (as opposed to
+// `go install`) may also omit module info entirely.
+func vaneVersion() string {
+	info, ok := debug.ReadBuildInfo()
+	if !ok {
+		return ""
+	}
+	for _, dep := range info.Deps {
+		if dep.Path != vaneModulePath {
+			continue
+		}
+		if dep.Replace != nil {
+			return ""
+		}
+		if dep.Version == "" || dep.Version == "(devel)" {
+			return ""
+		}
+		return dep.Version
+	}
+	return ""
+}
+
 func Footer() core.Node {
+	version := vaneVersion()
 	return (
 		<footer className="footer">
 			<div className="footer-grid">
@@ -29,6 +61,9 @@ func Footer() core.Node {
 			</div>
 			<div className="footer-bottom">
 				<span>This page is a Vane app.</span>
+				{if version != "" {
+					<span>Built with Vane {version}</span>
+				}}
 			</div>
 		</footer>
 	)

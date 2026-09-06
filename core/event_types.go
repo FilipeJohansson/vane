@@ -28,7 +28,13 @@ type Event struct {
 
 func (e Event) Target() Node        { return wrap(e.target) }
 func (e Event) CurrentTarget() Node { return wrap(e.currentTarget) }
-func (e Event) Self() bool          { return e.target.Equal(e.currentTarget) }
+
+// Self reports whether the event landed directly on the listener's own
+// element (Target == CurrentTarget), as opposed to bubbling up from a
+// descendant. Use to ignore bubbled events from children, e.g. a click
+// handler on a container that should only fire for clicks on the container
+// itself, not on any button/link inside it.
+func (e Event) Self() bool { return e.target.Equal(e.currentTarget) }
 
 func newEvent(v js.Value) Event {
 	return Event{baseEvent{v}, v.Get("target"), v.Get("currentTarget")}
@@ -64,7 +70,13 @@ type MouseEvent struct {
 
 func (e MouseEvent) Target() Node        { return wrap(e.target) }
 func (e MouseEvent) CurrentTarget() Node { return wrap(e.currentTarget) }
-func (e MouseEvent) Self() bool          { return e.target.Equal(e.currentTarget) }
+
+// Self reports whether the event landed directly on the listener's own
+// element (Target == CurrentTarget), as opposed to bubbling up from a
+// descendant. Use to ignore bubbled events from children, e.g. a click
+// handler on a container that should only fire for clicks on the container
+// itself, not on any button/link inside it.
+func (e MouseEvent) Self() bool { return e.target.Equal(e.currentTarget) }
 
 func newMouseEvent(v js.Value) MouseEvent {
 	return MouseEvent{

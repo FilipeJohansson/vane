@@ -51,6 +51,8 @@ func App() core.Node {
 						router.Route("lucide-icons", docs.LucideIcons, "Add Lucide Icons | Vane Docs"),
 						router.Route("html-forms", docs.HTMLForms, "Build HTML Forms | Vane Docs"),
 						router.Route("troubleshooting", docs.Troubleshooting, "Troubleshooting | Vane Docs"),
+						router.Route("tutorial", docs.Tutorial, "Tutorial: Build a Todo List | Vane Docs"),
+						router.Route("api-reference", docs.APIReference, "API Reference | Vane Docs"),
 						router.Route(":slug", docs.Stub),
 					),
 					router.Route("*", pages.NotFound, "Not found | Vane"),
