@@ -54,6 +54,8 @@ var Manifest = []Topic{
 	{Slug: "data-fetching", Title: "Data Fetching", Summary: "Fetch data with a goroutine and net/http, no async library needed.", Category: "How-to Patterns"},
 	{Slug: "html-forms", Title: "Build HTML Forms", Summary: "Controlled inputs, validation, and submit handling in Vane.", Category: "How-to Patterns"},
 	{Slug: "lucide-icons", Title: "Add Lucide Icons", Summary: "Wire up the Lucide icon library, the same way this site's own Nav does.", Category: "How-to Patterns"},
+
+	{Slug: "api-reference", Title: "API Reference", Summary: "Curated index of Vane's public API by concept, linking to pkg.go.dev.", Category: "Reference", HasSource: true},
 }
 
 // Categories returns the manifest grouped by Category, preserving the

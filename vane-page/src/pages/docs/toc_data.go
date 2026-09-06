@@ -11,6 +11,19 @@ type tocItem struct {
 	Label string
 }
 
+var apiReferenceTOCItems = []tocItem{
+	{"mounting-and-nodes", "Mounting, Nodes & Structure"},
+	{"signals-and-reactivity", "Signals & Reactivity"},
+	{"reactive-dom-bindings", "Reactive DOM Bindings"},
+	{"router", "Router"},
+	{"events", "Events"},
+	{"head-management", "Head Management"},
+	{"portals-and-errors", "Portals & Error Boundaries"},
+	{"style", "Style"},
+	{"accessibility-and-browser-apis", "Accessibility & Browser APIs"},
+	{"dev-and-debug", "Dev & Debug"},
+}
+
 var accessibilityTOCItems = []tocItem{
 	{"aria-and-roles", "ARIA attributes and roles"},
 	{"focus-management", "Focus management"},
