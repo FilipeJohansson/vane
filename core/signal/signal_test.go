@@ -337,6 +337,30 @@ func TestScopeDisposesEffects(t *testing.T) {
 	}
 }
 
+// TestScopeDisposeReleasesAllEffects verifies that Dispose tears down every
+// effect a Scope collected, not just the last one, and that LiveEffectCount
+// accounts for all of them.
+func TestScopeDisposeReleasesAllEffects(t *testing.T) {
+	const n = 20
+	before := signal.LiveEffectCount()
+
+	scope := signal.RunScoped(func() {
+		for range n {
+			signal.Effect(func() {})
+		}
+	})
+
+	if got := signal.LiveEffectCount(); got != before+n {
+		t.Fatalf("LiveEffectCount() = %d after creating %d effects, want %d", got, n, before+n)
+	}
+
+	scope.Dispose()
+
+	if got := signal.LiveEffectCount(); got != before {
+		t.Fatalf("LiveEffectCount() = %d after Scope.Dispose(), want %d", got, before)
+	}
+}
+
 func TestScopeDisposeIsIdempotent(t *testing.T) {
 	s := signal.New(0)
 

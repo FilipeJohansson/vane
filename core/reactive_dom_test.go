@@ -176,6 +176,149 @@ func TestDynListKeyedChurnDisposesReplacedItemEffects(t *testing.T) {
 	}
 }
 
+// TestDynListKeyedRemovalDisposesRemovedItemEffects verifies that shrinking
+// a keyed DynList (removing a key entirely, as opposed to replacing a
+// persisting key's content, covered by
+// TestDynListKeyedChurnDisposesReplacedItemEffects) disposes that item's
+// effects and cleanups too.
+func TestDynListKeyedRemovalDisposesRemovedItemEffects(t *testing.T) {
+	parent := core.El("ul")
+	ids := core.NewSignal([]int{1, 2, 3})
+
+	var liveItems int
+
+	render := func() []core.Node {
+		current := ids.Get()
+		nodes := make([]core.Node, len(current))
+		for i, id := range current {
+			li := core.El("li")
+			core.Unwrap(li).Set("key", strconv.Itoa(id))
+			core.AppendText(li, strconv.Itoa(id))
+			signal.Effect(func() {})
+			liveItems++
+			core.OnDispose(func() { liveItems-- })
+			nodes[i] = li
+		}
+		return nodes
+	}
+
+	core.DynList(parent, render)
+	if !signal.WaitEffects(200 * time.Millisecond) {
+		t.Fatal("scheduler did not settle after the initial render")
+	}
+	if liveItems != 3 {
+		t.Fatalf("liveItems = %d after initial render, want 3", liveItems)
+	}
+	afterInitial := signal.LiveEffectCount()
+
+	ids.Set([]int{1, 3}) // remove key "2", keep the other two
+	if !signal.WaitEffects(200 * time.Millisecond) {
+		t.Fatal("scheduler did not settle after removing one item")
+	}
+
+	if liveItems != 2 {
+		t.Fatalf("liveItems = %d after removing one item, want 2", liveItems)
+	}
+	if got := signal.LiveEffectCount(); got != afterInitial-1 {
+		t.Fatalf("LiveEffectCount() = %d after removing one item, want %d (the removed item's effect was never disposed)", got, afterInitial-1)
+	}
+}
+
+// TestDynListRemoveAllDisposesEverything is the literal "create hundreds of
+// reactive items, remove all of them" stress scenario: it verifies that
+// emptying a large unkeyed DynList disposes every item's effects, listeners,
+// and OnDispose cleanups, not just their DOM nodes.
+func TestDynListRemoveAllDisposesEverything(t *testing.T) {
+	parent := core.El("ul")
+	const n = 500
+	ids := make([]int, n)
+	for i := range ids {
+		ids[i] = i
+	}
+	items := core.NewSignal(ids)
+
+	var liveItems int
+
+	render := func() []core.Node {
+		current := items.Get()
+		nodes := make([]core.Node, len(current))
+		for i, id := range current {
+			li := core.El("li")
+			core.AppendText(li, strconv.Itoa(id))
+			signal.Effect(func() {})
+			core.OnClick(li, func(core.MouseEvent) {})
+			liveItems++
+			core.OnDispose(func() { liveItems-- })
+			nodes[i] = li
+		}
+		return nodes
+	}
+
+	core.DynList(parent, render)
+	if !signal.WaitEffects(500 * time.Millisecond) {
+		t.Fatal("scheduler did not settle after the initial render")
+	}
+	if liveItems != n {
+		t.Fatalf("liveItems = %d after initial render, want %d", liveItems, n)
+	}
+	afterInitial := signal.LiveEffectCount()
+	callbacksAfterInitial := core.DebugLiveCallbacks()
+
+	items.Set(nil)
+	if !signal.WaitEffects(500 * time.Millisecond) {
+		t.Fatal("scheduler did not settle after removing all items")
+	}
+
+	if liveItems != 0 {
+		t.Fatalf("liveItems = %d after removing all %d items, want 0", liveItems, n)
+	}
+	if got := signal.LiveEffectCount(); got != afterInitial-n {
+		t.Fatalf("LiveEffectCount() = %d after removing all items, want %d (%d item effects were never disposed)", got, afterInitial-n, n)
+	}
+	if got := core.DebugLiveCallbacks(); got != callbacksAfterInitial-n {
+		t.Fatalf("DebugLiveCallbacks() = %d after removing all items, want %d (%d item listeners were never released)", got, callbacksAfterInitial-n, n)
+	}
+}
+
+// TestDynListReRenderDoesNotAccumulateSubscribers verifies that re-rendering
+// a DynList many times, with a per-item effect that reads a signal external
+// to the list, doesn't grow LiveEffectCount unboundedly: each render's item
+// effect must be disposed before the next one is created, or that external
+// signal's subscriber set (not directly inspectable from this package) would
+// otherwise grow forever.
+func TestDynListReRenderDoesNotAccumulateSubscribers(t *testing.T) {
+	parent := core.El("ul")
+	theme := core.NewSignal("light")
+	trigger := core.NewSignal(0)
+
+	render := func() []core.Node {
+		_ = trigger.Get()
+		li := core.El("li")
+		signal.Effect(func() {
+			core.Unwrap(li).Set("data-theme", theme.Get())
+		})
+		return []core.Node{li}
+	}
+
+	core.DynList(parent, render)
+	if !signal.WaitEffects(200 * time.Millisecond) {
+		t.Fatal("scheduler did not settle after the initial render")
+	}
+	afterInitial := signal.LiveEffectCount()
+
+	const reRenders = 50
+	for i := range reRenders {
+		trigger.Set(i + 1)
+		if !signal.WaitEffects(200 * time.Millisecond) {
+			t.Fatalf("scheduler did not settle after re-render %d", i)
+		}
+	}
+
+	if got := signal.LiveEffectCount(); got != afterInitial {
+		t.Fatalf("LiveEffectCount() = %d after %d re-renders, want %d (each render's item effect was never disposed)", got, reRenders, afterInitial)
+	}
+}
+
 // TestDynListMixedKeyedUnkeyedRendersAll verifies that when some nodes have
 // key={...} and others don't, every node still renders. The old behavior
 // silently dropped the unkeyed ones (key == "" was treated as "skip").

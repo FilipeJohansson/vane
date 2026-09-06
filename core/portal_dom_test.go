@@ -251,3 +251,48 @@ func TestPortalDisposedBeforeFirstRenderDoesNotMountContent(t *testing.T) {
 		t.Errorf("textContent after disposal before first render = %q, want empty", got)
 	}
 }
+
+// TestPortalOpenCloseCycleDisposesContent is the literal "open -> close,
+// repeatedly" scenario: it verifies that neither the effect nor the click
+// listener a Portal's content creates on each open survives past the close
+// that follows it, across many cycles.
+func TestPortalOpenCloseCycleDisposesContent(t *testing.T) {
+	target := newAttachedDiv(t, "portal-root-open-close-cycle")
+	open := core.NewSignal(false)
+
+	core.Portal("#portal-root-open-close-cycle", func() core.Node {
+		if !open.Get() {
+			return nil
+		}
+		el := core.El("div")
+		signal.Effect(func() {})
+		core.OnClick(el, func(core.MouseEvent) {})
+		core.AppendText(el, "open")
+		return el
+	})
+	time.Sleep(50 * time.Millisecond) // let the goroutine render the initial (closed) state
+
+	effectsBaseline := signal.LiveEffectCount()
+	callbacksBaseline := core.DebugLiveCallbacks()
+
+	const cycles = 30
+	for i := range cycles {
+		open.Set(true)
+		waitForChildText(t, target, "open")
+		open.Set(false)
+		deadline := time.Now().Add(2 * time.Second)
+		for time.Now().Before(deadline) && target.Get("textContent").String() != "" {
+			time.Sleep(5 * time.Millisecond)
+		}
+		if got := target.Get("textContent").String(); got != "" {
+			t.Fatalf("target.textContent after close (cycle %d) = %q, want empty", i, got)
+		}
+	}
+
+	if got := signal.LiveEffectCount(); got != effectsBaseline {
+		t.Fatalf("LiveEffectCount() = %d after %d open/close cycles, want %d (an open cycle's effect was never disposed)", got, cycles, effectsBaseline)
+	}
+	if got := core.DebugLiveCallbacks(); got != callbacksBaseline {
+		t.Fatalf("DebugLiveCallbacks() = %d after %d open/close cycles, want %d (an open cycle's click listener was never released)", got, cycles, callbacksBaseline)
+	}
+}
