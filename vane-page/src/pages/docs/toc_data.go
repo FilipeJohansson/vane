@@ -96,6 +96,7 @@ var lifecycleTOCItems = []tocItem{
 	{"effects", "Effects and reruns"},
 	{"cleanup", "Cleanup and disposal"},
 	{"routes", "Route disposal"},
+	{"root", "The root Mount boundary"},
 	{"signals", "Signal lifetime"},
 }
 
