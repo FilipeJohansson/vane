@@ -1,0 +1,67 @@
+name: Bug report
+description: Something in Vane isn't working as documented.
+labels: ['bug']
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report a bug. Please search
+        [existing issues](https://github.com/FilipeJohansson/vane/issues)
+        first to avoid duplicates.
+  - type: textarea
+    id: description
+    attributes:
+      label: What happened?
+      description: A clear description of the bug and what you expected instead.
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Minimal reproduction
+      description: >
+        Steps to reproduce, ideally a minimal `.vane`/`.go` snippet or a
+        link to a repo. Bugs without a reproduction are much harder to fix.
+      placeholder: |
+        1. `vane init example.com/repro && cd repro`
+        2. Replace `App.vane` with ...
+        3. `vane run .`
+        4. Observe ...
+    validations:
+      required: true
+  - type: input
+    id: vane-version
+    attributes:
+      label: Vane version
+      description: Output of `vane --version` (or the commit/tag if built from source).
+    validations:
+      required: true
+  - type: input
+    id: go-version
+    attributes:
+      label: Go version
+      description: Output of `go version`.
+    validations:
+      required: true
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating system
+      multiple: true
+      options:
+        - Linux
+        - macOS
+        - Windows
+    validations:
+      required: true
+  - type: input
+    id: browser
+    attributes:
+      label: Browser (if the bug shows up at runtime, not at build/compile time)
+      placeholder: e.g. Chrome 130, Firefox 131, Safari 18
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant output
+      description: Compiler errors, browser console output, or `vane build`/`vane run` logs.
+      render: shell
