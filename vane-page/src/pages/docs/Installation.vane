@@ -2,6 +2,7 @@ package docs
 
 import (
 	"github.com/filipejohansson/vane/core"
+	"github.com/filipejohansson/vane/core/router"
 
 	"vane-page/src/components"
 )
@@ -87,6 +88,11 @@ func Installation() core.Node {
 					Open <code>{"http://localhost:8080"}</code>, that's the starter app. See
 					Develop & Build for the dev server's hot-reload behavior, production builds,
 					and deploying <code>dist/</code>.
+				</p>
+				<p className="docs-p">
+					Ready to build something with it? The{" "}
+					{router.Link(router.LinkProps{To: "/docs/tutorial", HTMLProps: core.HTMLProps{Class: "docs-inline-link"}}, "Tutorial")}{" "}
+					walks through a complete todo list app: a signal-backed store, a reactive keyed list, form events, and routing.
 				</p>
 
 				{pageNav("installation")}

@@ -1,0 +1,533 @@
+package docs
+
+import (
+	"github.com/filipejohansson/vane/core"
+	"github.com/filipejohansson/vane/core/router"
+
+	"vane-page/src/components"
+)
+
+const tutorialExampleHref = "https://github.com/filipejohansson/vane/tree/master/examples/tutorial-todo"
+
+const tutorialScaffoldSnippet = `mkdir todo-app && cd todo-app
+vane init github.com/you/todo-app
+vane run`
+
+const tutorialStyleSnippet = `.todo-form {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.todo-form .input {
+  flex: 1;
+  max-width: none;
+}
+
+.todo-add {
+  background: var(--primary);
+  color: var(--bg);
+  border: none;
+  border-radius: 8px;
+  padding: 0.5rem 1rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.todo-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.todo-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.6rem 0.75rem;
+}
+
+.todo-item--done .todo-text {
+  color: var(--hint);
+  text-decoration: line-through;
+}
+
+.todo-text {
+  flex: 1;
+}
+
+.todo-remove {
+  background: none;
+  border: none;
+  color: var(--muted);
+  font-size: 1.1rem;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0.15rem 0.4rem;
+}
+
+.todo-remove:hover {
+  color: var(--text);
+}
+
+.todo-empty {
+  color: var(--hint);
+}`
+
+const tutorialStep2StoreSnippet = `//go:build js && wasm
+
+package store
+
+import "github.com/filipejohansson/vane/core"
+
+// Todo is one item in the list.
+type Todo struct {
+    ID   int
+    Text string
+    Done bool
+}
+
+// Todos holds every item in the list, in creation order.
+var Todos = core.NewSignal([]Todo{})`
+
+const tutorialStep2PageSnippet = `package pages
+
+import (
+    "github.com/filipejohansson/vane/core"
+
+    "github.com/you/todo-app/src/store"
+)
+
+func TodoList() core.Node {
+    items := func() []core.Node {
+        todos := store.Todos.Get()
+        nodes := make([]core.Node, len(todos))
+        for i, t := range todos {
+            nodes[i] = todoItem(t)
+        }
+        return nodes
+    }
+
+    return (
+        <div className="page">
+            {if len(store.Todos.Get()) == 0 {
+                <p className="todo-empty">No todos yet.</p>
+            } else {
+                <ul className="todo-list">{items()...}</ul>
+            }}
+        </div>
+    )
+}
+
+func todoItem(t store.Todo) core.Node {
+    return (
+        <li key={t.ID} className="todo-item">
+            <span className="todo-text">{t.Text}</span>
+        </li>
+    )
+}`
+
+const tutorialStep2AppSnippet = `func App() core.Node {
+    return (
+        <div className="app">
+            <header className="nav">
+                <span className="nav-brand">Todo App</span>
+            </header>
+            <main className="main">
+                {router.Router(
+                    router.Route("/", pages.TodoList, "Todo List"),
+                )}
+            </main>
+        </div>
+    )
+}`
+
+const tutorialStep3StoreSnippet = `//go:build js && wasm
+
+package store
+
+import "github.com/filipejohansson/vane/core"
+
+// Todo is one item in the list.
+type Todo struct {
+    ID   int
+    Text string
+    Done bool
+}
+
+// Todos holds every item in the list, in creation order.
+var Todos = core.NewSignal([]Todo{})
+
+var nextID = 1
+
+// Add appends a new, not-done todo with the given text.
+func Add(text string) {
+    Todos.Set(append(Todos.Get(), Todo{ID: nextID, Text: text}))
+    nextID++
+}`
+
+const tutorialStep3PageSnippet = `package pages
+
+import (
+    "strings"
+
+    "github.com/filipejohansson/vane/core"
+
+    "github.com/you/todo-app/src/store"
+)
+
+func TodoList() core.Node {
+    text := core.NewSignal("")
+
+    addTodo := func() {
+        t := strings.TrimSpace(text.Get())
+        if t == "" {
+            return
+        }
+        store.Add(t)
+        text.Set("")
+    }
+
+    items := func() []core.Node {
+        todos := store.Todos.Get()
+        nodes := make([]core.Node, len(todos))
+        for i, t := range todos {
+            nodes[i] = todoItem(t)
+        }
+        return nodes
+    }
+
+    return (
+        <div className="page">
+            <form className="todo-form" onSubmit={func(e core.SubmitEvent) { addTodo() }}>
+                <input
+                    className="input"
+                    placeholder="What needs to be done?"
+                    value={text.Get()}
+                    onInput={func(e core.InputEvent) { text.Set(e.Value) }}
+                />
+                <button className="todo-add" type="submit">Add</button>
+            </form>
+            {if len(store.Todos.Get()) == 0 {
+                <p className="todo-empty">No todos yet.</p>
+            } else {
+                <ul className="todo-list">{items()...}</ul>
+            }}
+        </div>
+    )
+}
+
+func todoItem(t store.Todo) core.Node {
+    return (
+        <li key={t.ID} className="todo-item">
+            <span className="todo-text">{t.Text}</span>
+        </li>
+    )
+}`
+
+const tutorialStep4StoreSnippet = `// Toggle flips the Done state of the todo with the given id.
+func Toggle(id int) {
+    list := Todos.Get()
+    next := make([]Todo, len(list))
+    copy(next, list)
+    for i := range next {
+        if next[i].ID == id {
+            next[i].Done = !next[i].Done
+        }
+    }
+    Todos.Set(next)
+}
+
+// Remove deletes the todo with the given id.
+func Remove(id int) {
+    list := Todos.Get()
+    next := make([]Todo, 0, len(list))
+    for _, t := range list {
+        if t.ID != id {
+            next = append(next, t)
+        }
+    }
+    Todos.Set(next)
+}`
+
+const tutorialStep4ItemSnippet = `func todoItem(t store.Todo) core.Node {
+    className := "todo-item"
+    if t.Done {
+        className = "todo-item todo-item--done"
+    }
+    return (
+        <li key={t.ID} className={className}>
+            <input
+                type="checkbox"
+                checked={t.Done}
+                onChecked={func(e core.CheckEvent) { store.Toggle(t.ID) }}
+            />
+            <span className="todo-text">{t.Text}</span>
+            <button className="todo-remove" onClick={func(e core.MouseEvent) { store.Remove(t.ID) }}>×</button>
+        </li>
+    )
+}`
+
+const tutorialStep5FilterLinkSnippet = `package components
+
+import (
+    "github.com/filipejohansson/vane/core"
+    "github.com/filipejohansson/vane/core/router"
+)
+
+func FilterLink(to, label string) core.Node {
+    return router.ActiveLink(
+        router.ActiveLinkProps{
+            LinkProps: router.LinkProps{
+                To: to,
+                HTMLProps: core.HTMLProps{
+                    Class: "nav-link",
+                },
+            },
+            ActiveClass: "nav-link--active",
+        },
+        label,
+    )
+}`
+
+const tutorialStep5AppSnippet = `func App() core.Node {
+    return (
+        <div className="app">
+            <header className="nav">
+                <span className="nav-brand">Todo App</span>
+                <nav className="nav-links">
+                    {components.FilterLink("/", "All")}
+                    {components.FilterLink("/active", "Active")}
+                    {components.FilterLink("/completed", "Completed")}
+                </nav>
+            </header>
+            <main className="main">
+                {router.Router(
+                    router.Route("/", pages.TodoList, "All - Todo App"),
+                    router.Route("/active", pages.TodoList, "Active - Todo App"),
+                    router.Route("/completed", pages.TodoList, "Completed - Todo App"),
+                )}
+            </main>
+        </div>
+    )
+}`
+
+const tutorialStep5FilterSnippet = `items := func() []core.Node {
+    path := router.Path().Get()
+    todos := store.Todos.Get()
+    nodes := make([]core.Node, 0, len(todos))
+    for _, t := range todos {
+        if path == "/active" && t.Done {
+            continue
+        }
+        if path == "/completed" && !t.Done {
+            continue
+        }
+        nodes = append(nodes, todoItem(t))
+    }
+    return nodes
+}`
+
+// tutorialDocLink is a same-site cross-reference from tutorial prose to
+// another docs page, styled like the inline links other guides use (e.g.
+// Concepts' link to Lifecycle).
+func tutorialDocLink(slug, label string) core.Node {
+	return router.Link(router.LinkProps{
+		To:        "/docs/" + slug,
+		HTMLProps: core.HTMLProps{Class: "docs-inline-link"},
+	}, label)
+}
+
+func Tutorial() core.Node {
+	core.Head(func() core.HeadConfig {
+		title := "Tutorial: Build a Todo List | Vane Docs"
+		description := "A step-by-step tutorial building a real Vane app: signals, events, a reactive keyed list, and routing."
+		url := core.Window().Get("location").Get("origin").String() + "/vane/docs/tutorial"
+		return core.HeadConfig{
+			Title:         title,
+			Description:   description,
+			Canonical:     url,
+			OGTitle:       title,
+			OGDescription: description,
+			OGURL:         url,
+		}
+	})
+
+	items := tutorialTOCItems
+
+	return (
+		<div className="docs-page">
+			<article className="docs-article">
+				{docsHeader(
+					"Tutorial",
+					"Build a Todo List",
+					"A hands-on walkthrough of a real Vane app, built up one piece at a time: a signal-backed data model, a reactive keyed list, form events, and routing.",
+				)}
+
+				<h2 className="docs-h2" id="prerequisites">Before you begin</h2>
+				<p className="docs-p">You'll need:</p>
+				<ul className="docs-list">
+					<li>Go 1.24+ and the <code>vane</code> CLI installed — see {tutorialDocLink("installation", "Installation")} if you haven't yet.</li>
+					<li>A terminal and a text editor.</li>
+					<li>A current desktop browser (Chrome, Edge, Firefox, or Safari).</li>
+				</ul>
+				<p className="docs-p">
+					This tutorial assumes you've read Concepts, or are comfortable
+					learning Vane's mental model as you go: no virtual DOM, components
+					are plain Go functions, and every <code>{"{expr}"}</code> binding
+					is its own fine-grained reactive <code>Effect</code>.
+				</p>
+
+				<h2 className="docs-h2" id="step-1-scaffold-the-project">Step 1: Scaffold the project</h2>
+				<p className="docs-p">
+					Create a new project the same way as any other Vane app:
+				</p>
+				{components.TerminalBlock("Terminal", tutorialScaffoldSnippet)}
+				<p className="docs-p">
+					Open <code>{"http://localhost:8080"}</code>. You should see the
+					default starter page, a name input that greets you back. That
+					confirms the toolchain works end to end before we touch any code.
+				</p>
+				{callout("tip", "Checkpoint", "The starter page renders and the name input updates as you type. If it doesn't, see ", tutorialDocLink("troubleshooting", "Troubleshooting"), " before continuing — everything after this step builds on the same dev server.")}
+				<p className="docs-p">
+					This tutorial focuses on Vane's behavior, not CSS, but the class
+					names used throughout (<code>todo-form</code>, <code>todo-item</code>,
+					and so on) come from a small stylesheet. Paste this into your
+					scaffolded <code>public/style.css</code> now if you want it to look
+					like a real app instead of unstyled HTML — or skip it and style it
+					yourself later, see {tutorialDocLink("style", "Styles and CSS")}.
+				</p>
+				{components.PlainBlock("public/style.css (append)", tutorialStyleSnippet)}
+
+				<h2 className="docs-h2" id="step-2-render-the-list">Step 2: Model the data and render the list</h2>
+				<p className="docs-p">
+					Every todo needs an identity (for keyed list updates), text, and a
+					done flag. Replace <code>src/store/user.go</code> with{" "}
+					<code>src/store/todos.go</code>:
+				</p>
+				{components.CodeBlock("src/store/todos.go", tutorialStep2StoreSnippet)}
+				<p className="docs-p">
+					<code>Todos</code> is a <code>core.Signal[[]Todo]</code>: the
+					whole slice, held as one value. There's no per-item signal and no
+					diffing — replacing the page's other starter files with{" "}
+					<code>src/pages/TodoList.vane</code> below, every <code>{"{expr}"}</code>{" "}
+					reads it fresh on each reactive re-run.
+				</p>
+				{components.CodeBlock("src/pages/TodoList.vane", tutorialStep2PageSnippet)}
+				<p className="docs-p">
+					The inline <code>{"{if ... } else { ... }"}</code> picks between the
+					empty message and the list — see {tutorialDocLink("jsx-syntax", "JSX Syntax")}{" "}
+					for the full inline control-flow syntax. <code>{"{items()...}"}</code>{" "}
+					is a keyed reactive list: it re-runs <code>items()</code> whenever a
+					signal it reads changes (here, <code>Todos</code>), and{" "}
+					<code>key={"{t.ID}"}</code> lets Vane move/reuse existing DOM nodes
+					instead of tearing the whole list down on every change. Wire it into{" "}
+					<code>App.vane</code>, trimmed to one route for now:
+				</p>
+				{components.CodeBlock("App.vane (excerpt)", tutorialStep2AppSnippet)}
+				{callout("tip", "Checkpoint", "The page renders \"No todos yet.\" — that's correct, Todos starts empty. Check the browser console: no errors means the store, the list rendering, and the route are all wired correctly before we add any interactivity.")}
+
+				<h2 className="docs-h2" id="step-3-add-new-todos">Step 3: Add new todos</h2>
+				<p className="docs-p">
+					Add an <code>Add</code> function to the store:
+				</p>
+				{components.CodeBlock("src/store/todos.go", tutorialStep3StoreSnippet)}
+				<p className="docs-p">
+					Then add a form to <code>TodoList</code>. <code>text</code> is a
+					local signal for the input's current value — a controlled input,
+					same pattern as {tutorialDocLink("html-forms", "Build HTML Forms")}:
+				</p>
+				{components.CodeBlock("src/pages/TodoList.vane", tutorialStep3PageSnippet)}
+				<p className="docs-p">
+					<code>onSubmit</code> calls <code>preventDefault</code>{" "}
+					automatically (confirmed in <code>core</code>'s source: it's called
+					before your handler runs, every time — see{" "}
+					{tutorialDocLink("jsx-syntax", "JSX Syntax")} for the full event
+					table), so pressing Enter in the input or clicking "Add" both submit
+					the form without a page reload. Typing updates <code>text</code>{" "}
+					via <code>onInput</code>; submitting reads it, calls{" "}
+					<code>store.Add</code>, then clears it — three signal reads/writes,
+					no manual DOM manipulation anywhere.
+				</p>
+				{callout("tip", "Checkpoint", "Type something and press Enter (or click Add): it appears in the list and the input clears. Add a second one. Both should render, each keeping its own identity via key.")}
+
+				<h2 className="docs-h2" id="step-4-toggle-and-remove">Step 4: Toggle and remove</h2>
+				<p className="docs-p">
+					Two more store functions, same replace-the-slice-and-Set pattern as{" "}
+					<code>Add</code>:
+				</p>
+				{components.CodeBlock("src/store/todos.go (add these)", tutorialStep4StoreSnippet)}
+				<p className="docs-p">
+					Then give <code>todoItem</code> a checkbox and a remove button:
+				</p>
+				{components.CodeBlock("src/pages/TodoList.vane (replace todoItem)", tutorialStep4ItemSnippet)}
+				<p className="docs-p">
+					<code>checked={"{t.Done}"}</code> sets the checkbox's live DOM
+					property directly (Vane has no attribute/property translation — see{" "}
+					{tutorialDocLink("security", "Security")}), so it always reflects the
+					current <code>Todo</code> without a separate{" "}
+					<code>defaultChecked</code> concept. <code>onChecked</code> and{" "}
+					<code>onClick</code> each call a store function with the item's own{" "}
+					<code>t.ID</code>, captured per loop iteration.
+				</p>
+				{callout("tip", "Checkpoint", "Checking a todo crosses out its text (a Go if/else picking the className, not a CSS-only trick). The × button removes it. Try adding three, checking the middle one, then removing the first — the checked state should stay on the right item.")}
+
+				<h2 className="docs-h2" id="step-5-filter-by-route">Step 5: Filter by route</h2>
+				<p className="docs-p">
+					Add a small <code>FilterLink</code> component (same pattern as the
+					starter's <code>NavLink</code>, renamed):
+				</p>
+				{components.CodeBlock("src/components/FilterLink.vane", tutorialStep5FilterLinkSnippet)}
+				<p className="docs-p">
+					Wire three routes in <code>App.vane</code>, all pointing at the same{" "}
+					<code>TodoList</code> page — the route decides what's visible, not
+					which component mounts:
+				</p>
+				{components.CodeBlock("App.vane", tutorialStep5AppSnippet)}
+				<p className="docs-p">
+					Then read the current path inside <code>TodoList</code>'s list
+					function, alongside <code>Todos</code>:
+				</p>
+				{components.CodeBlock("src/pages/TodoList.vane (replace items)", tutorialStep5FilterSnippet)}
+				<p className="docs-p">
+					<code>router.Path()</code> is itself a signal (see{" "}
+					{tutorialDocLink("routing", "Routing")}), so this function now has two
+					dependencies instead of one: it re-runs when <code>Todos</code>{" "}
+					changes <em>or</em> when the route changes, whichever happens first.
+					No separate "sync filter state to URL" code needed.
+				</p>
+				{callout("tip", "Checkpoint", "Add a few todos, check some of them, then click All / Active / Completed: the list should filter correctly, the active link should highlight, and browser back/forward should move between filters too — it's real routing, not local state.")}
+
+				<h2 className="docs-h2" id="next-steps">What's next</h2>
+				<p className="docs-p">You've now used every core building block:</p>
+				<ul className="docs-list">
+					<li>A <code>Signal</code> holding structured data, read and replaced wholesale on every change.</li>
+					<li>A reactive, keyed list (<code>{"{slice...}"}</code>) that re-runs on any signal it reads.</li>
+					<li>Form events (<code>onInput</code>, <code>onSubmit</code>, <code>onChecked</code>, <code>onClick</code>) driving those signals.</li>
+					<li>A router where the URL is just another signal your rendering logic reads.</li>
+				</ul>
+				<p className="docs-p">
+					The complete, working version of this app lives in the Vane repo at{" "}
+					<a href={tutorialExampleHref} target="_blank" rel="noopener noreferrer">
+						examples/tutorial-todo
+					</a>{" "}
+					— clone it and compare against your own if something doesn't match.
+					From here:
+				</p>
+				<ul className="docs-list">
+					<li>Persist the list with <code>core.LocalStorage()</code> (see the Browser API wrappers in {tutorialDocLink("refs-and-dom", "Refs & DOM")}) so it survives a refresh.</li>
+					<li>Add a "Clear completed" button — one more store function, same pattern as <code>Remove</code>.</li>
+					<li>Read {tutorialDocLink("signals", "Signals & Reactivity")} and {tutorialDocLink("lifecycle", "Lifecycle")} for what's happening under the hood of every <code>Get</code>/<code>Set</code> call you just made.</li>
+					<li>Read {tutorialDocLink("patterns", "Patterns")} for other common UI shapes once you're past the basics.</li>
+				</ul>
+
+				{pageNav("tutorial")}
+			</article>
+			{toc(items)}
+		</div>
+	)
+}

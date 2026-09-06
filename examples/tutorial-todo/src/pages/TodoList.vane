@@ -48,13 +48,11 @@ func TodoList() core.Node {
 				/>
 				<button className="todo-add" type="submit">Add</button>
 			</form>
-			<ul className="todo-list">{visibleTodos()...}</ul>
-			{func() core.Node {
-				if len(store.Todos.Get()) == 0 {
-					return (<p className="todo-empty">No todos yet.</p>)
-				}
-				return nil
-			}()}
+			{if len(store.Todos.Get()) == 0 {
+				<p className="todo-empty">No todos yet.</p>
+			} else {
+				<ul className="todo-list">{visibleTodos()...}</ul>
+			}}
 		</div>
 	)
 }

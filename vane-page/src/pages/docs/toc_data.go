@@ -184,3 +184,13 @@ var troubleshootingTOCItems = []tocItem{
 	{"portal-target", "Portal target not found"},
 	{"list-keys", "DynList key warnings"},
 }
+
+var tutorialTOCItems = []tocItem{
+	{"prerequisites", "Before you begin"},
+	{"step-1-scaffold-the-project", "Step 1: Scaffold the project"},
+	{"step-2-render-the-list", "Step 2: Render the list"},
+	{"step-3-add-new-todos", "Step 3: Add new todos"},
+	{"step-4-toggle-and-remove", "Step 4: Toggle and remove"},
+	{"step-5-filter-by-route", "Step 5: Filter by route"},
+	{"next-steps", "What's next"},
+}
