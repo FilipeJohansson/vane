@@ -9,6 +9,9 @@ on:
   push:
     tags: ['v*']
 
+permissions:
+  contents: read
+
 jobs:
   checks:
     uses: ./.github/workflows/ci.yml
