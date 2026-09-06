@@ -1,11 +1,17 @@
 package pages
 
-import "github.com/filipejohansson/vane/core"
+import (
+	"strconv"
+
+	"github.com/filipejohansson/vane/core"
+)
 
 var lifecycleCleanups = core.NewSignal(0)
 var lifecycleListenerCalls = core.NewSignal(0)
 var lifecycleListenerCleanups = core.NewSignal(0)
 var lifecycleUnmountProbe = core.NewSignal(0)
+var listItemsCreated = core.NewSignal(0)
+var listItemsCleaned = core.NewSignal(0)
 
 func Lifecycle() core.Node {
 	count := core.NewSignal(0)
@@ -34,6 +40,32 @@ func Lifecycle() core.Node {
 		lifecycleListenerCleanups.Set(lifecycleListenerCleanups.Get() + 1)
 	})
 
+	nextID := 0
+	items := core.NewSignal([]int{})
+
+	list := func() []core.Node {
+		current := items.Get()
+		nodes := make([]core.Node, len(current))
+		for i, id := range current {
+			li := core.El("li")
+			core.AppendText(li, "item-"+strconv.Itoa(id))
+			// Untrack: this runs inside DynList's own driving effect, so an
+			// untracked Get()+Set() keeps that effect from subscribing to
+			// listItemsCreated itself - otherwise Set would reschedule the
+			// very effect whose render loop is doing the setting, forever.
+			core.Untrack(func() {
+				listItemsCreated.Set(listItemsCreated.Get() + 1)
+			})
+			core.OnDispose(func() {
+				core.Untrack(func() {
+					listItemsCleaned.Set(listItemsCleaned.Get() + 1)
+				})
+			})
+			nodes[i] = li
+		}
+		return nodes
+	}
+
 	return (
 		<section aria-label="Lifecycle">
 			<div data-testid="effect-runs">{effectRuns.Get()}</div>
@@ -43,6 +75,19 @@ func Lifecycle() core.Node {
 			<div data-testid="listener-cleanups">{lifecycleListenerCleanups.Get()}</div>
 			<div data-testid="unmount-probe">{lifecycleUnmountProbe.Get()}</div>
 			<button onClick={func(core.MouseEvent) { count.Set(count.Get() + 1) }}>Run effect</button>
+
+			<div data-testid="list-items-created">{listItemsCreated.Get()}</div>
+			<div data-testid="list-items-cleaned">{listItemsCleaned.Get()}</div>
+			<ul data-testid="stress-list">{list()...}</ul>
+			<button onClick={func(core.MouseEvent) {
+				ids := make([]int, 200)
+				for i := range ids {
+					ids[i] = nextID
+					nextID++
+				}
+				items.Set(ids)
+			}}>Populate list</button>
+			<button onClick={func(core.MouseEvent) { items.Set(nil) }}>Clear list</button>
 		</section>
 	)
 }
