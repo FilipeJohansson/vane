@@ -413,9 +413,15 @@ func Tutorial() core.Node {
 				<p className="docs-p">
 					<code>Todos</code> is a <code>core.Signal[[]Todo]</code>: the
 					whole slice, held as one value. There's no per-item signal and no
-					diffing — replacing the page's other starter files with{" "}
-					<code>src/pages/TodoList.vane</code> below, every <code>{"{expr}"}</code>{" "}
-					reads it fresh on each reactive re-run.
+					diffing — every <code>{"{expr}"}</code> reads it fresh on each
+					reactive re-run.
+				</p>
+				<p className="docs-p">
+					<code>src/pages/Home.vane</code> and <code>src/pages/About.vane</code>{" "}
+					both read the old <code>store.Name</code>, which no longer exists —
+					delete both files, along with <code>src/components/NavLink.vane</code>{" "}
+					(the nav below doesn't need it). Replace what's left with{" "}
+					<code>src/pages/TodoList.vane</code>:
 				</p>
 				{components.CodeBlock("src/pages/TodoList.vane", tutorialStep2PageSnippet)}
 				<p className="docs-p">
@@ -479,18 +485,24 @@ func Tutorial() core.Node {
 				<h2 className="docs-h2" id="step-5-filter-by-route">Step 5: Filter by route</h2>
 				<p className="docs-p">
 					Add a small <code>FilterLink</code> component (same pattern as the
-					starter's <code>NavLink</code>, renamed):
+					starter's <code>NavLink</code> you deleted back in Step 2):
 				</p>
 				{components.CodeBlock("src/components/FilterLink.vane", tutorialStep5FilterLinkSnippet)}
 				<p className="docs-p">
 					Wire three routes in <code>App.vane</code>, all pointing at the same{" "}
 					<code>TodoList</code> page — the route decides what's visible, not
-					which component mounts:
+					which component mounts. This replaces <code>App</code>'s function
+					body only (keep the existing <code>package</code>/<code>import</code>{" "}
+					block, adding an import for <code>src/components</code> if it isn't
+					there already):
 				</p>
-				{components.CodeBlock("App.vane", tutorialStep5AppSnippet)}
+				{components.CodeBlock("App.vane (excerpt)", tutorialStep5AppSnippet)}
 				<p className="docs-p">
 					Then read the current path inside <code>TodoList</code>'s list
-					function, alongside <code>Todos</code>:
+					function, alongside <code>Todos</code> — this replaces the existing{" "}
+					<code>items</code> function only; add{" "}
+					<code>"github.com/filipejohansson/vane/core/router"</code> to{" "}
+					<code>TodoList.vane</code>'s imports too, it isn't there yet:
 				</p>
 				{components.CodeBlock("src/pages/TodoList.vane (replace items)", tutorialStep5FilterSnippet)}
 				<p className="docs-p">
