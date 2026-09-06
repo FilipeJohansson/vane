@@ -220,3 +220,111 @@ func TestDynStyleAppliesReactivelyAndClearsPreviousFields(t *testing.T) {
 		t.Errorf("display = %q, want empty", got)
 	}
 }
+
+//* Error boundaries
+
+// TestDynChildPanicInsideFnDisposesPartialScope verifies that a panic partway
+// through a DynChild's fn (after it has already created an effect) doesn't
+// leave that effect dangling. DynChild dies after the panic (flushEffects
+// disposes the effect that drove it, its own established behavior, not the
+// bug under test here), but nothing fn managed to create before the panic
+// point should survive that death.
+func TestDynChildPanicInsideFnDisposesPartialScope(t *testing.T) {
+	origHandler := signal.EffectPanicHandler
+	defer func() { signal.EffectPanicHandler = origHandler }()
+
+	handled := make(chan any, 1)
+	signal.EffectPanicHandler = func(r any) {
+		select {
+		case handled <- r:
+		default:
+		}
+	}
+
+	before := signal.LiveEffectCount()
+
+	parent := core.El("div")
+	shouldPanic := core.NewSignal(false)
+	itemEffectRuns := 0
+
+	core.DynChild(parent, func() any {
+		signal.Effect(func() { itemEffectRuns++ })
+		if shouldPanic.Get() {
+			panic("boom")
+		}
+		return core.Text("healthy")
+	})
+	waitFineEffects(t)
+	if itemEffectRuns != 1 {
+		t.Fatalf("itemEffectRuns = %d after initial render, want 1", itemEffectRuns)
+	}
+
+	shouldPanic.Set(true) // triggers a re-run that panics partway through fn()
+
+	select {
+	case <-handled:
+	case <-time.After(2 * time.Second):
+		t.Fatal("EffectPanicHandler was never called; the panicking re-run did not happen")
+	}
+	waitFineEffects(t)
+
+	// DynChild itself is now dead (its driving effect panicked and was
+	// disposed), so nothing it or the failed attempt created should remain.
+	if got := signal.LiveEffectCount(); got != before {
+		t.Fatalf("LiveEffectCount() = %d after a panicking DynChild re-render, want %d (the partial render's effect was never disposed)", got, before)
+	}
+}
+
+// TestTryRecoversAndOldBindingsStillWork verifies that core.Try's recovery
+// path doesn't accumulate effects across repeated panic/recover cycles - a
+// caller toggling a broken boundary on and off many times shouldn't leave a
+// growing trail of effects the fallback never got the chance to register for
+// disposal.
+func TestTryRecoversAndOldBindingsStillWork(t *testing.T) {
+	value := core.NewSignal("healthy")
+	shouldPanic := core.NewSignal(false)
+
+	parent := core.El("div")
+	core.DynChild(parent, func() any {
+		return core.Try(
+			func() core.Node {
+				signal.Effect(func() {})
+				if shouldPanic.Get() {
+					panic("boom")
+				}
+				return core.Text(value.Get())
+			},
+			func(err any) core.Node {
+				signal.Effect(func() {})
+				return core.Text("fallback")
+			},
+		)
+	})
+	waitFineEffects(t)
+	if got := firstElementChild(t, parent); got != "" {
+		t.Fatalf("firstElementChild = %q, want no element (a text node)", got)
+	}
+	if got := core.Unwrap(parent).Get("textContent").String(); got != "healthy" {
+		t.Fatalf("textContent = %q, want %q", got, "healthy")
+	}
+	afterInitial := signal.LiveEffectCount()
+
+	const cycles = 20
+	for i := range cycles {
+		shouldPanic.Set(true)
+		waitFineEffects(t)
+		if got := core.Unwrap(parent).Get("textContent").String(); got != "fallback" {
+			t.Fatalf("textContent after enabling panic (cycle %d) = %q, want %q", i, got, "fallback")
+		}
+
+		shouldPanic.Set(false)
+		waitFineEffects(t)
+		if got := core.Unwrap(parent).Get("textContent").String(); got != "healthy" {
+			t.Fatalf("textContent after recovering (cycle %d) = %q, want %q", i, got, "healthy")
+		}
+	}
+
+	if got := signal.LiveEffectCount(); got != afterInitial {
+		t.Fatalf("LiveEffectCount() = %d after %d panic/recover cycles, want %d (each cycle leaked an effect)", got, cycles, afterInitial)
+	}
+}

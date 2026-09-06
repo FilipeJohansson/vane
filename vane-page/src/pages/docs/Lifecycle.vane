@@ -6,6 +6,19 @@ import (
 	"vane-page/src/components"
 )
 
+const lifecycleEffectSnippet = `core.Effect(func() func() {
+    count := count.Get()
+    console.Log("count changed:", count)
+    return nil
+})`
+
+const lifecycleRootScopeSnippet = `scope := signal.RunScoped(func() {
+    core.Mount("root", App)
+})
+
+// later, when the embed goes away:
+scope.Dispose()`
+
 func Lifecycle() core.Node {
 	core.Head(func() core.HeadConfig {
 		title := "Lifecycle | Vane Docs"
@@ -50,11 +63,7 @@ func Lifecycle() core.Node {
 					reads changes. The effect tracks its dependencies automatically during the run and
 					re-registers them on each subsequent run.
 				</p>
-				{components.CodeBlock("effect.go", `core.Effect(func() func() {
-    count := count.Get()
-    console.Log("count changed:", count)
-    return nil
-})`)}
+				{components.CodeBlock("effect.go", lifecycleEffectSnippet)}
 				<p className="docs-p">
 					If the Effect reads no signal, it has no reactive dependency and does not re-run on
 					state changes. In that case, its cleanup only runs when the component is disposed.
@@ -80,6 +89,28 @@ func Lifecycle() core.Node {
 				<p className="docs-p">
 					In practice, this is the lifecycle boundary that keeps route-local state from leaking
 					across navigations.
+				</p>
+
+				<h2 className="docs-h2" id="root">The root Mount boundary</h2>
+				<p className="docs-p">
+					Everything above describes sub-tree disposal: routes, dynamic children, lists, and
+					portals all have a defined teardown. The root call to <code>core.Mount</code> does not.
+					It has no corresponding <code>Unmount</code> — the scope it creates is expected to live
+					for the lifetime of the page.
+				</p>
+				<p className="docs-p">
+					This is rarely a limitation in practice. Vane's own hot reload, for instance, reloads
+					the whole page instead of tearing down and remounting the app in place, so it never needs
+					a root unmount either. If you genuinely need to tear down and remount an entire Vane app
+					inside a longer-lived page (an embedded widget, say), wrap your own root call in a Scope
+					and dispose it yourself:
+				</p>
+				{components.CodeBlock("root-scope.go", lifecycleRootScopeSnippet)}
+				<p className="docs-p">
+					That gives the whole app tree the same disposal guarantees a route scope gets — routes,
+					dynamic lists, and portals nested inside it all tear down correctly — just anchored
+					wherever you choose to call <code>Dispose</code>, instead of automatically at
+					<code>core.Mount</code>.
 				</p>
 
 				<h2 className="docs-h2" id="signals">Signal lifetime</h2>

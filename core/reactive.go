@@ -104,7 +104,19 @@ func DynList(parent Node, fn func() []Node, keyFns ...func() []string) {
 	p.Call(dom.AppendChild, end)
 
 	live := make(map[string]js.Value) // key → DOM node (keyed path only)
-	var childScope *signal.Scope      // scope for nested effects (unkeyed path only)
+
+	// childScope owns every effect/listener fn() creates on the current
+	// render, keyed or unkeyed alike. It's disposed and rebuilt around every
+	// fn() call, exactly like DynChild's own child scope, so a re-render never
+	// leaves the previous render's item-level effects/listeners without an
+	// owner to dispose them.
+	var childScope *signal.Scope
+	signal.RegisterDispose(func() {
+		if childScope != nil {
+			childScope.Dispose()
+			childScope = nil
+		}
+	})
 
 	// explicitKeyFn is set when caller provides a key function directly.
 	var explicitKeyFn func() []string
@@ -116,13 +128,20 @@ func DynList(parent Node, fn func() []Node, keyFns ...func() []string) {
 	}
 
 	signal.Effect(func() {
-		wrapped := fn()
-		newNodes := make([]js.Value, len(wrapped))
-		for i, n := range wrapped {
-			if !isNilNode(n) {
-				newNodes[i] = Unwrap(n)
-			}
+		if childScope != nil {
+			childScope.Dispose()
 		}
+
+		var newNodes []js.Value
+		childScope = signal.RunScoped(func() {
+			wrapped := fn()
+			newNodes = make([]js.Value, len(wrapped))
+			for i, n := range wrapped {
+				if !isNilNode(n) {
+					newNodes[i] = Unwrap(n)
+				}
+			}
+		})
 
 		// Resolve keys: explicit keyFn takes priority, then node .key property.
 		var newKeys []string
@@ -166,10 +185,8 @@ func DynList(parent Node, fn func() []Node, keyFns ...func() []string) {
 		}
 
 		if newKeys == nil {
-			// Unkeyed: dispose nested effects and rebuild.
-			if childScope != nil {
-				childScope.Dispose()
-			}
+			// Unkeyed: rebuild the DOM from scratch. The item effects/listeners
+			// fn() just created above are already owned by the fresh childScope.
 			// If keyed nodes existed before this update, they get removed from the
 			// DOM below but live would still hold stale refs to them. Clear it here
 			// so a keyed item added later doesn't hit a removeChild panic.
@@ -183,13 +200,11 @@ func DynList(parent Node, fn func() []Node, keyFns ...func() []string) {
 				}
 				p.Call(dom.RemoveChild, next)
 			}
-			childScope = signal.RunScoped(func() {
-				for _, n := range newNodes {
-					if !isNilRaw(n) {
-						p.Call("insertBefore", n, end)
-					}
+			for _, n := range newNodes {
+				if !isNilRaw(n) {
+					p.Call("insertBefore", n, end)
 				}
-			})
+			}
 			return
 		}
 

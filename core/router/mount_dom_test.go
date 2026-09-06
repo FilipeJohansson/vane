@@ -20,6 +20,7 @@ import (
 
 	"github.com/filipejohansson/vane/core"
 	"github.com/filipejohansson/vane/core/router"
+	"github.com/filipejohansson/vane/core/signal"
 )
 
 func TestRouterMountsMatchingRouteAtInitialPath(t *testing.T) {
@@ -170,5 +171,139 @@ func TestLayoutSubNavigationOnlyChangesOutlet(t *testing.T) {
 	raw := core.Unwrap(el)
 	if got := raw.Call("querySelector", ".shell").Get("textContent").String(); got != "dashboard users" {
 		t.Errorf("shell textContent after sub-navigation = %q, want %q", got, "dashboard users")
+	}
+}
+
+//* Lifecycle stress
+
+// TestRouterRepeatedNavigationDisposesRouteScope repeatedly navigates
+// between two routes, each creating its own effect, and verifies
+// LiveEffectCount doesn't grow with the number of round trips - each route's
+// scope must be disposed before the next one mounts, not just at the very
+// end.
+func TestRouterRepeatedNavigationDisposesRouteScope(t *testing.T) {
+	t.Cleanup(func() {
+		router.Navigate("/")
+		waitForPath(t, "/")
+	})
+
+	router.Router(
+		router.Route("/lifecycle-a", func() core.Node {
+			signal.Effect(func() {})
+			return core.Text("A")
+		}),
+		router.Route("/lifecycle-b", func() core.Node {
+			signal.Effect(func() {})
+			return core.Text("B")
+		}),
+	)
+
+	router.Navigate("/lifecycle-a")
+	waitForPath(t, "/lifecycle-a")
+	baseline := signal.LiveEffectCount()
+
+	const iterations = 30
+	for range iterations {
+		router.Navigate("/lifecycle-b")
+		waitForPath(t, "/lifecycle-b")
+		router.Navigate("/lifecycle-a")
+		waitForPath(t, "/lifecycle-a")
+	}
+
+	if got := signal.LiveEffectCount(); got != baseline {
+		t.Fatalf("LiveEffectCount() = %d after %d navigation round trips, want %d (route effects were not disposed on navigation)", got, iterations, baseline)
+	}
+}
+
+// TestRouterSameRouteParamChangeDoesNotRecreateScope verifies that
+// navigating between different params of the SAME route pattern (the
+// mountEntries fast path that just updates the params signal) never
+// disposes and rebuilds the route's scope - LiveEffectCount must stay flat
+// across every param change.
+func TestRouterSameRouteParamChangeDoesNotRecreateScope(t *testing.T) {
+	t.Cleanup(func() {
+		router.Navigate("/")
+		waitForPath(t, "/")
+	})
+
+	router.Router(
+		router.Route("/users/:id", func() core.Node {
+			signal.Effect(func() {})
+			return core.El("div")
+		}),
+	)
+
+	router.Navigate("/users/1")
+	waitForPath(t, "/users/1")
+	baseline := signal.LiveEffectCount()
+
+	for _, id := range []string{"2", "3", "4", "5"} {
+		router.Navigate("/users/" + id)
+		waitForPath(t, "/users/"+id)
+		if got := signal.LiveEffectCount(); got != baseline {
+			t.Fatalf("LiveEffectCount() = %d after navigating to /users/%s (same pattern, different param), want %d (the component was remounted instead of just updating params)", got, id, baseline)
+		}
+	}
+}
+
+// TestRouterLayoutInnerScopeDisposedOnLayoutSwap verifies that swapping
+// between two different layouts fully disposes the outgoing layout's scope,
+// including its inner router effect and whichever inner route was active -
+// not just the currently active leaf route. Both layouts' single active
+// route creates exactly one effect and their shells create none, so
+// LiveEffectCount right after entering either layout's default route must
+// be identical; if the outgoing layout leaked, entering the other would show
+// growth instead.
+func TestRouterLayoutInnerScopeDisposedOnLayoutSwap(t *testing.T) {
+	t.Cleanup(func() {
+		router.Navigate("/")
+		waitForPath(t, "/")
+	})
+
+	shell := func() core.Node {
+		outlet := router.Outlet()
+		div := core.El("div")
+		core.AppendChild(div, outlet)
+		return div
+	}
+
+	router.Router(
+		router.Layout("/layout-a", shell,
+			router.Route("", func() core.Node {
+				signal.Effect(func() {})
+				return core.Text("a-home")
+			}),
+			router.Route("sub", func() core.Node {
+				signal.Effect(func() {})
+				return core.Text("a-sub")
+			}),
+		),
+		router.Layout("/layout-b", shell,
+			router.Route("", func() core.Node {
+				signal.Effect(func() {})
+				return core.Text("b-home")
+			}),
+		),
+	)
+
+	baseline := signal.LiveEffectCount()
+
+	router.Navigate("/layout-a")
+	waitForPath(t, "/layout-a")
+	afterLayoutA := signal.LiveEffectCount()
+	if afterLayoutA != baseline+2 {
+		t.Fatalf("LiveEffectCount() = %d after entering layout-a, want %d (1 inner-router effect + 1 route effect)", afterLayoutA, baseline+2)
+	}
+
+	router.Navigate("/layout-a/sub")
+	waitForPath(t, "/layout-a/sub")
+	if got := signal.LiveEffectCount(); got != afterLayoutA {
+		t.Fatalf("LiveEffectCount() = %d after sub-navigating within layout-a, want %d (sub-navigation must not accumulate effects)", got, afterLayoutA)
+	}
+
+	router.Navigate("/layout-b")
+	waitForPath(t, "/layout-b")
+	if got := signal.LiveEffectCount(); got != afterLayoutA {
+		t.Fatalf("LiveEffectCount() = %d after swapping to layout-b, want %d (layout-a's shell/route effects were not disposed)", got, afterLayoutA)
 	}
 }

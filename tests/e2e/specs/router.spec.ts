@@ -91,3 +91,22 @@ test('cleans route-scoped content when navigating away', async ({ page }) => {
   await expect(page.getByTestId('app-ready')).toHaveText('ready')
   await expect(page.getByTestId('portal-host')).toBeEmpty()
 })
+
+test('repeated navigation round trips do not leak route lifecycle state', async ({ page }) => {
+  await page.goto('/#/lifecycle')
+  await expect(page.getByTestId('effect-runs')).toHaveText('1')
+  await expect(page.getByTestId('lifecycle-cleanups')).toHaveText('0')
+
+  const iterations = 20
+  for (let i = 0; i < iterations; i++) {
+    await page.getByRole('link', { name: 'Smoke' }).click()
+    await expect(page.getByTestId('app-ready')).toHaveText('ready')
+
+    await page.getByRole('link', { name: 'Lifecycle' }).click()
+    // A fresh mount every time (effect-runs back to '1', not accumulating
+    // across visits) and exactly one more cleanup than the last round trip
+    // (mounted count stays one ahead of cleaned-up count, never drifting).
+    await expect(page.getByTestId('effect-runs')).toHaveText('1')
+    await expect(page.getByTestId('lifecycle-cleanups')).toHaveText(String(i + 1))
+  }
+})

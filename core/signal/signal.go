@@ -58,11 +58,24 @@ func activeScope() *Scope {
 
 // RunScoped runs fn inside a new Scope and returns it. Call Dispose() later to
 // clean up all effects created during fn.
+//
+// If fn panics, RunScoped never reaches its own return, so the caller gets
+// no reference to Dispose whatever the Scope collected up to the panic
+// point; RunScoped disposes it itself before letting the panic continue
+// propagating, so a partially-built subtree doesn't leak the effects and
+// listeners it managed to create.
 func RunScoped(fn func()) *Scope {
 	s := &Scope{}
 	pushScope(s)
+	ok := false
+	defer func() {
+		popScope()
+		if !ok {
+			s.Dispose()
+		}
+	}()
 	fn()
-	popScope()
+	ok = true
 	return s
 }
 
@@ -188,11 +201,34 @@ var (
 	effectLock  sync.Mutex
 )
 
+// liveEffects counts effects created but not yet disposed, across the whole
+// process. Incremented by newEffect, decremented at the single point (in
+// dispose, or flushEffects' panic recovery) where an effect's disposed flag
+// actually transitions false->true, so each effect is counted exactly once
+// regardless of which path disposes it.
+var liveEffects atomic.Int64
+
+// LiveEffectCount reports how many effects have been created but not yet
+// disposed. A coarse memory-leak signal for tests (a number that should
+// return to baseline after a mount/unmount cycle) and, like
+// runtime.NumGoroutine, a metric apps can surface in a debug panel.
+func LiveEffectCount() int {
+	return int(liveEffects.Load())
+}
+
+// newEffect allocates an effect and accounts for it in liveEffects. Both
+// Effect and ComputedOf (which wraps its recomputation in an effect too)
+// construct effects through this so the counter covers every one of them.
+func newEffect(fn func()) *effect {
+	liveEffects.Add(1)
+	return &effect{fn: fn, deps: make(map[*baseSignal]struct{})}
+}
+
 // Effect runs fn immediately, tracking all signal reads, and re-runs fn when
 // any dependency changes. The returned function disposes the effect.
 // The effect is also registered in the active Scope (if any) for auto-disposal.
 func Effect(fn func()) func() {
-	e := &effect{fn: fn, deps: make(map[*baseSignal]struct{})}
+	e := newEffect(fn)
 	dispose := func() { e.dispose() }
 	RegisterDispose(dispose)
 	e.run()
@@ -203,6 +239,7 @@ func (e *effect) dispose() {
 	if !e.disposed.CompareAndSwap(false, true) {
 		return
 	}
+	liveEffects.Add(-1)
 	// run() (via flushEffects, on the scheduler goroutine) also reads/writes
 	// e.deps under runMu. Without this lock, a dispose() racing a scheduled
 	// re-run would read/write e.deps concurrently with run().
@@ -232,14 +269,15 @@ func (e *effect) run() {
 	effectLock.Lock()
 	effectStack = append(effectStack, e)
 	effectLock.Unlock()
+	defer func() {
+		effectLock.Lock()
+		effectStack = effectStack[:len(effectStack)-1]
+		effectLock.Unlock()
+	}()
 
 	e.clearDeps()
 
 	e.fn()
-
-	effectLock.Lock()
-	effectStack = effectStack[:len(effectStack)-1]
-	effectLock.Unlock()
 }
 
 // Global effect scheduler, one drain goroutine instead of one per effect.
@@ -319,6 +357,7 @@ func flushEffects() {
 					// which this goroutine already holds (locked above and only
 					// released after this func() returns), causing a deadlock.
 					if e.disposed.CompareAndSwap(false, true) {
+						liveEffects.Add(-1)
 						e.clearDeps()
 					}
 					if EffectPanicHandler != nil {
@@ -401,15 +440,12 @@ type Computed[T any] struct {
 func ComputedOf[T any](fn func(prev T) T) *Computed[T] {
 	c := &Computed[T]{}
 	c.subscribers = make(map[computation]struct{})
-	c.effect = &effect{
-		fn: func() {
-			c.mutex.Lock()
-			c.value = fn(c.value)
-			c.mutex.Unlock()
-			c.notify()
-		},
-		deps: make(map[*baseSignal]struct{}),
-	}
+	c.effect = newEffect(func() {
+		c.mutex.Lock()
+		c.value = fn(c.value)
+		c.mutex.Unlock()
+		c.notify()
+	})
 	RegisterDispose(func() { c.effect.dispose() })
 	c.effect.run()
 	return c

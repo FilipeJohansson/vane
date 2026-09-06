@@ -337,6 +337,30 @@ func TestScopeDisposesEffects(t *testing.T) {
 	}
 }
 
+// TestScopeDisposeReleasesAllEffects verifies that Dispose tears down every
+// effect a Scope collected, not just the last one, and that LiveEffectCount
+// accounts for all of them.
+func TestScopeDisposeReleasesAllEffects(t *testing.T) {
+	const n = 20
+	before := signal.LiveEffectCount()
+
+	scope := signal.RunScoped(func() {
+		for range n {
+			signal.Effect(func() {})
+		}
+	})
+
+	if got := signal.LiveEffectCount(); got != before+n {
+		t.Fatalf("LiveEffectCount() = %d after creating %d effects, want %d", got, n, before+n)
+	}
+
+	scope.Dispose()
+
+	if got := signal.LiveEffectCount(); got != before {
+		t.Fatalf("LiveEffectCount() = %d after Scope.Dispose(), want %d", got, before)
+	}
+}
+
 func TestScopeDisposeIsIdempotent(t *testing.T) {
 	s := signal.New(0)
 
@@ -480,5 +504,99 @@ func TestLoopWatchdogAbortsRunawayEffect(t *testing.T) {
 
 	if !signal.WaitEffects(200 * time.Millisecond) {
 		t.Fatal("scheduler did not settle after the watchdog aborted the runaway flush")
+	}
+}
+
+//* Panic safety
+
+// TestRunScopedSurvivesPanic proves that a panic inside the function passed
+// to RunScoped doesn't leave a dead Scope permanently on top of scopeStack.
+// A leaked Scope there would silently swallow every RegisterDispose call
+// made afterward, anywhere in the app, into a Scope nobody holds a
+// reference to and will never Dispose.
+func TestRunScopedSurvivesPanic(t *testing.T) {
+	before := signal.DebugScopeStackDepth()
+
+	func() {
+		defer func() { recover() }()
+		signal.RunScoped(func() {
+			panic("boom")
+		})
+	}()
+
+	if got := signal.DebugScopeStackDepth(); got != before {
+		t.Fatalf("scope stack depth = %d after a panicking RunScoped, want %d (unbalanced push/pop leaked a dead Scope)", got, before)
+	}
+}
+
+// TestRunScopedDisposesPartialScopeOnPanic proves that a panic partway
+// through the function passed to RunScoped doesn't leave whatever that
+// Scope collected before the panic point permanently alive. RunScoped never
+// reaches its own return statement on panic, so the caller has no reference
+// to the partial Scope to Dispose it themselves; RunScoped has to.
+func TestRunScopedDisposesPartialScopeOnPanic(t *testing.T) {
+	before := signal.LiveEffectCount()
+
+	func() {
+		defer func() { recover() }()
+		signal.RunScoped(func() {
+			signal.Effect(func() {}) // collected before the panic point
+			panic("boom")
+		})
+	}()
+
+	if got := signal.LiveEffectCount(); got != before {
+		t.Fatalf("LiveEffectCount() = %d after a panicking RunScoped, want %d (the partial Scope's effect was never disposed)", got, before)
+	}
+}
+
+// TestEffectRunSurvivesPanic proves that an effect body panicking on a
+// scheduled re-run (the path flushEffects already recovers from) doesn't
+// leave that disposed effect permanently on top of effectStack. A leaked
+// frame there would make currentComputation() return it for every plain,
+// outside-any-Effect signal read that follows, silently adding a dead
+// effect to that signal's subscriber set forever.
+func TestEffectRunSurvivesPanic(t *testing.T) {
+	origHandler := signal.EffectPanicHandler
+	defer func() { signal.EffectPanicHandler = origHandler }()
+
+	handled := make(chan any, 1)
+	signal.EffectPanicHandler = func(r any) {
+		select {
+		case handled <- r:
+		default:
+		}
+	}
+
+	before := signal.DebugEffectStackDepth()
+
+	trigger := signal.New(false)
+	dispose := signal.Effect(func() {
+		if trigger.Get() {
+			panic("boom")
+		}
+	})
+	defer dispose()
+
+	trigger.Set(true) // schedules a re-run that panics, via flushEffects
+
+	select {
+	case <-handled:
+	case <-time.After(2 * time.Second):
+		t.Fatal("EffectPanicHandler was never called; the panicking re-run did not happen")
+	}
+
+	if !signal.WaitEffects(200 * time.Millisecond) {
+		t.Fatal("scheduler did not settle after the panicking effect")
+	}
+
+	if got := signal.DebugEffectStackDepth(); got != before {
+		t.Fatalf("effect stack depth = %d after a panicking effect re-run, want %d (unbalanced push/pop leaked the disposed effect)", got, before)
+	}
+
+	other := signal.New(0)
+	_ = other.Get() // plain top-level read, outside any Effect
+	if got := other.DebugSubscriberCount(); got != 0 {
+		t.Fatalf("a plain top-level signal read got tracked by a disposed effect leaked on effectStack; subscriber count = %d, want 0", got)
 	}
 }

@@ -2,17 +2,30 @@ package pages
 
 import "github.com/filipejohansson/vane/core"
 
+var portalOpens = core.NewSignal(0)
+var portalCloses = core.NewSignal(0)
+
 func Portals() core.Node {
 	open := core.NewSignal(false)
 
 	return (
 		<section aria-label="Portals">
 			<div data-testid="portal-source">source</div>
+			<div data-testid="portal-opens">{portalOpens.Get()}</div>
+			<div data-testid="portal-closes">{portalCloses.Get()}</div>
 			<button onClick={func(core.MouseEvent) { open.Set(true) }}>Open portal</button>
 			{core.Portal("[data-testid='portal-host']", func() core.Node {
 				if !open.Get() {
 					return nil
 				}
+				// Untrack: this runs inside Portal's own driving effect, so an
+				// untracked Get()+Set() keeps that effect from subscribing to
+				// portalOpens itself - otherwise Set would reschedule the very
+				// effect that's doing the setting, forever.
+				core.Untrack(func() { portalOpens.Set(portalOpens.Get() + 1) })
+				core.OnDispose(func() {
+					core.Untrack(func() { portalCloses.Set(portalCloses.Get() + 1) })
+				})
 				return (
 					<div data-testid="portal-content">
 						<span>mounted outside route</span>

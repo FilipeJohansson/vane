@@ -3,25 +3,57 @@
 package core
 
 import (
+	"sync/atomic"
 	"syscall/js"
 
 	"github.com/filipejohansson/vane/core/signal"
 	"github.com/filipejohansson/vane/internal/dom"
 )
 
+// liveCallbacks counts js.Func callbacks currently bound to the DOM via
+// bindHandler/bindWindowListener, incremented when one is created and
+// decremented at the single point where it's released.
+var liveCallbacks atomic.Int64
+
+// bindHandler assigns f to el[prop] and releases it automatically when the
+// enclosing Scope disposes (see signal.RegisterDispose), the shape shared by
+// every element-level On* handler below.
+func bindHandler(el Node, prop string, f js.Func) {
+	Unwrap(el).Set(prop, f)
+	liveCallbacks.Add(1)
+	signal.RegisterDispose(func() {
+		f.Release()
+		liveCallbacks.Add(-1)
+	})
+}
+
+// bindWindowListener adds f as a window-level event listener and removes it
+// (in addition to releasing it) when the enclosing Scope disposes.
+func bindWindowListener(event string, f js.Func, opts ...ListenerOpts) {
+	args := []any{event, f}
+	if len(opts) > 0 && opts[0].Passive {
+		args = append(args, map[string]any{"passive": true})
+	}
+	dom.Window.Call(dom.AddEventListener, args...)
+	liveCallbacks.Add(1)
+	signal.RegisterDispose(func() {
+		dom.Window.Call(dom.RemoveEventListener, event, f)
+		f.Release()
+		liveCallbacks.Add(-1)
+	})
+}
+
 // OnClick attaches a click handler to el.
 func OnClick(el Node, fn func(e MouseEvent)) {
 	if fn == nil {
 		return
 	}
-	f := js.FuncOf(func(this js.Value, args []js.Value) any {
+	bindHandler(el, dom.OnClick, js.FuncOf(func(_ js.Value, args []js.Value) any {
 		if len(args) > 0 {
 			fn(newMouseEvent(args[0]))
 		}
 		return nil
-	})
-	Unwrap(el).Set(dom.OnClick, f)
-	signal.RegisterDispose(f.Release)
+	}))
 }
 
 // OnInput attaches an input handler to el, passing the current value string.
@@ -29,14 +61,12 @@ func OnInput(el Node, fn func(e InputEvent)) {
 	if fn == nil {
 		return
 	}
-	f := js.FuncOf(func(this js.Value, args []js.Value) any {
+	bindHandler(el, dom.OnInput, js.FuncOf(func(_ js.Value, args []js.Value) any {
 		if len(args) > 0 {
 			fn(newInputEvent(args[0]))
 		}
 		return nil
-	})
-	Unwrap(el).Set(dom.OnInput, f)
-	signal.RegisterDispose(f.Release)
+	}))
 }
 
 // OnChange attaches a change handler, passing the current value string.
@@ -45,14 +75,12 @@ func OnChange(el Node, fn func(e InputEvent)) {
 	if fn == nil {
 		return
 	}
-	f := js.FuncOf(func(_ js.Value, args []js.Value) any {
+	bindHandler(el, dom.OnChange, js.FuncOf(func(_ js.Value, args []js.Value) any {
 		if len(args) > 0 {
 			fn(newInputEvent(args[0]))
 		}
 		return nil
-	})
-	Unwrap(el).Set(dom.OnChange, f)
-	signal.RegisterDispose(f.Release)
+	}))
 }
 
 // OnChecked attaches a change handler for checkboxes/radios, passing the current checked state.
@@ -60,14 +88,12 @@ func OnChecked(el Node, fn func(e CheckEvent)) {
 	if fn == nil {
 		return
 	}
-	f := js.FuncOf(func(_ js.Value, args []js.Value) any {
+	bindHandler(el, dom.OnChange, js.FuncOf(func(_ js.Value, args []js.Value) any {
 		if len(args) > 0 {
 			fn(newCheckEvent(args[0]))
 		}
 		return nil
-	})
-	Unwrap(el).Set(dom.OnChange, f)
-	signal.RegisterDispose(f.Release)
+	}))
 }
 
 // OnSubmit attaches a submit handler to a <form>, calling preventDefault automatically.
@@ -75,15 +101,13 @@ func OnSubmit(el Node, fn func(e SubmitEvent)) {
 	if fn == nil {
 		return
 	}
-	f := js.FuncOf(func(_ js.Value, args []js.Value) any {
+	bindHandler(el, dom.OnSubmit, js.FuncOf(func(_ js.Value, args []js.Value) any {
 		if len(args) > 0 {
 			args[0].Call(dom.PreventDefault)
 			fn(newSubmitEvent(args[0]))
 		}
 		return nil
-	})
-	Unwrap(el).Set(dom.OnSubmit, f)
-	signal.RegisterDispose(f.Release)
+	}))
 }
 
 // OnKeyDown attaches a keydown handler.
@@ -91,14 +115,12 @@ func OnKeyDown(el Node, fn func(e KeyEvent)) {
 	if fn == nil {
 		return
 	}
-	f := js.FuncOf(func(_ js.Value, args []js.Value) any {
+	bindHandler(el, dom.OnKeyDown, js.FuncOf(func(_ js.Value, args []js.Value) any {
 		if len(args) > 0 {
 			fn(newKeyEvent(args[0]))
 		}
 		return nil
-	})
-	Unwrap(el).Set(dom.OnKeyDown, f)
-	signal.RegisterDispose(f.Release)
+	}))
 }
 
 // OnKeyUp attaches a keyup handler.
@@ -106,14 +128,12 @@ func OnKeyUp(el Node, fn func(e KeyEvent)) {
 	if fn == nil {
 		return
 	}
-	f := js.FuncOf(func(_ js.Value, args []js.Value) any {
+	bindHandler(el, dom.OnKeyUp, js.FuncOf(func(_ js.Value, args []js.Value) any {
 		if len(args) > 0 {
 			fn(newKeyEvent(args[0]))
 		}
 		return nil
-	})
-	Unwrap(el).Set(dom.OnKeyUp, f)
-	signal.RegisterDispose(f.Release)
+	}))
 }
 
 // OnBlur attaches a blur handler.
@@ -121,14 +141,12 @@ func OnBlur(el Node, fn func(e Event)) {
 	if fn == nil {
 		return
 	}
-	f := js.FuncOf(func(_ js.Value, args []js.Value) any {
+	bindHandler(el, dom.OnBlur, js.FuncOf(func(_ js.Value, args []js.Value) any {
 		if len(args) > 0 {
 			fn(newEvent(args[0]))
 		}
 		return nil
-	})
-	Unwrap(el).Set(dom.OnBlur, f)
-	signal.RegisterDispose(f.Release)
+	}))
 }
 
 // OnFocus attaches a focus handler.
@@ -136,14 +154,12 @@ func OnFocus(el Node, fn func(e Event)) {
 	if fn == nil {
 		return
 	}
-	f := js.FuncOf(func(_ js.Value, args []js.Value) any {
+	bindHandler(el, dom.OnFocus, js.FuncOf(func(_ js.Value, args []js.Value) any {
 		if len(args) > 0 {
 			fn(newEvent(args[0]))
 		}
 		return nil
-	})
-	Unwrap(el).Set(dom.OnFocus, f)
-	signal.RegisterDispose(f.Release)
+	}))
 }
 
 // OnDblClick attaches a double-click handler.
@@ -151,14 +167,12 @@ func OnDblClick(el Node, fn func(e MouseEvent)) {
 	if fn == nil {
 		return
 	}
-	f := js.FuncOf(func(_ js.Value, args []js.Value) any {
+	bindHandler(el, dom.OnDblClick, js.FuncOf(func(_ js.Value, args []js.Value) any {
 		if len(args) > 0 {
 			fn(newMouseEvent(args[0]))
 		}
 		return nil
-	})
-	Unwrap(el).Set(dom.OnDblClick, f)
-	signal.RegisterDispose(f.Release)
+	}))
 }
 
 // OnMouseEnter attaches a mouseenter handler.
@@ -166,14 +180,12 @@ func OnMouseEnter(el Node, fn func(e MouseEvent)) {
 	if fn == nil {
 		return
 	}
-	f := js.FuncOf(func(_ js.Value, args []js.Value) any {
+	bindHandler(el, dom.OnMouseEnter, js.FuncOf(func(_ js.Value, args []js.Value) any {
 		if len(args) > 0 {
 			fn(newMouseEvent(args[0]))
 		}
 		return nil
-	})
-	Unwrap(el).Set(dom.OnMouseEnter, f)
-	signal.RegisterDispose(f.Release)
+	}))
 }
 
 // OnMouseLeave attaches a mouseleave handler.
@@ -181,14 +193,12 @@ func OnMouseLeave(el Node, fn func(e MouseEvent)) {
 	if fn == nil {
 		return
 	}
-	f := js.FuncOf(func(_ js.Value, args []js.Value) any {
+	bindHandler(el, dom.OnMouseLeave, js.FuncOf(func(_ js.Value, args []js.Value) any {
 		if len(args) > 0 {
 			fn(newMouseEvent(args[0]))
 		}
 		return nil
-	})
-	Unwrap(el).Set(dom.OnMouseLeave, f)
-	signal.RegisterDispose(f.Release)
+	}))
 }
 
 // OnScroll attaches a scroll handler.
@@ -196,14 +206,12 @@ func OnScroll(el Node, fn func(e Event)) {
 	if fn == nil {
 		return
 	}
-	f := js.FuncOf(func(_ js.Value, args []js.Value) any {
+	bindHandler(el, dom.OnScroll, js.FuncOf(func(_ js.Value, args []js.Value) any {
 		if len(args) > 0 {
 			fn(newEvent(args[0]))
 		}
 		return nil
-	})
-	Unwrap(el).Set(dom.OnScroll, f)
-	signal.RegisterDispose(f.Release)
+	}))
 }
 
 // OnPointerDown attaches a pointerdown handler.
@@ -211,14 +219,12 @@ func OnPointerDown(el Node, fn func(e MouseEvent)) {
 	if fn == nil {
 		return
 	}
-	f := js.FuncOf(func(_ js.Value, args []js.Value) any {
+	bindHandler(el, dom.OnPointerDown, js.FuncOf(func(_ js.Value, args []js.Value) any {
 		if len(args) > 0 {
 			fn(newMouseEvent(args[0]))
 		}
 		return nil
-	})
-	Unwrap(el).Set(dom.OnPointerDown, f)
-	signal.RegisterDispose(f.Release)
+	}))
 }
 
 // OnPointerUp attaches a pointerup handler.
@@ -226,14 +232,12 @@ func OnPointerUp(el Node, fn func(e MouseEvent)) {
 	if fn == nil {
 		return
 	}
-	f := js.FuncOf(func(_ js.Value, args []js.Value) any {
+	bindHandler(el, dom.OnPointerUp, js.FuncOf(func(_ js.Value, args []js.Value) any {
 		if len(args) > 0 {
 			fn(newMouseEvent(args[0]))
 		}
 		return nil
-	})
-	Unwrap(el).Set(dom.OnPointerUp, f)
-	signal.RegisterDispose(f.Release)
+	}))
 }
 
 // OnPointerMove attaches a pointermove handler.
@@ -241,14 +245,12 @@ func OnPointerMove(el Node, fn func(e MouseEvent)) {
 	if fn == nil {
 		return
 	}
-	f := js.FuncOf(func(_ js.Value, args []js.Value) any {
+	bindHandler(el, dom.OnPointerMove, js.FuncOf(func(_ js.Value, args []js.Value) any {
 		if len(args) > 0 {
 			fn(newMouseEvent(args[0]))
 		}
 		return nil
-	})
-	Unwrap(el).Set(dom.OnPointerMove, f)
-	signal.RegisterDispose(f.Release)
+	}))
 }
 
 // OnTouchStart attaches a touchstart handler.
@@ -256,14 +258,12 @@ func OnTouchStart(el Node, fn func(e TouchEvent)) {
 	if fn == nil {
 		return
 	}
-	f := js.FuncOf(func(_ js.Value, args []js.Value) any {
+	bindHandler(el, dom.OnTouchStart, js.FuncOf(func(_ js.Value, args []js.Value) any {
 		if len(args) > 0 {
 			fn(newTouchEvent(args[0]))
 		}
 		return nil
-	})
-	Unwrap(el).Set(dom.OnTouchStart, f)
-	signal.RegisterDispose(f.Release)
+	}))
 }
 
 // OnTouchEnd attaches a touchend handler.
@@ -271,14 +271,12 @@ func OnTouchEnd(el Node, fn func(e TouchEvent)) {
 	if fn == nil {
 		return
 	}
-	f := js.FuncOf(func(_ js.Value, args []js.Value) any {
+	bindHandler(el, dom.OnTouchEnd, js.FuncOf(func(_ js.Value, args []js.Value) any {
 		if len(args) > 0 {
 			fn(newTouchEvent(args[0]))
 		}
 		return nil
-	})
-	Unwrap(el).Set(dom.OnTouchEnd, f)
-	signal.RegisterDispose(f.Release)
+	}))
 }
 
 // OnDragStart attaches a dragstart handler.
@@ -286,14 +284,12 @@ func OnDragStart(el Node, fn func(e Event)) {
 	if fn == nil {
 		return
 	}
-	f := js.FuncOf(func(_ js.Value, args []js.Value) any {
+	bindHandler(el, dom.OnDragStart, js.FuncOf(func(_ js.Value, args []js.Value) any {
 		if len(args) > 0 {
 			fn(newEvent(args[0]))
 		}
 		return nil
-	})
-	Unwrap(el).Set(dom.OnDragStart, f)
-	signal.RegisterDispose(f.Release)
+	}))
 }
 
 // OnDrop attaches a drop handler.
@@ -301,14 +297,12 @@ func OnDrop(el Node, fn func(e Event)) {
 	if fn == nil {
 		return
 	}
-	f := js.FuncOf(func(_ js.Value, args []js.Value) any {
+	bindHandler(el, dom.OnDrop, js.FuncOf(func(_ js.Value, args []js.Value) any {
 		if len(args) > 0 {
 			fn(newEvent(args[0]))
 		}
 		return nil
-	})
-	Unwrap(el).Set(dom.OnDrop, f)
-	signal.RegisterDispose(f.Release)
+	}))
 }
 
 // ListenerOpts configures OnWindowEvent. The zero value (all false) matches
@@ -328,21 +322,12 @@ func OnWindowEvent(event string, fn func(e Event), opts ...ListenerOpts) {
 	if fn == nil {
 		return
 	}
-	f := js.FuncOf(func(_ js.Value, args []js.Value) any {
+	bindWindowListener(event, js.FuncOf(func(_ js.Value, args []js.Value) any {
 		if len(args) > 0 {
 			fn(newEvent(args[0]))
 		}
 		return nil
-	})
-	args := []any{event, f}
-	if len(opts) > 0 && opts[0].Passive {
-		args = append(args, map[string]any{"passive": true})
-	}
-	dom.Window.Call(dom.AddEventListener, args...)
-	signal.RegisterDispose(func() {
-		dom.Window.Call(dom.RemoveEventListener, event, f)
-		f.Release()
-	})
+	}), opts...)
 }
 
 // OnWindowKeyDown attaches fn to window-level keydown, receiving a decoded
@@ -354,17 +339,12 @@ func OnWindowKeyDown(fn func(e KeyEvent)) {
 	if fn == nil {
 		return
 	}
-	f := js.FuncOf(func(_ js.Value, args []js.Value) any {
+	bindWindowListener(dom.EventKeyDown, js.FuncOf(func(_ js.Value, args []js.Value) any {
 		if len(args) > 0 {
 			fn(newKeyEvent(args[0]))
 		}
 		return nil
-	})
-	dom.Window.Call(dom.AddEventListener, dom.EventKeyDown, f)
-	signal.RegisterDispose(func() {
-		dom.Window.Call(dom.RemoveEventListener, dom.EventKeyDown, f)
-		f.Release()
-	})
+	}))
 }
 
 // OnWindowMouseMove attaches fn to window-level mousemove, receiving a
@@ -376,15 +356,10 @@ func OnWindowMouseMove(fn func(e MouseEvent)) {
 	if fn == nil {
 		return
 	}
-	f := js.FuncOf(func(_ js.Value, args []js.Value) any {
+	bindWindowListener(dom.EventMouseMove, js.FuncOf(func(_ js.Value, args []js.Value) any {
 		if len(args) > 0 {
 			fn(newMouseEvent(args[0]))
 		}
 		return nil
-	})
-	dom.Window.Call(dom.AddEventListener, dom.EventMouseMove, f)
-	signal.RegisterDispose(func() {
-		dom.Window.Call(dom.RemoveEventListener, dom.EventMouseMove, f)
-		f.Release()
-	})
+	}))
 }
