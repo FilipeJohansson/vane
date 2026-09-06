@@ -1,0 +1,31 @@
+package main
+
+import (
+	"github.com/filipejohansson/vane/core"
+	"github.com/filipejohansson/vane/core/router"
+
+	"example.com/tutorial-todo/src/components"
+	"example.com/tutorial-todo/src/pages"
+)
+
+func App() core.Node {
+	return (
+		<div className="app">
+			<header className="nav">
+				<span className="nav-brand">Vane Tutorial: Todo List</span>
+				<nav className="nav-links">
+					{components.FilterLink("/", "All")}
+					{components.FilterLink("/active", "Active")}
+					{components.FilterLink("/completed", "Completed")}
+				</nav>
+			</header>
+			<main className="main">
+				{router.Router(
+					router.Route("/", pages.TodoList, "All - Vane Tutorial"),
+					router.Route("/active", pages.TodoList, "Active - Vane Tutorial"),
+					router.Route("/completed", pages.TodoList, "Completed - Vane Tutorial"),
+				)}
+			</main>
+		</div>
+	)
+}

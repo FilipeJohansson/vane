@@ -1,0 +1,78 @@
+package pages
+
+import (
+	"strings"
+
+	"github.com/filipejohansson/vane/core"
+	"github.com/filipejohansson/vane/core/router"
+
+	"example.com/tutorial-todo/src/store"
+)
+
+func TodoList() core.Node {
+	text := core.NewSignal("")
+
+	addTodo := func() {
+		t := strings.TrimSpace(text.Get())
+		if t == "" {
+			return
+		}
+		store.Add(t)
+		text.Set("")
+	}
+
+	visibleTodos := func() []core.Node {
+		path := router.Path().Get()
+		todos := store.Todos.Get()
+		nodes := make([]core.Node, 0, len(todos))
+		for _, t := range todos {
+			if path == "/active" && t.Done {
+				continue
+			}
+			if path == "/completed" && !t.Done {
+				continue
+			}
+			nodes = append(nodes, todoItem(t))
+		}
+		return nodes
+	}
+
+	return (
+		<div className="page">
+			<form className="todo-form" onSubmit={func(e core.SubmitEvent) { addTodo() }}>
+				<input
+					className="input"
+					placeholder="What needs to be done?"
+					value={text.Get()}
+					onInput={func(e core.InputEvent) { text.Set(e.Value) }}
+				/>
+				<button className="todo-add" type="submit">Add</button>
+			</form>
+			<ul className="todo-list">{visibleTodos()...}</ul>
+			{func() core.Node {
+				if len(store.Todos.Get()) == 0 {
+					return (<p className="todo-empty">No todos yet.</p>)
+				}
+				return nil
+			}()}
+		</div>
+	)
+}
+
+func todoItem(t store.Todo) core.Node {
+	className := "todo-item"
+	if t.Done {
+		className = "todo-item todo-item--done"
+	}
+	return (
+		<li key={t.ID} className={className}>
+			<input
+				type="checkbox"
+				checked={t.Done}
+				onChecked={func(e core.CheckEvent) { store.Toggle(t.ID) }}
+			/>
+			<span className="todo-text">{t.Text}</span>
+			<button className="todo-remove" onClick={func(e core.MouseEvent) { store.Remove(t.ID) }}>×</button>
+		</li>
+	)
+}
