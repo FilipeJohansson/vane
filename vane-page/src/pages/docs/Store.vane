@@ -57,14 +57,14 @@ import "github.com/filipejohansson/vane/core"
 var Theme = core.NewSignal(loadStoredTheme())
 
 func loadStoredTheme() string {
-    if stored, ok := core.LocalStorage().Get("theme"); ok && stored != "" {
+    if stored, ok := core.LocalStorageGet("theme"); ok && stored != "" {
         return stored
     }
     return "dark"
 }
 
 func PersistTheme(t string) {
-    core.LocalStorage().Set("theme", t)
+    core.LocalStorageSet("theme", t)
 }`
 
 const storeEffectComponentSnippet = `// src/components/ThemeToggle.vane

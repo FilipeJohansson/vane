@@ -531,7 +531,7 @@ func Tutorial() core.Node {
 					From here:
 				</p>
 				<ul className="docs-list">
-					<li>Persist the list with <code>core.LocalStorage()</code> (see the Browser API wrappers in {tutorialDocLink("refs-and-dom", "Refs & DOM")}) so it survives a refresh.</li>
+					<li>Persist the list with <code>core.LocalStorageGet</code>/<code>core.LocalStorageSet</code> (see the Browser API wrappers in {tutorialDocLink("refs-and-dom", "Refs & DOM")}) so it survives a refresh.</li>
 					<li>Add a "Clear completed" button — one more store function, same pattern as <code>Remove</code>.</li>
 					<li>Read {tutorialDocLink("signals", "Signals & Reactivity")} and {tutorialDocLink("lifecycle", "Lifecycle")} for what's happening under the hood of every <code>Get</code>/<code>Set</code> call you just made.</li>
 					<li>Read {tutorialDocLink("patterns", "Patterns")} for other common UI shapes once you're past the basics.</li>

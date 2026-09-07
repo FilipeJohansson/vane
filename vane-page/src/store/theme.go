@@ -13,7 +13,7 @@ const themeStorageKey = "vane-theme"
 var Theme = core.NewSignal(loadStoredTheme())
 
 func loadStoredTheme() string {
-	if stored, ok := core.LocalStorage().Get(themeStorageKey); ok && stored != "" {
+	if stored, ok := core.LocalStorageGet(themeStorageKey); ok && stored != "" {
 		return stored
 	}
 	return "dark"
@@ -22,5 +22,5 @@ func loadStoredTheme() string {
 // PersistTheme writes t to localStorage under the same key Theme was
 // loaded from.
 func PersistTheme(t string) {
-	core.LocalStorage().Set(themeStorageKey, t)
+	core.LocalStorageSet(themeStorageKey, t)
 }
