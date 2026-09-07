@@ -62,6 +62,13 @@ func APIReference() core.Node {
 					"API Reference",
 					"An index of Vane's public API, organized by concept. Each entry links to its full generated documentation on pkg.go.dev; the guides linked alongside cover how and why to use it.",
 				)}
+				<p className="docs-p">
+					See{" "}
+					<a href="https://github.com/FilipeJohansson/vane/blob/master/API_STABILITY.md" target="_blank" rel="noopener noreferrer">
+						API_STABILITY.md
+					</a>{" "}
+					for which packages below are covered by Vane's compatibility guarantees, and how Deprecated/Experimental APIs are marked.
+				</p>
 
 				<h2 className="docs-h2" id="mounting-and-nodes">Mounting, Nodes & Structure</h2>
 				<p className="docs-p">
