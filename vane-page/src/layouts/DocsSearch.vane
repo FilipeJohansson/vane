@@ -37,7 +37,7 @@ func searchResultRow(r docs.SearchResult, onSelect func()) core.Node {
 // searchModal renders the Ctrl/Cmd+K dialog. Combines the accessible-modal
 // pattern (see Accessibility.vane's "Accessible modal, with Portal" section:
 // Portal + FocusTrap via a callback ref, OnDispose registered synchronously
-// inside it) with a click-outside-to-close backdrop, done via MouseEvent.Self()
+// inside it) with a click-outside-to-close backdrop, done via MouseEvent.IsSelfTarget()
 // (target === currentTarget) on the backdrop's own OnClick.
 func searchModal(ctrl *searchCtrl) core.Node {
 	return core.Portal("#modal-root", func() core.Node {
@@ -75,7 +75,7 @@ func searchModal(ctrl *searchCtrl) core.Node {
 				className="docs-search-backdrop"
 				ref={func(el core.Node) {
 					core.OnClick(el, func(e core.MouseEvent) {
-						if e.Self() {
+						if e.IsSelfTarget() {
 							ctrl.Close()
 						}
 					})

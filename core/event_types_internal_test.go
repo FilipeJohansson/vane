@@ -46,8 +46,8 @@ func TestNewMouseEventDecodesFields(t *testing.T) {
 	if !e.Meta || e.Ctrl || !e.Shift || e.Alt {
 		t.Errorf("newMouseEvent modifiers = %+v, want Meta=true Ctrl=false Shift=true Alt=false", e)
 	}
-	if e.Self() {
-		t.Error("newMouseEvent.Self() = true for a listener on parent dispatched from child, want false")
+	if e.IsSelfTarget() {
+		t.Error("newMouseEvent.IsSelfTarget() = true for a listener on parent dispatched from child, want false")
 	}
 	if !Unwrap(e.Target()).Equal(Unwrap(child)) {
 		t.Error("newMouseEvent.Target() did not unwrap to the dispatching child")
@@ -62,8 +62,8 @@ func TestNewEventTargetAndSelf(t *testing.T) {
 	raw := js.Global().Get("Event").New("blur", map[string]any{"bubbles": true})
 	e := decodeOnDispatch(el, el, "blur", raw, newEvent)
 
-	if !e.Self() {
-		t.Error("newEvent.Self() = false for a listener and dispatch target being the same element")
+	if !e.IsSelfTarget() {
+		t.Error("newEvent.IsSelfTarget() = false for a listener and dispatch target being the same element")
 	}
 	if !Unwrap(e.Target()).Equal(Unwrap(el)) {
 		t.Error("newEvent.Target() did not unwrap to el")
