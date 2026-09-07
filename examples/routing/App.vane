@@ -26,10 +26,10 @@ func App() core.Node {
 			</nav>
 			<main>
 				{router.Router(
-					router.Route("/",   pages.Home, "Home"),
+					router.Route("/",   pages.Home, router.WithTitle("Home")),
 					router.Layout("/users", pages.UsersLayout,
-						router.Route("",    pages.Users,      "Team"),
-						router.Route(":id", pages.UserDetail, "Member"),
+						router.Route("", pages.Users, router.WithTitle("Team")),
+						router.Route(":id", pages.UserDetail, router.WithTitle("Member")),
 					),
 					router.Route("*", pages.NotFound),
 				)}

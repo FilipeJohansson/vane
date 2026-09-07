@@ -139,7 +139,7 @@ const tutorialStep2AppSnippet = `func App() core.Node {
             </header>
             <main className="main">
                 {router.Router(
-                    router.Route("/", pages.TodoList, "Todo List"),
+                    router.Route("/", pages.TodoList, router.WithTitle("Todo List")),
                 )}
             </main>
         </div>
@@ -307,9 +307,9 @@ const tutorialStep5AppSnippet = `func App() core.Node {
             </header>
             <main className="main">
                 {router.Router(
-                    router.Route("/", pages.TodoList, "All - Todo App"),
-                    router.Route("/active", pages.TodoList, "Active - Todo App"),
-                    router.Route("/completed", pages.TodoList, "Completed - Todo App"),
+                    router.Route("/", pages.TodoList, router.WithTitle("All - Todo App")),
+                    router.Route("/active", pages.TodoList, router.WithTitle("Active - Todo App")),
+                    router.Route("/completed", pages.TodoList, router.WithTitle("Completed - Todo App")),
                 )}
             </main>
         </div>

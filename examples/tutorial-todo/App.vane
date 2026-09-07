@@ -21,9 +21,9 @@ func App() core.Node {
 			</header>
 			<main className="main">
 				{router.Router(
-					router.Route("/", pages.TodoList, "All - Vane Tutorial"),
-					router.Route("/active", pages.TodoList, "Active - Vane Tutorial"),
-					router.Route("/completed", pages.TodoList, "Completed - Vane Tutorial"),
+					router.Route("/", pages.TodoList, router.WithTitle("All - Vane Tutorial")),
+					router.Route("/active", pages.TodoList, router.WithTitle("Active - Vane Tutorial")),
+					router.Route("/completed", pages.TodoList, router.WithTitle("Completed - Vane Tutorial")),
 				)}
 			</main>
 		</div>

@@ -38,19 +38,19 @@ func App() core.Node {
 				{router.Link(router.LinkProps{To: "/users/42"}, "User")}
 			</nav>
 			{router.Router(
-				router.Route("/", pages.Smoke, "Smoke - Vane E2E"),
-				router.Route("/smoke", pages.Smoke, "Smoke - Vane E2E"),
-				router.Route("/rendering", pages.Rendering, "Rendering - Vane E2E"),
-				router.Route("/signals", pages.Signals, "Signals - Vane E2E"),
-				router.Route("/events", pages.Events, "Events - Vane E2E"),
-				router.Route("/lifecycle", pages.Lifecycle, "Lifecycle - Vane E2E"),
-				router.Route("/portals", pages.Portals, "Portals - Vane E2E"),
+				router.Route("/", pages.Smoke, router.WithTitle("Smoke - Vane E2E")),
+				router.Route("/smoke", pages.Smoke, router.WithTitle("Smoke - Vane E2E")),
+				router.Route("/rendering", pages.Rendering, router.WithTitle("Rendering - Vane E2E")),
+				router.Route("/signals", pages.Signals, router.WithTitle("Signals - Vane E2E")),
+				router.Route("/events", pages.Events, router.WithTitle("Events - Vane E2E")),
+				router.Route("/lifecycle", pages.Lifecycle, router.WithTitle("Lifecycle - Vane E2E")),
+				router.Route("/portals", pages.Portals, router.WithTitle("Portals - Vane E2E")),
 				router.Layout("/nested", pages.NestedLayout,
-					router.Route("", pages.NestedHome, "Nested Home - Vane E2E"),
-					router.Route("detail", pages.NestedDetail, "Nested Detail - Vane E2E"),
+					router.Route("", pages.NestedHome, router.WithTitle("Nested Home - Vane E2E")),
+					router.Route("detail", pages.NestedDetail, router.WithTitle("Nested Detail - Vane E2E")),
 				),
-				router.Route("/errors", pages.Errors, "Errors - Vane E2E"),
-				router.Route("/users/:id", pages.User, "User - Vane E2E"),
+				router.Route("/errors", pages.Errors, router.WithTitle("Errors - Vane E2E")),
+				router.Route("/users/:id", pages.User, router.WithTitle("User - Vane E2E")),
 			)}
 			<div data-testid="portal-host"></div>
 		</div>

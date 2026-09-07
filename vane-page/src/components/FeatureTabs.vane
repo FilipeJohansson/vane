@@ -58,8 +58,8 @@ const dataFetchingSnippet = `func Quote() core.Node {
 
 const routerSnippet = `func App() core.Node {
     return router.Router(
-        router.Route("/", Home, "Home"),
-        router.Route("/users/:id", UserPage, "User"),
+        router.Route("/", Home, router.WithTitle("Home")),
+        router.Route("/users/:id", UserPage, router.WithTitle("User")),
         router.Route("*", NotFound),
     )
 }`
