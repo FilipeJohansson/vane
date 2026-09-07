@@ -98,6 +98,8 @@ func App() core.Node {
 
 The full docs site is at [filipejohansson.github.io/vane](https://filipejohansson.github.io/vane/docs): concepts, components, signals & reactivity, JSX syntax, refs & DOM, style, accessibility, routing, head management, portal, error handling, raw HTML, global store, do's and don'ts, and develop & build. New to Vane? Start with the [Tutorial](https://filipejohansson.github.io/vane/docs/tutorial): build a complete todo list app step by step.
 
+See [API_STABILITY.md](API_STABILITY.md) for which packages are covered by Vane's compatibility guarantees and how Deprecated/Experimental APIs are marked.
+
 ## Getting help
 
 - **Bugs** → [GitHub Issues](https://github.com/FilipeJohansson/vane/issues).
