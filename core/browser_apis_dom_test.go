@@ -264,17 +264,17 @@ func TestLocalStorageRoundTrip(t *testing.T) {
 	const key = "vane-test-storage-key"
 	t.Cleanup(func() { js.Global().Get("localStorage").Call("removeItem", key) })
 
-	if _, ok := core.LocalStorage().Get(key); ok {
-		t.Fatal("LocalStorage().Get on an unset key returned ok=true")
+	if _, ok := core.LocalStorageGet(key); ok {
+		t.Fatal("LocalStorageGet on an unset key returned ok=true")
 	}
 
-	core.LocalStorage().Set(key, "hello")
-	got, ok := core.LocalStorage().Get(key)
+	core.LocalStorageSet(key, "hello")
+	got, ok := core.LocalStorageGet(key)
 	if !ok {
-		t.Fatal("LocalStorage().Get after Set returned ok=false")
+		t.Fatal("LocalStorageGet after LocalStorageSet returned ok=false")
 	}
 	if got != "hello" {
-		t.Errorf("LocalStorage().Get() = %q, want %q", got, "hello")
+		t.Errorf("LocalStorageGet() = %q, want %q", got, "hello")
 	}
 }
 

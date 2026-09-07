@@ -55,8 +55,8 @@ func App() core.Node {
             </nav>
             <main className="main">
                 {router.Router(
-                    router.Route("/", pages.Home, "Home"),
-                    router.Route("/about", pages.About, "About"),
+                    router.Route("/", pages.Home, router.WithTitle("Home")),
+                    router.Route("/about", pages.About, router.WithTitle("About")),
                 )}
             </main>
         </div>

@@ -8,9 +8,9 @@ import (
 
 const basicRoutesSnippet = `func App() core.Node {
     return router.Router(
-        router.Route("/",          Home,     "Home"),
-        router.Route("/about",     About,    "About"),
-        router.Route("/users/:id", UserPage, "User"),
+        router.Route("/", Home, router.WithTitle("Home")),
+        router.Route("/about", About, router.WithTitle("About")),
+        router.Route("/users/:id", UserPage, router.WithTitle("User")),
         router.Route("*",          NotFound),
     )
 }`
@@ -22,11 +22,11 @@ const paramsSnippet = `func UserPage() core.Node {
 
 const layoutSnippet = `func App() core.Node {
     return router.Router(
-        router.Route("/", Home, "Home"),
+        router.Route("/", Home, router.WithTitle("Home")),
         router.Layout("/dashboard", DashboardShell,
-            router.Route("",          Dashboard,  "Dashboard"),
-            router.Route("users",     UserList,   "Users"),
-            router.Route("users/:id", UserDetail, "User"),
+            router.Route("", Dashboard, router.WithTitle("Dashboard")),
+            router.Route("users", UserList, router.WithTitle("Users")),
+            router.Route("users/:id", UserDetail, router.WithTitle("User")),
         ),
         router.Route("*", NotFound),
     )
