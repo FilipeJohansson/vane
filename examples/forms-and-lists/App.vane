@@ -22,10 +22,10 @@ func App() core.Node {
 
 	routerEl := func() core.Node {
 		return router.Router(
-			router.Route("/", pages.Home, "Home - vane forms-and-lists"),
-			router.Route("/about", pages.About, "About - vane forms-and-lists"),
-			router.Route("/contact", pages.Contact, "Contact - vane forms-and-lists"),
-			router.Route("*", pages.NotFound, "404 - vane forms-and-lists"),
+			router.Route("/", pages.Home, router.WithTitle("Home - vane forms-and-lists")),
+			router.Route("/about", pages.About, router.WithTitle("About - vane forms-and-lists")),
+			router.Route("/contact", pages.Contact, router.WithTitle("Contact - vane forms-and-lists")),
+			router.Route("*", pages.NotFound, router.WithTitle("404 - vane forms-and-lists")),
 		)
 	}
 

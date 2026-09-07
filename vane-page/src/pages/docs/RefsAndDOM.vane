@@ -139,8 +139,8 @@ func RefsAndDOM() core.Node {
 						{code("WriteClipboardText(s) error"), core.Text("Copy text to the clipboard")},
 						{code("SetRootAttribute(name, value)"), core.Text("Set an attribute on <html> itself, outside Vane's mounted tree")},
 						{code("SetRootStyle(prop, value)"), core.Text("Set one inline CSS property on <html>, e.g. locking scroll while a menu is open")},
-						{code("LocalStorage().Get(key) (string, bool)"), core.Text("Read a localStorage value, ok is false if the key isn't set")},
-						{code("LocalStorage().Set(key, value)"), core.Text("Write a localStorage value")},
+						{code("LocalStorageGet(key) (string, bool)"), core.Text("Read a localStorage value, ok is false if the key isn't set")},
+						{code("LocalStorageSet(key, value)"), core.Text("Write a localStorage value")},
 					},
 				)}
 				<p className="docs-p">
@@ -148,7 +148,7 @@ func RefsAndDOM() core.Node {
 					and a window-wide pointer tracker driving a CSS transform:
 				</p>
 				{components.CodeBlock("Weathervane.vane", refsWindowEventSnippet)}
-				{callout("tip", "Tip", "See the Global store page's theme-persistence example for LocalStorage() used end to end, package-level state loaded once at init and written back on every change.")}
+				{callout("tip", "Tip", "See the Global store page's theme-persistence example for LocalStorageGet/LocalStorageSet used end to end, package-level state loaded once at init and written back on every change.")}
 
 				<h2 className="docs-h2" id="callback-refs">Callback refs</h2>
 				<p className="docs-p">

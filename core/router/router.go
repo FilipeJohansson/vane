@@ -132,16 +132,29 @@ func Outlet() core.Node {
 	return ctxStack[len(ctxStack)-1].outlet
 }
 
+// RouteOption configures optional Route settings. Use one of the With*
+// functions below (e.g. WithTitle) rather than constructing one directly.
+type RouteOption func(*routeConfig)
+
+type routeConfig struct {
+	title string
+}
+
+// WithTitle sets the document title core.Head applies while this route is active.
+func WithTitle(title string) RouteOption {
+	return func(c *routeConfig) { c.title = title }
+}
+
 // Route creates a leaf route entry.
 //
 //	router.Route("/users/:id", UserPage)
-//	router.Route("/users/:id", UserPage, "User Detail")
-func Route(pattern string, fn func() core.Node, title ...string) Entry {
-	t := ""
-	if len(title) > 0 {
-		t = title[0]
+//	router.Route("/users/:id", UserPage, router.WithTitle("User Detail"))
+func Route(pattern string, fn func() core.Node, opts ...RouteOption) Entry {
+	var c routeConfig
+	for _, opt := range opts {
+		opt(&c)
 	}
-	return routeEntry{pattern: pattern, fn: fn, title: t}
+	return routeEntry{pattern: pattern, fn: fn, title: c.title}
 }
 
 // Layout creates a persistent layout entry with nested child routes.

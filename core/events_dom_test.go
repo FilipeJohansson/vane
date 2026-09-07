@@ -74,8 +74,8 @@ func TestOnClickSelfAndTarget(t *testing.T) {
 
 	dispatchMouse(t, child, "click")
 
-	if got.Self() {
-		t.Error("MouseEvent.Self() = true for a listener on parent dispatched from child, want false")
+	if got.IsSelfTarget() {
+		t.Error("MouseEvent.IsSelfTarget() = true for a listener on parent dispatched from child, want false")
 	}
 	if !core.Unwrap(got.Target()).Equal(core.Unwrap(child)) {
 		t.Error("MouseEvent.Target() did not unwrap to the dispatching child")

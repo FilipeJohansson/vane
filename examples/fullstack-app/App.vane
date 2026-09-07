@@ -12,14 +12,14 @@ func App() core.Node {
 	store.RestoreSession()
 
 	return router.Router(
-		router.Route("/", pages.Home, "Fullstack app"),
-		router.Route("/login", pages.Login, "Log in"),
-		router.Route("/register", pages.Register, "Sign up"),
+		router.Route("/", pages.Home, router.WithTitle("Fullstack app")),
+		router.Route("/login", pages.Login, router.WithTitle("Log in")),
+		router.Route("/register", pages.Register, router.WithTitle("Sign up")),
 		router.Layout("/dashboard", layouts.DashboardShell,
-			router.Route("", pages.Dashboard, "Dashboard"),
-			router.Route("users", pages.Users, "Users"),
-			router.Route("users/:id", pages.UserDetail, "User detail"),
-			router.Route("users/:id/notes", pages.UserNotes, "Notes"),
+			router.Route("", pages.Dashboard, router.WithTitle("Dashboard")),
+			router.Route("users", pages.Users, router.WithTitle("Users")),
+			router.Route("users/:id", pages.UserDetail, router.WithTitle("User detail")),
+			router.Route("users/:id/notes", pages.UserNotes, router.WithTitle("Notes")),
 		),
 	)
 }
