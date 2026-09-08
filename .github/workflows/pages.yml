@@ -56,6 +56,17 @@ jobs:
             -e 's|src="/boot.js"|src="/vane/boot.js"|' \
             vane-page/dist/index.html
 
+      # GitHub Pages is a static file host: a deep link like /vane/docs has
+      # no matching file, so Pages serves its own 404 before the app's
+      # client-side router ever loads. Pages special-cases 404.html: it
+      # serves that file's content (still with a 404 status) for any
+      # unmatched path, so shipping a copy of index.html as 404.html boots
+      # the app there too, and the router then renders the real URL from
+      # location.pathname. Must run after the asset-path fix above so the
+      # copy also has /vane/-prefixed asset paths.
+      - name: Create 404.html fallback for client-side routing
+        run: cp vane-page/dist/index.html vane-page/dist/404.html
+
       - uses: actions/upload-pages-artifact@v3
         with:
           path: vane-page/dist
