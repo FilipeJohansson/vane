@@ -176,9 +176,10 @@ func (s *Signal[T]) Get() T {
 	return s.value
 }
 
-// Set stores v and synchronously re-runs every subscriber that read s via
-// Get. Unconditional: there is no check against the previous value, so
-// setting the same value again still re-runs subscribers.
+// Set stores v synchronously, then queues every subscriber that read s via
+// Get for asynchronous re-run on the scheduler. Unconditional: there is no
+// check against the previous value, so setting the same value again still
+// re-runs subscribers.
 func (s *Signal[T]) Set(v T) {
 	s.mutex.Lock()
 	s.value = v
@@ -447,13 +448,15 @@ func Untrack(fn func()) {
 	}
 	effectLock.Unlock()
 
-	fn()
-
 	if saved != nil {
-		effectLock.Lock()
-		effectStack = append(effectStack, saved)
-		effectLock.Unlock()
+		defer func() {
+			effectLock.Lock()
+			effectStack = append(effectStack, saved)
+			effectLock.Unlock()
+		}()
 	}
+
+	fn()
 }
 
 //* Computed[T]

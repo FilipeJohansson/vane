@@ -471,6 +471,44 @@ func TestUntrackedReadInsideEffect(t *testing.T) {
 	}
 }
 
+// TestUntrackPanicRestoresEffectTracking proves that a panic inside the
+// function passed to Untrack does not leave the package-level effect stack
+// corrupted. Untrack pops the current effect off the stack before invoking
+// fn and must restore it whether fn panics or returns normally; otherwise
+// every read that follows loses its subscription to the enclosing effect.
+func TestUntrackPanicRestoresEffectTracking(t *testing.T) {
+	before := signal.DebugEffectStackDepth()
+
+	tracked := signal.New(1)
+	ch := make(chan int, 10)
+
+	dispose := signal.Effect(func() {
+		func() {
+			defer func() { recover() }()
+			signal.Untrack(func() {
+				panic("boom")
+			})
+		}()
+
+		// If Untrack failed to restore the effect stack after the panic
+		// above, this Get() would not resubscribe the current effect.
+		ch <- tracked.Get()
+	})
+	defer dispose()
+
+	<-ch // initial run
+
+	if got := signal.DebugEffectStackDepth(); got != before {
+		t.Fatalf("effect stack depth = %d after effect run settled, want %d (Untrack leaked an entry on panic)", got, before)
+	}
+
+	tracked.Set(2)
+	got := waitEffect(t, ch, "after tracked.Set(2)")
+	if got != 2 {
+		t.Fatalf("want 2, got %d (effect did not resubscribe to tracked after Untrack's fn panicked)", got)
+	}
+}
+
 // TestLoopWatchdogAbortsRunawayEffect proves that an effect which
 // synchronously Sets its own dependency (self-rescheduling forever) gets its
 // flush aborted by the watchdog instead of hanging flushEffects' goroutine in
