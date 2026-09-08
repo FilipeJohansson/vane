@@ -4,6 +4,13 @@ on:
   push:
     tags: ['v*']
   workflow_dispatch:
+    inputs:
+      vane_version:
+        description: >-
+          Vane git tag to build vane-page against, e.g. v0.2.0. Leave empty to
+          use the most recent tag.
+        required: false
+        default: ''
 
 permissions:
   contents: read
@@ -24,6 +31,8 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0 # need full tag history to check out an arbitrary tag below
 
       - uses: actions/setup-go@v6
         with:
@@ -34,6 +43,33 @@ jobs:
 
       - name: Build CLI
         run: go build -o vane .
+
+      # git worktree, not `go get module@tag`: avoids depending on the Go
+      # module proxy having indexed the tag yet.
+      - name: Resolve Vane version to build vane-page against
+        id: vane_ref
+        run: |
+          ref="${{ inputs.vane_version }}"
+          if [ -z "$ref" ]; then
+            if [ "${{ github.ref_type }}" = "tag" ]; then
+              ref="${{ github.ref_name }}"
+            else
+              ref=$(git tag --sort=-v:refname | head -n1)
+            fi
+          fi
+          if [ -z "$ref" ]; then
+            echo "::error::No Vane tag found to build vane-page against."
+            exit 1
+          fi
+          echo "ref=$ref" >> "$GITHUB_OUTPUT"
+
+      - name: Check out that version into a worktree
+        run: git worktree add "$RUNNER_TEMP/vane-ref" "${{ steps.vane_ref.outputs.ref }}"
+
+      - name: Point vane-page at that worktree
+        run: |
+          cd vane-page
+          go mod edit -replace github.com/filipejohansson/vane="$RUNNER_TEMP/vane-ref"
 
       - name: Build vane-page (release)
         run: ./vane build vane-page --release
