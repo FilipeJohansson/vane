@@ -64,7 +64,7 @@ jobs:
           echo "ref=$ref" >> "$GITHUB_OUTPUT"
 
       - name: Check out that version into a worktree
-        run: git worktree add "$RUNNER_TEMP/vane-ref" "${{ steps.vane_ref.outputs.ref }}"
+        run: git worktree add --detach "$RUNNER_TEMP/vane-ref" "${{ steps.vane_ref.outputs.ref }}"
 
       - name: Point vane-page at that worktree
         run: |
