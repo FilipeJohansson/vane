@@ -37,13 +37,13 @@ func main() {
 
 func writeGoldens(repoRoot string, surfaces []Surface) {
 	dir := filepath.Join(repoRoot, goldenDir)
-	if err := os.MkdirAll(dir, 0o755); err != nil {
+	if err := os.MkdirAll(dir, 0o750); err != nil {
 		fmt.Fprintln(os.Stderr, "apisurface:", err)
 		os.Exit(1)
 	}
 	for _, s := range surfaces {
 		path := filepath.Join(dir, s.Package.Golden)
-		if err := os.WriteFile(path, []byte(s.Content), 0o644); err != nil {
+		if err := os.WriteFile(path, []byte(s.Content), 0o600); err != nil {
 			fmt.Fprintln(os.Stderr, "apisurface:", err)
 			os.Exit(1)
 		}
@@ -57,7 +57,7 @@ func checkGoldens(repoRoot string, surfaces []Surface) {
 		rel := filepath.Join(goldenDir, s.Package.Golden)
 		path := filepath.Join(repoRoot, rel)
 
-		want, err := os.ReadFile(path)
+		want, err := os.ReadFile(path) // #nosec G304 -- path is repoRoot joined with one of Package.Golden's hardcoded filenames, not external input
 		if os.IsNotExist(err) {
 			fmt.Fprintln(os.Stderr, "apisurface:", rel, "does not exist yet")
 			mismatch = true
