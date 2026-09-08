@@ -84,19 +84,25 @@ e.g. `fix/router-cleanup`, `docs/security-policy`.
 PRs are squash-merged, so **the PR title becomes the commit message on
 `master`** — individual commit messages inside the PR are discarded. The
 title must follow the same Conventional Commits format; a CI check rejects
-titles that don't.
+titles that don't. [CHANGELOG.md](CHANGELOG.md) is generated from these
+messages by [git-cliff](https://git-cliff.org/) (config: [cliff.toml](cliff.toml)),
+so the footers below are how a PR reaches a specific changelog section
+instead of the generic type-based one.
 
 When opening a PR:
 
 1. Title it `<type>(<scope>): <description>` or `<type>: <description>`.
 2. Is this a breaking change? If yes, mark it in the title with a `!`
    (`fix!: ...`) and add a `BREAKING CHANGE:` footer in the description.
-3. Describe what changed and why, not just what.
-4. Link the issue it closes, if any.
-5. Make sure `go build ./...`, `go test -race ./...`, and `make test-dom`
+3. Does it deprecate a public API? Add a `Deprecated: <symbol> - <reason>`
+   footer. Does it fix a security issue? Add a `Security: <description>`
+   footer instead. Either routes the entry into its own changelog section.
+4. Describe what changed and why, not just what.
+5. Link the issue it closes, if any.
+6. Make sure `go build ./...`, `go test -race ./...`, and `make test-dom`
    pass locally; CI will run the full matrix (including `make test-e2e`)
    automatically.
-6. Expect review feedback — Vane is a small project, response time varies.
+7. Expect review feedback — Vane is a small project, response time varies.
 
 ## License
 
