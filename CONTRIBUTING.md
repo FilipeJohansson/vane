@@ -81,14 +81,22 @@ Conventional Commits `type`s (`feat`, `fix`, `docs`, `test`, `chore`, ...) —
 check `git log` for examples. Branch names follow the same `type/` prefix,
 e.g. `fix/router-cleanup`, `docs/security-policy`.
 
+PRs are squash-merged, so **the PR title becomes the commit message on
+`master`** — individual commit messages inside the PR are discarded. The
+title must follow the same Conventional Commits format; a CI check rejects
+titles that don't.
+
 When opening a PR:
 
-1. Describe what changed and why, not just what.
-2. Link the issue it closes, if any.
-3. Make sure `go build ./...`, `go test -race ./...`, and `make test-dom`
+1. Title it `<type>(<scope>): <description>` or `<type>: <description>`.
+2. Is this a breaking change? If yes, mark it in the title with a `!`
+   (`fix!: ...`) and add a `BREAKING CHANGE:` footer in the description.
+3. Describe what changed and why, not just what.
+4. Link the issue it closes, if any.
+5. Make sure `go build ./...`, `go test -race ./...`, and `make test-dom`
    pass locally; CI will run the full matrix (including `make test-e2e`)
    automatically.
-4. Expect review feedback — Vane is a small project, response time varies.
+6. Expect review feedback — Vane is a small project, response time varies.
 
 ## License
 
