@@ -10,6 +10,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Functional options for router.Route, rename Self() and LocalStorage API (#10)
 
 
+### Added
+- Enhance GitHub Actions workflow to support optional version input for vane-page build (#14)
+
+
 ### Fixed
 - Update permissions in CI and release workflows; upgrade golang.org/x/crypto to v0.46.0 (#9)
 - *(docs)* Add 404.html fallback for client-side routing in GitHub Pages deployment (#13)
