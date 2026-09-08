@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - Update permissions in CI and release workflows; upgrade golang.org/x/crypto to v0.46.0 (#9)
+- *(docs)* Add 404.html fallback for client-side routing in GitHub Pages deployment (#13)
 
 ## [0.2.0] - 2026-09-06
 
