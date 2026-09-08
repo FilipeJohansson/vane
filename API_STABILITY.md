@@ -1,10 +1,38 @@
-# API Stability
+# API Stability & Versioning
 
-This document defines what "stable" means for Vane's public Go packages, and how each
-stability category is marked.
+This document defines what "stable" means for Vane's public Go packages, and how the project
+applies [Semantic Versioning](https://semver.org/) (`MAJOR.MINOR.PATCH`) across the CLI,
+compiler, and runtime.
 
-**Status: pre-v1.0.0.** The guarantees below take effect at `v1.0.0`. Until then, Vane
-follows standard pre-1.0 semver: any API may change in a minor or patch release.
+**Status: pre-v1.0.0.** The guarantees below take effect at `v1.0.0`. Until then, any release
+may include breaking changes, in a minor or even a patch version.
+
+## One version, three surfaces
+
+The CLI, the `.vane` compiler, and the runtime (`core` and its subpackages) share a single
+version number. One git tag — `vX.Y.Z` — is authoritative for all three.
+
+## Pre-1.0.0 (current)
+
+- **Patch** (`0.x.Y`): bug fixes, docs, tests, CI/tooling, non-breaking additions.
+- **Minor** (`0.X.0`): new features, and any breaking change.
+
+## Post-1.0.0
+
+- **Patch**: bug fixes only. No breaking change to the public API, CLI, or `.vane` syntax.
+- **Minor**: backward-compatible additions — new public API, new CLI flags/subcommands, new
+  `.vane` syntax. Existing code keeps compiling and running unchanged.
+- **Major**: breaking changes to any of the three surfaces below.
+
+## What becomes stable at v1.0.0
+
+1. **Public Go API** — the packages and categories below.
+2. **CLI** — flags, subcommands, and output format of `vane init`/`build`/`run`/etc.
+3. **`.vane` language** — syntax accepted by the compiler. New syntax may be added in a minor
+   release; existing valid `.vane` files keep compiling across minor and patch releases.
+
+Each surface is versioned together with the other two, but frozen independently: a change
+affecting only one of them still requires the version bump that change's nature calls for.
 
 ## Public packages
 
@@ -39,14 +67,21 @@ func Bar() {}
 A deprecated symbol stays available for at least one full minor version before removal, and
 is only ever removed in a major release.
 
+The same rule applies to CLI flags (deprecation notice printed for at least one minor version)
+and `.vane` syntax (compiler warning, not error, for at least one minor version) before removal.
+
 ### Experimental
 
 - **A single symbol inside an otherwise-stable package**: its doc comment starts with
   `EXPERIMENTAL:`.
 - **A whole surface still being proven**: a separate import path outside the public packages
   above, promoted into one of them once stable.
+- **A CLI flag or `.vane` feature**: documented as experimental where it's introduced.
 
-Experimental APIs can change or be removed in a minor release.
+Experimental surfaces can change or be removed in a minor release.
+
+TinyGo support follows this rule: it's an experimental build target, not part of the default
+compatibility contract.
 
 ## Enforcement
 
