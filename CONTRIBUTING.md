@@ -84,9 +84,11 @@ e.g. `fix/router-cleanup`, `docs/security-policy`.
 PRs are squash-merged, so **the PR title becomes the commit message on
 `master`** — individual commit messages inside the PR are discarded. The
 title must follow the same Conventional Commits format; a CI check rejects
-titles that don't. [CHANGELOG.md](CHANGELOG.md) is generated from these
-messages by [git-cliff](https://git-cliff.org/) (config: [cliff.toml](cliff.toml)),
-so the footers below are how a PR reaches a specific changelog section
+titles that don't. [CHANGELOG.md](CHANGELOG.md) is regenerated automatically
+after every merge to `master` by
+[.github/workflows/changelog.yml](.github/workflows/changelog.yml), using
+[git-cliff](https://git-cliff.org/) (config: [cliff.toml](cliff.toml)). The footers below are how a PR reaches a specific
+changelog section
 instead of the generic type-based one.
 
 When opening a PR:
