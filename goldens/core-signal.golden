@@ -1,0 +1,21 @@
+func (*Computed[T]).Get() T
+func (*ReadOnlySignal[T]).Get() T
+func (*Scope).Dispose()
+func (*Signal[T]).Get() T
+func (*Signal[T]).ReadOnly() *ReadOnlySignal[T]
+func (*Signal[T]).Set(v T)
+func ComputedOf[T any](fn func(prev T) T) *Computed[T]
+func Effect(fn func()) func()
+func LiveEffectCount() int
+func NewReadOnly[T any](initial T) *ReadOnlySignal[T]
+func New[T any](initial T) *Signal[T]
+func RegisterDispose(fn func())
+func RunScoped(fn func()) *Scope
+func Untrack(fn func())
+func WaitEffects(timeout time.Duration) bool
+type type Computed[T any] struct{baseSignal; value T; effect *effect; mutex sync.Mutex}
+type type ReadOnlySignal[T any] struct{source *Signal[T]}
+type type Scope struct{mu sync.Mutex; disposes []func()}
+type type Signal[T any] struct{baseSignal; value T}
+var EffectPanicHandler func(recovered any)
+var LoopWatchdogHandler func(message string)
