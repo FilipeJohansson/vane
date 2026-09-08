@@ -58,7 +58,7 @@ func main() {
 
 ## Compatibility
 
-- Go: `1.24+`
+- Go: `1.25+`
 - Browsers: current desktop versions of Chrome, Edge, Firefox, and Safari
 - TinyGo: experimental build target for smaller WASM binaries; not part of the default compatibility contract
 
