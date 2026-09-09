@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - Add public API surface check to CI (#17)
 - Enhance documentation with bundle size analysis and improve API reference accuracy (#20)
+- Add tests for version command and argument reordering in CLI (#21)
 
 
 ### Fixed
