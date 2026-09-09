@@ -17,7 +17,7 @@ jobs:
 
       - uses: actions/setup-go@v6
         with:
-          go-version: '1.24.x'
+          go-version: '1.25.x'
           cache-dependency-path: go.work.sum
 
       - uses: actions/setup-node@v6
@@ -51,7 +51,7 @@ jobs:
           version: v2.12.2
 
       - name: Run security scan
-        uses: securego/gosec@v2.22.8
+        uses: securego/gosec@v2.29.0
         with:
           args: ./...
 
@@ -69,7 +69,7 @@ jobs:
 
       - uses: actions/setup-go@v6
         with:
-          go-version: '1.24.x'
+          go-version: '1.25.x'
           cache-dependency-path: go.work.sum
 
       - uses: pnpm/action-setup@v4
@@ -124,7 +124,7 @@ jobs:
 
       - uses: actions/setup-go@v6
         with:
-          go-version: '1.24.x'
+          go-version: '1.25.x'
           cache-dependency-path: go.work.sum
 
       - name: Build CLI

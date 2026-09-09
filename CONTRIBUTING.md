@@ -16,7 +16,7 @@ as code.
 
 ## Project setup
 
-Requires Go 1.24+, Node.js 20+, and [pnpm](https://pnpm.io/).
+Requires Go 1.25+, Node.js 20+, and [pnpm](https://pnpm.io/).
 
 ```bash
 git clone https://github.com/FilipeJohansson/vane.git
