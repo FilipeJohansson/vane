@@ -47,6 +47,7 @@ func App() core.Node {
 						router.Route("accessibility", docs.Accessibility, router.WithTitle("Accessibility | Vane Docs")),
 						router.Route("error-boundary", docs.HandleErrors, router.WithTitle("Handle Errors | Vane Docs")),
 						router.Route("patterns", docs.Patterns, router.WithTitle("Patterns | Vane Docs")),
+						router.Route("bundle-size", docs.BundleSize, router.WithTitle("Analyze Bundle Size | Vane Docs")),
 						router.Route("data-fetching", docs.DataFetching, router.WithTitle("Data Fetching | Vane Docs")),
 						router.Route("lucide-icons", docs.LucideIcons, router.WithTitle("Add Lucide Icons | Vane Docs")),
 						router.Route("html-forms", docs.HTMLForms, router.WithTitle("Build HTML Forms | Vane Docs")),
