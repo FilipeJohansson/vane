@@ -327,10 +327,10 @@ func runWasmOpt(wasmPath string) error {
 	var stderrBuf bytes.Buffer
 	cmd.Stderr = &stderrBuf
 	if err := cmd.Run(); err != nil {
-		_ = os.Remove(tmp)
+		_ = os.Remove(tmp) // #nosec G703 -- tmp is wasmPath+".opt", vane's own build output, not attacker input
 		return fmt.Errorf("wasm-opt: %w\n%s\n(skip with --no-optimize)", err, stderrBuf.String())
 	}
-	return os.Rename(tmp, wasmPath)
+	return os.Rename(tmp, wasmPath) // #nosec G703 -- both paths are vane's own build output, not attacker input
 }
 
 // sourceURLBase: when non-empty, //line directives use this URL prefix instead
