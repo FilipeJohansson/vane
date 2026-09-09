@@ -1,0 +1,2 @@
+func Lookup(name string) (correct string, ok bool)
+var Correct map[string]string

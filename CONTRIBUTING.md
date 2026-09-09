@@ -37,6 +37,7 @@ Run these before opening a PR — they mirror what CI runs in
 ```bash
 go build ./...
 go vet ./...
+go run ./internal/apisurface  # public API surface check, see below
 gofmt -l .              # must print nothing
 go mod verify
 make lint               # golangci-lint
@@ -50,6 +51,27 @@ make test-e2e           # Playwright, real browsers — needs `pnpm install` abo
 `tests/e2e/app` to WASM, and runs it against Chromium, Firefox, and WebKit.
 It's slower than the rest; run it at least once before a PR that touches
 `core/`, `internal/compiler/`, or the router.
+
+### Public API surface check
+
+`core`, `core/router`, `core/signal`, and `core/domattrs` are Vane's frozen
+public API (see [API_STABILITY.md](API_STABILITY.md)). Every exported
+symbol in those packages, including exported methods and struct fields,
+is tracked in a golden file per package under [goldens/](goldens/). CI
+regenerates each golden from current source and fails the PR if it differs,
+whether the change is a rename, a removal, a signature change, or a plain
+addition.
+
+If your PR intentionally changes one of those packages' public surface,
+regenerate the goldens and commit the result:
+
+```bash
+go run ./internal/apisurface -write
+git add goldens/
+```
+
+Without `-write`, the same command only checks the surface against the
+committed goldens and exits non-zero if they don't match.
 
 Optionally, `make install-hooks` sets `git config core.hooksPath .githooks`
 so `git push` runs the CI workflow locally first via
@@ -101,9 +123,9 @@ When opening a PR:
    footer instead. Either routes the entry into its own changelog section.
 4. Describe what changed and why, not just what.
 5. Link the issue it closes, if any.
-6. Make sure `go build ./...`, `go test -race ./...`, and `make test-dom`
-   pass locally; CI will run the full matrix (including `make test-e2e`)
-   automatically.
+6. Make sure `go build ./...`, `go test -race ./...`, `make test-dom`, and
+   `go run ./internal/apisurface` pass locally; CI will run the full matrix
+   (including `make test-e2e`) automatically.
 7. Expect review feedback — Vane is a small project, response time varies.
 
 ## License

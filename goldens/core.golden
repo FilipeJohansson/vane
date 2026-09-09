@@ -1,0 +1,237 @@
+field CheckEvent.Checked bool
+field HTMLProps.Class string
+field HTMLProps.Extra map[string]string
+field HTMLProps.Hidden bool
+field HTMLProps.ID string
+field HTMLProps.OnBlur func(Event)
+field HTMLProps.OnClick func(MouseEvent)
+field HTMLProps.OnDblClick func(MouseEvent)
+field HTMLProps.OnFocus func(Event)
+field HTMLProps.OnKeyDown func(KeyEvent)
+field HTMLProps.OnKeyUp func(KeyEvent)
+field HTMLProps.OnMouseEnter func(MouseEvent)
+field HTMLProps.OnMouseLeave func(MouseEvent)
+field HTMLProps.Role string
+field HTMLProps.Style string
+field HTMLProps.TabIndex int
+field HeadConfig.Canonical string
+field HeadConfig.Description string
+field HeadConfig.Link map[string]string
+field HeadConfig.Meta map[string]string
+field HeadConfig.OGAudio string
+field HeadConfig.OGDescription string
+field HeadConfig.OGDeterminer string
+field HeadConfig.OGImage string
+field HeadConfig.OGLocale string
+field HeadConfig.OGLocaleAlternate string
+field HeadConfig.OGSiteName string
+field HeadConfig.OGTitle string
+field HeadConfig.OGType string
+field HeadConfig.OGURL string
+field HeadConfig.OGVideo string
+field HeadConfig.Title string
+field InputEvent.Value string
+field KeyEvent.Alt bool
+field KeyEvent.Ctrl bool
+field KeyEvent.Key string
+field KeyEvent.Meta bool
+field KeyEvent.Shift bool
+field ListenerOpts.Passive bool
+field MouseEvent.Alt bool
+field MouseEvent.Button int
+field MouseEvent.ClientX float64
+field MouseEvent.ClientY float64
+field MouseEvent.Ctrl bool
+field MouseEvent.Meta bool
+field MouseEvent.Shift bool
+field Rect.Bottom float64
+field Rect.Height float64
+field Rect.Left float64
+field Rect.Right float64
+field Rect.Top float64
+field Rect.Width float64
+field Style.AlignContent string
+field Style.AlignItems string
+field Style.AlignSelf string
+field Style.Animation string
+field Style.Background string
+field Style.BackgroundColor string
+field Style.BackgroundImage string
+field Style.BackgroundPosition string
+field Style.BackgroundRepeat string
+field Style.BackgroundSize string
+field Style.Border string
+field Style.BorderBottom string
+field Style.BorderColor string
+field Style.BorderLeft string
+field Style.BorderRadius string
+field Style.BorderRight string
+field Style.BorderStyle string
+field Style.BorderTop string
+field Style.BorderWidth string
+field Style.Bottom string
+field Style.BoxShadow string
+field Style.Color string
+field Style.ColumnGap string
+field Style.Cursor string
+field Style.Display string
+field Style.Flex string
+field Style.FlexBasis string
+field Style.FlexDirection string
+field Style.FlexGrow string
+field Style.FlexShrink string
+field Style.FlexWrap string
+field Style.FontFamily string
+field Style.FontSize string
+field Style.FontStyle string
+field Style.FontWeight string
+field Style.Gap string
+field Style.GridColumn string
+field Style.GridRow string
+field Style.GridTemplateColumns string
+field Style.GridTemplateRows string
+field Style.Height string
+field Style.JustifyContent string
+field Style.Left string
+field Style.LetterSpacing string
+field Style.LineHeight string
+field Style.ListStyle string
+field Style.Margin string
+field Style.MarginBottom string
+field Style.MarginLeft string
+field Style.MarginRight string
+field Style.MarginTop string
+field Style.MaxHeight string
+field Style.MaxWidth string
+field Style.MinHeight string
+field Style.MinWidth string
+field Style.ObjectFit string
+field Style.ObjectPosition string
+field Style.Opacity string
+field Style.Outline string
+field Style.Overflow string
+field Style.OverflowX string
+field Style.OverflowY string
+field Style.Padding string
+field Style.PaddingBottom string
+field Style.PaddingLeft string
+field Style.PaddingRight string
+field Style.PaddingTop string
+field Style.PointerEvents string
+field Style.Position string
+field Style.Right string
+field Style.RowGap string
+field Style.TextAlign string
+field Style.TextDecoration string
+field Style.TextShadow string
+field Style.TextTransform string
+field Style.Top string
+field Style.Transform string
+field Style.Transition string
+field Style.UserSelect string
+field Style.Visibility string
+field Style.WhiteSpace string
+field Style.Width string
+field Style.WordBreak string
+field Style.ZIndex string
+field TouchEvent.Touches []TouchPoint
+field TouchPoint.ClientX float64
+field TouchPoint.ClientY float64
+func (Event).CurrentTarget() Node
+func (Event).IsSelfTarget() bool
+func (Event).Target() Node
+func (HTMLProps).Apply(el Node)
+func (MouseEvent).CurrentTarget() Node
+func (MouseEvent).IsSelfTarget() bool
+func (MouseEvent).Target() Node
+func (SubmitEvent).Target() Node
+func (TouchEvent).CurrentTarget() Node
+func (TouchEvent).Target() Node
+func Announce(msg string)
+func AppendChild(parent Node, child Node)
+func AppendText(parent Node, text string)
+func BoundingRect(el Node) Rect
+func ComputedOf[T any](fn func(prev T) T) *github.com/filipejohansson/vane/core/signal.Computed[T]
+func DangerousInnerHTML(html string) Node
+func Document() syscall/js.Value
+func DocumentHeight() (scrollHeight float64, clientHeight float64)
+func DynChild(parent Node, fn func() any)
+func DynList(parent Node, fn func() []Node, keyFns ...func() []string)
+func DynProp(el Node, key string, fn func() any)
+func DynStyle(el Node, fn func() Style)
+func DynText(parent Node, fn func() string)
+func Effect(fn func() func())
+func El(tag string) Node
+func ElWithProps(tag string, p HTMLProps, children ...Node) Node
+func Empty() Node
+func Focus(el Node)
+func FocusTrap(el Node) func()
+func Fragment(children ...Node) Node
+func GetElementByID(id string) (Node, bool)
+func Head(fn func() HeadConfig)
+func IsRelease() bool
+func LocalStorageGet(key string) (string, bool)
+func LocalStorageSet(key string, value string)
+func Mount(id string, fn func() Node)
+func NewSignal[T any](initial T) *github.com/filipejohansson/vane/core/signal.Signal[T]
+func NextTick(fn func())
+func Nodes(items ...any) []Node
+func OnBlur(el Node, fn func(e Event))
+func OnChange(el Node, fn func(e InputEvent))
+func OnChecked(el Node, fn func(e CheckEvent))
+func OnClick(el Node, fn func(e MouseEvent))
+func OnDblClick(el Node, fn func(e MouseEvent))
+func OnDispose(fn func())
+func OnDragStart(el Node, fn func(e Event))
+func OnDrop(el Node, fn func(e Event))
+func OnFocus(el Node, fn func(e Event))
+func OnInput(el Node, fn func(e InputEvent))
+func OnKeyDown(el Node, fn func(e KeyEvent))
+func OnKeyUp(el Node, fn func(e KeyEvent))
+func OnMouseEnter(el Node, fn func(e MouseEvent))
+func OnMouseLeave(el Node, fn func(e MouseEvent))
+func OnPointerDown(el Node, fn func(e MouseEvent))
+func OnPointerMove(el Node, fn func(e MouseEvent))
+func OnPointerUp(el Node, fn func(e MouseEvent))
+func OnScroll(el Node, fn func(e Event))
+func OnSubmit(el Node, fn func(e SubmitEvent))
+func OnTouchEnd(el Node, fn func(e TouchEvent))
+func OnTouchStart(el Node, fn func(e TouchEvent))
+func OnWindowEvent(event string, fn func(e Event), opts ...ListenerOpts)
+func OnWindowKeyDown(fn func(e KeyEvent))
+func OnWindowMouseMove(fn func(e MouseEvent))
+func Portal(target any, fn func() Node) Node
+func ScrollIntoView(el Node, smooth bool)
+func ScrollTo(top float64, smooth bool)
+func ScrollY() float64
+func SetProp(el Node, key string, val any)
+func SetRootAttribute(name string, value string)
+func SetRootStyle(prop string, value string)
+func SetStyle(el Node, style Style)
+func Spread(children any) []Node
+func Text(s string) Node
+func Try(fn func() Node, fallback func(err any) Node) (result Node)
+func Untrack(fn func())
+func Unwrap(n Node) syscall/js.Value
+func Viewport() (width float64, height float64)
+func Warn(msg string)
+func Window() syscall/js.Value
+func WriteClipboardText(s string) error
+type type CheckEvent struct{baseEvent; Checked bool}
+type type Computed[T any] = github.com/filipejohansson/vane/core/signal.Computed[T]
+type type Event struct{baseEvent; target syscall/js.Value; currentTarget syscall/js.Value}
+type type HTMLProps struct{Class string; ID string; Style string; Role string; TabIndex int; Hidden bool; OnClick func(MouseEvent); OnFocus func(Event); OnBlur func(Event); OnMouseEnter func(MouseEvent); OnMouseLeave func(MouseEvent); OnDblClick func(MouseEvent); OnKeyDown func(KeyEvent); OnKeyUp func(KeyEvent); Extra map[string]string}
+type type HeadConfig struct{Title string; Description string; Canonical string; OGTitle string; OGImage string; OGType string; OGURL string; OGAudio string; OGDescription string; OGDeterminer string; OGLocale string; OGLocaleAlternate string; OGSiteName string; OGVideo string; Meta map[string]string; Link map[string]string}
+type type InputEvent struct{baseEvent; Value string}
+type type KeyEvent struct{baseEvent; Key string; Meta bool; Ctrl bool; Shift bool; Alt bool}
+type type ListenerOpts struct{Passive bool}
+type type MouseEvent struct{baseEvent; ClientX float64; ClientY float64; Button int; Meta bool; Ctrl bool; Shift bool; Alt bool; target syscall/js.Value; currentTarget syscall/js.Value}
+type type Node interface{unwrap() syscall/js.Value}
+type type ReadOnlySignal[T any] = github.com/filipejohansson/vane/core/signal.ReadOnlySignal[T]
+type type Rect struct{Top float64; Right float64; Bottom float64; Left float64; Width float64; Height float64}
+type type Scope = github.com/filipejohansson/vane/core/signal.Scope
+type type Signal[T any] = github.com/filipejohansson/vane/core/signal.Signal[T]
+type type Style struct{Width string; Height string; MinWidth string; MinHeight string; MaxWidth string; MaxHeight string; Margin string; MarginTop string; MarginRight string; MarginBottom string; MarginLeft string; Padding string; PaddingTop string; PaddingRight string; PaddingBottom string; PaddingLeft string; Display string; Position string; Top string; Right string; Bottom string; Left string; ZIndex string; Overflow string; OverflowX string; OverflowY string; Flex string; FlexDirection string; FlexWrap string; FlexGrow string; FlexShrink string; FlexBasis string; JustifyContent string; AlignItems string; AlignSelf string; AlignContent string; Gap string; RowGap string; ColumnGap string; GridTemplateColumns string; GridTemplateRows string; GridColumn string; GridRow string; Color string; FontSize string; FontWeight string; FontFamily string; FontStyle string; LineHeight string; TextAlign string; TextDecoration string; TextTransform string; WhiteSpace string; WordBreak string; LetterSpacing string; Background string; BackgroundColor string; BackgroundImage string; BackgroundSize string; BackgroundPosition string; BackgroundRepeat string; Border string; BorderTop string; BorderRight string; BorderBottom string; BorderLeft string; BorderRadius string; BorderColor string; BorderWidth string; BorderStyle string; Outline string; Opacity string; BoxShadow string; TextShadow string; Transform string; Transition string; Animation string; Cursor string; Visibility string; PointerEvents string; UserSelect string; ObjectFit string; ObjectPosition string; ListStyle string}
+type type SubmitEvent struct{baseEvent; target syscall/js.Value}
+type type TouchEvent struct{baseEvent; Touches []TouchPoint; target syscall/js.Value; currentTarget syscall/js.Value}
+type type TouchPoint struct{ClientX float64; ClientY float64}

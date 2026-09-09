@@ -1,0 +1,40 @@
+field ActiveLinkProps.ActiveClass string
+field ActiveLinkProps.Exact bool
+field ActiveLinkProps.LinkProps LinkProps
+field LinkProps.HTMLProps github.com/filipejohansson/vane/core.HTMLProps
+field LinkProps.Rel string
+field LinkProps.Target string
+field LinkProps.To string
+field PathLocation.BasePath string
+func (*HashLocation).AnchorID() string
+func (*HashLocation).Href(path string) string
+func (*HashLocation).Navigate(path string)
+func (*HashLocation).OnChange(fn func())
+func (*HashLocation).Path() string
+func (*HashLocation).Replace(path string)
+func (*PathLocation).AnchorID() string
+func (*PathLocation).Href(path string) string
+func (*PathLocation).Navigate(path string)
+func (*PathLocation).OnChange(fn func())
+func (*PathLocation).Path() string
+func (*PathLocation).Replace(path string)
+func ActiveLink(props ActiveLinkProps, children ...any) github.com/filipejohansson/vane/core.Node
+func IsActive(to string) *github.com/filipejohansson/vane/core/signal.ReadOnlySignal[bool]
+func Layout(prefix string, shell func() github.com/filipejohansson/vane/core.Node, children ...Entry) Entry
+func Link(props LinkProps, children ...any) github.com/filipejohansson/vane/core.Node
+func Navigate(to string)
+func Outlet() github.com/filipejohansson/vane/core.Node
+func Params() *github.com/filipejohansson/vane/core/signal.ReadOnlySignal[map[string]string]
+func Path() *github.com/filipejohansson/vane/core/signal.ReadOnlySignal[string]
+func Replace(to string)
+func Route(pattern string, fn func() github.com/filipejohansson/vane/core.Node, opts ...RouteOption) Entry
+func Router(entries ...Entry) github.com/filipejohansson/vane/core.Node
+func SetLocation(loc Location)
+func WithTitle(title string) RouteOption
+type type ActiveLinkProps struct{LinkProps; ActiveClass string; Exact bool}
+type type Entry interface{routerEntry()}
+type type HashLocation struct{onChange func()}
+type type LinkProps struct{github.com/filipejohansson/vane/core.HTMLProps; To string; Target string; Rel string}
+type type Location interface{AnchorID() string; Href(path string) string; Navigate(path string); OnChange(fn func()); Path() string; Replace(path string)}
+type type PathLocation struct{BasePath string; onChange func()}
+type type RouteOption func(*routeConfig)

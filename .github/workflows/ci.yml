@@ -30,6 +30,9 @@ jobs:
       - name: Vet
         run: go vet ./...
 
+      - name: Check API surface
+        run: go run ./internal/apisurface
+
       - name: Check formatting
         run: |
           UNFORMATTED=$(gofmt -l .)
