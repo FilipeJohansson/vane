@@ -383,6 +383,37 @@ func TestVaneBuildRelease(t *testing.T) {
 	}
 }
 
+// TestVaneVersion verifies "vane version" (and its "--version"/"-v" aliases)
+// exit 0 and print a "vane "-prefixed non-empty line, without pinning the
+// exact version string (pseudo-version vs "(devel)" depends on the build
+// environment's VCS state).
+func TestVaneVersion(t *testing.T) {
+	root := vaneRoot(t)
+
+	var outputs = make(map[string]string)
+	for _, alias := range []string{"version", "--version", "-v"} {
+		alias := alias
+		t.Run(alias, func(t *testing.T) {
+			out, err := runVane(t, root, alias)
+			if err != nil {
+				t.Fatalf("vane %s: %v\n%s", alias, err, out)
+			}
+			if !strings.HasPrefix(out, "vane ") {
+				t.Fatalf("vane %s: output should start with %q, got:\n%s", alias, "vane ", out)
+			}
+			if strings.TrimSpace(out) == "vane" {
+				t.Fatalf("vane %s: version placeholder is empty, got:\n%s", alias, out)
+			}
+			outputs[alias] = out
+		})
+	}
+
+	if outputs["version"] != outputs["--version"] || outputs["version"] != outputs["-v"] {
+		t.Errorf("aliases produced different output:\nversion:   %q\n--version: %q\n-v:        %q",
+			outputs["version"], outputs["--version"], outputs["-v"])
+	}
+}
+
 // TestVaneBuildTinygoRelease is the --tinygo counterpart to
 // TestVaneBuildRelease: "vane build --tinygo --release" used to silently
 // ignore --release entirely (cmdBuildTinyGo never received the flag), so a
