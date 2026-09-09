@@ -10,6 +10,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Bump minimum Go version to 1.25 (#18)
 
 
+### Added
+- Add public API surface check to CI (#17)
+
+
 ### Fixed
 - Improve Untrack behavior to restore effect stack on panic and enhance Set documentation (#16)
 
