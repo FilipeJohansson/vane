@@ -154,12 +154,12 @@ func ProjectStructure() core.Node {
 					[]string{"File", "What it is"},
 					[][]core.Node{
 						{code("index.html"), core.Text("The single HTML page that loads the WASM bundle")},
-						{code("boot.js"), core.Text("Same-origin script index.html loads: rewrites deep-link pathnames to a hash, then instantiates app.wasm")},
+						{code("boot.js"), core.Text("Same-origin script index.html loads after wasm_exec.js: resolves its own base path, then instantiates app.wasm")},
 						{code("style.css"), core.Fragment(core.Text("Global reset, CSS custom properties, and every co-located "), code("@import"))},
 						{code("wasm_exec.js"), core.Text("Go's WASM glue code, copied from GOROOT at scaffold time")},
 					},
 				)}
-				{callout("important", "Important", "boot.js runs before wasm_exec.js loads: if the page was reached via a path-based deep link (e.g. /about, no hash) it rewrites the URL to /#/about before the router ever sees it. Without it, refreshing on a deep link would always land on the home route. It's a same-origin <script src> rather than inline, so the app's CSP can use script-src 'self' instead of 'unsafe-inline'.")}
+				{callout("important", "Important", "boot.js only resolves its own base path and instantiates app.wasm — it doesn't handle deep-link routing. Refreshing on a deep link (e.g. /about) works because the production server falls back to 404.html for any unmatched path, letting the WASM app boot and the router take over from there. boot.js is a same-origin <script src> rather than inline, so the app's CSP can use script-src 'self' instead of 'unsafe-inline'.")}
 				<p className="docs-p">
 					Anything else static (favicon, robots.txt, fonts, images) belongs here too,
 					it's copied to <code>dist/</code> untouched, same as the three files above.

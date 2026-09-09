@@ -41,31 +41,15 @@ func stubContent(slug string) core.Node {
 		}
 	})
 
-	sourceHref := "https://github.com/filipejohansson/vane/tree/master/docs"
-	sourceLabel := "Browse the docs on GitHub"
-	if t.HasSource {
-		sourceHref = "https://github.com/filipejohansson/vane/blob/master/docs/" + t.Slug + ".md"
-		sourceLabel = "Read " + t.Title + " on GitHub"
-	}
-
 	return (
 		<>
 			{docsHeader("Documentation", t.Title, t.Summary)}
 			<div className="docs-callout docs-callout--tip">
 				<span className="docs-callout-label">Coming soon</span>
 				<p className="docs-callout-body">
-					This page hasn't been ported into the in-app docs yet. Until
-					then, the full write-up lives in the source repo.
+					This page hasn't been written yet.
 				</p>
 			</div>
-			<a
-				className="btn btn-primary"
-				href={sourceHref}
-				target="_blank"
-				rel="noopener noreferrer"
-			>
-				{sourceLabel}
-			</a>
 			{pageNav(t.Slug)}
 		</>
 	)

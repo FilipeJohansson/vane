@@ -1,0 +1,166 @@
+package docs
+
+import (
+	"github.com/filipejohansson/vane/core"
+	"github.com/filipejohansson/vane/core/router"
+
+	"vane-page/src/components"
+)
+
+const bundleSizeInspectSnippet = `vane build . --release
+ls -la dist/app.wasm
+
+gzip -9 -c dist/app.wasm | wc -c`
+
+const bundleSizeMetricsSnippet = `wasm-opt --metrics --enable-bulk-memory dist/app.wasm -o /dev/null`
+
+const bundleSizeMetricsOutput = `Metrics
+total
+ [exports]      : 4
+ [funcs]        : 6947
+ [globals]      : 8
+ [imports]      : 21
+ [memories]     : 1
+ [memory-data]  : 3765613
+ ...`
+
+func BundleSize() core.Node {
+	core.Head(func() core.HeadConfig {
+		title := "Analyze Bundle Size | Vane Docs"
+		description := "Why the wasm binary is large, and how to inspect and trim it."
+		url := core.Window().Get("location").Get("origin").String() + "/vane/docs/bundle-size"
+		return core.HeadConfig{
+			Title:         title,
+			Description:   description,
+			Canonical:     url,
+			OGTitle:       title,
+			OGDescription: description,
+			OGURL:         url,
+		}
+	})
+
+	items := bundleSizeTOCItems
+
+	return (
+		<div className="docs-page">
+			<article className="docs-article">
+				{docsHeader(
+					"How-to Patterns",
+					"Analyze Bundle Size",
+					"Why the wasm binary is large, and how to inspect and trim it.",
+				)}
+
+				<h2 className="docs-h2" id="why-its-big">Why the binary is large</h2>
+				<p className="docs-p">
+					A JS framework ships app code to a browser that already has a JS engine
+					built in. A Go/WASM app ships its own runtime along with it, goroutine
+					scheduler, garbage collector, reflection support, the parts of the standard
+					library it pulls in, all compiled into <code>app.wasm</code> itself. Most of
+					that cost is fixed: it's there whether the app has one page or fifty.
+				</p>
+				{callout("important", "Important", "This is a real, known tradeoff, not an oversight, and it's why TinyGo exists as an alternative compiler target, see Reducing it below.")}
+
+				<h2 className="docs-h2" id="measured-example">A real example: this docs site</h2>
+				<p className="docs-p">
+					Numbers are more useful than a general warning, so here's this documentation
+					site itself, {"47"} <code>.vane</code> files compiled with the standard Go
+					compiler:
+				</p>
+				{docsTable(
+					[]string{"Build", "app.wasm on disk", "Over the wire (gzip)"},
+					[][]core.Node{
+						{code("vane build"), core.Text("12.3 MB"), core.Text("—")},
+						{code("vane build --release"), core.Text("10.9 MB"), core.Text("2.9 MB")},
+						{core.Text("Live at filipejohansson.github.io/vane"), core.Text("—"), core.Text("3.0 MB (measured via browser DevTools)")},
+					},
+				)}
+				<p className="docs-p">
+					The last row is a real request, not an estimate: <code>app.wasm</code>{" "}
+					served from GitHub Pages, <code>content-encoding: gzip</code>,{" "}
+					<code>content-length: 3163062</code>. It lines up with the local{" "}
+					<code>--release</code> build above, gzip'd, small difference from the exact
+					gzip level and toolchain GitHub Pages uses on its end.
+				</p>
+
+				<h2 className="docs-h2" id="compression">What actually gets downloaded</h2>
+				<p className="docs-p">
+					The 10.9 MB figure above is <code>app.wasm</code>'s size on disk. It is not
+					what a visitor downloads. Virtually every static host, GitHub Pages, Netlify,
+					Cloudflare Pages, S3 behind CloudFront, compresses responses with{" "}
+					<code>Content-Encoding: gzip</code> (some also support brotli) automatically,
+					no configuration needed on Vane's side. For this site that's a{" "}
+					~3.6x reduction: 10.9 MB on disk, 3.0 MB over the wire.
+				</p>
+				<p className="docs-p">
+					Compression cuts download time, it doesn't cut compile time. The browser
+					still has to compile everything in that 10.9 MB once it arrives.{" "}
+					{router.Link(router.LinkProps{To: "/docs/project-structure"}, "boot.js")}{" "}
+					already uses <code>instantiateStreaming</code>, so compilation overlaps with
+					download instead of waiting for it to finish, but a bigger binary is still a
+					bigger binary to compile, compression doesn't change that part.
+				</p>
+				{callout("tip", "Tip", "Don't assume your own host compresses. Confirm it: open your deployed site's Network tab, click the app.wasm request, and check the Response Headers for content-encoding. If it's missing, check your host's docs, most static hosts have gzip on by default, but not literally all of them.")}
+
+				<h2 className="docs-h2" id="reducing-it">Reducing it</h2>
+				<p className="docs-p">
+					See {router.Link(router.LinkProps{To: "/docs/develop-and-build"}, "Develop & Build")}
+					{" "}for what each build flag does (<code>--release</code>,{" "}
+					<code>--no-optimize</code>, <code>--tinygo</code>). What's worth seeing here is
+					the actual size impact of each, measured on a fresh{" "}
+					<code>vane init</code> project (4 pages, about as small as a real app gets):
+				</p>
+				{docsTable(
+					[]string{"Build", "app.wasm on disk", "Gzip'd"},
+					[][]core.Node{
+						{code("vane build"), core.Text("2.6 MB"), core.Text("—")},
+						{code("vane build --release"), core.Text("2.4 MB"), core.Text("748 KB")},
+						{code("vane build --tinygo"), core.Text("~920 KB"), core.Text("~306 KB")},
+						{code("vane build --tinygo --release"), core.Text("~810 KB"), core.Text("~250 KB")},
+					},
+				)}
+				<p className="docs-p">
+					<code>--release</code> alone is a modest win, stripped debug info and{" "}
+					<code>wasm-opt -Oz</code>. TinyGo is the real lever: roughly a third the size
+					even before <code>--release</code> is added on top. (TinyGo's output isn't
+					perfectly byte-reproducible between builds, hence "~" on those two rows, the
+					real variance seen while measuring this page was under 1%.)
+				</p>
+				{callout("important", "Important", "TinyGo's cost is real, not just theoretical: this docs site itself currently fails to build with --tinygo, a gap in TinyGo's own js/wasm net/http port. Try --tinygo early, on your actual app, rather than assuming it'll drop in at the end.")}
+
+				<h2 className="docs-h2" id="inspecting-it">Inspecting your own build</h2>
+				<p className="docs-p">
+					Two numbers matter: the raw file, and what a browser actually pulls over the
+					network. Both are quick to check without installing anything beyond what{" "}
+					<code>vane build</code> already needs:
+				</p>
+				{components.TerminalBlock("Terminal", bundleSizeInspectSnippet)}
+				<p className="docs-p">
+					The <code>gzip -9</code> line approximates what a compressing host will
+					transfer, useful for a quick local check before deploying. For the real,
+					final number, open your deployed site in a browser, DevTools → Network tab,
+					reload, and click the <code>app.wasm</code> request, its Size column and
+					Response Headers are ground truth, same view used to get the live number in
+					the table above.
+				</p>
+				<p className="docs-p">
+					For a breakdown of what's actually inside the binary, function counts, memory
+					data, and so on, <code>wasm-opt</code> (Binaryen) reports metrics if it's
+					already installed on your machine (the same optional tool{" "}
+					<code>--release</code> uses automatically when present):
+				</p>
+				{components.TerminalBlock("Terminal", bundleSizeMetricsSnippet)}
+				{components.PlainBlock("output", bundleSizeMetricsOutput)}
+				<p className="docs-p">
+					<code>[funcs]: 6947</code> on this docs site's release build, most of it the
+					Go runtime and standard library, not app code. There's no Vane-specific
+					bundle analyzer beyond this; <code>go tool nm</code> doesn't work on{" "}
+					<code>js/wasm</code> output, so <code>wasm-opt --metrics</code> is the closest
+					thing available today.
+				</p>
+
+				{pageNav("bundle-size")}
+			</article>
+			{toc(items)}
+		</div>
+	)
+}

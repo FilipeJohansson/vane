@@ -6,12 +6,12 @@ import "strings"
 // entries (heading id + label): the exact data each page already passes to
 // its own toc() sidebar widget, hoisted to package level so Search can walk
 // every page's headings from one place instead of only their Manifest
-// title/summary. Slugs with no written page yet (Stub-only topics like
-// "bundle-size", and "" for Overview) have no entry, section search simply
-// finds nothing for them.
+// title/summary. Slugs with no written page yet (Stub-only topics, and ""
+// for Overview) have no entry, section search simply finds nothing for them.
 var SectionsBySlug = map[string][]tocItem{
 	"api-reference":     apiReferenceTOCItems,
 	"accessibility":     accessibilityTOCItems,
+	"bundle-size":       bundleSizeTOCItems,
 	"components":        componentsTOCItems,
 	"concepts":          conceptsTOCItems,
 	"develop-and-build": developAndBuildTOCItems,

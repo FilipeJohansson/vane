@@ -32,6 +32,14 @@ var accessibilityTOCItems = []tocItem{
 	{"live-regions", "Live regions"},
 }
 
+var bundleSizeTOCItems = []tocItem{
+	{"why-its-big", "Why the binary is large"},
+	{"measured-example", "A real example: this docs site"},
+	{"compression", "What actually gets downloaded"},
+	{"reducing-it", "Reducing it"},
+	{"inspecting-it", "Inspecting your own build"},
+}
+
 var componentsTOCItems = []tocItem{
 	{"basic-components", "Basic components"},
 	{"children", "Children"},
