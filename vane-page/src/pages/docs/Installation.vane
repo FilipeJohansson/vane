@@ -48,13 +48,40 @@ func Installation() core.Node {
 					toolchain. The CLI and every scaffolded app build with the default Go WASM target,
 					so there's no extra runtime install required for the normal path.
 				</p>
-				<p className="docs-p">
-					Current desktop versions of Chrome, Edge, Firefox, and Safari are the supported
-					baseline. Mobile browsers are not formally guaranteed or validated yet, and TinyGo
-					remains an experimental build target rather than part of the default compatibility
-					contract.
-				</p>
 				{callout("tip", "Tip", "TinyGo and wasm-opt are optional, used only for --tinygo and the automatic --release size optimization. Skip them for now, nothing else on this page needs them.")}
+
+				<h2 className="docs-h2" id="compatibility">Compatibility</h2>
+				<p className="docs-p">
+					Browser support:
+				</p>
+				{docsTable(
+					[]string{"Browser", "Support"},
+					[][]core.Node{
+						{core.Text("Chrome"), core.Text("Latest stable release")},
+						{core.Text("Edge"), core.Text("Latest stable release")},
+						{core.Text("Firefox"), core.Text("Latest stable release")},
+						{core.Text("Safari"), core.Text("Latest stable release")},
+						{core.Text("Mobile Safari"), core.Text("Latest stable release")},
+						{core.Text("Android Chrome"), core.Text("Latest stable release")},
+					},
+				)}
+				<p className="docs-p">
+					Platform support:
+				</p>
+				{docsTable(
+					[]string{"Platform", "Support"},
+					[][]core.Node{
+						{core.Text("Linux (amd64)"), core.Text("Primary")},
+						{core.Text("Linux (arm64)"), core.Text("Best-effort")},
+						{core.Text("macOS (amd64)"), core.Text("Best-effort")},
+						{core.Text("macOS (arm64)"), core.Text("Best-effort")},
+						{core.Text("Windows (amd64)"), core.Text("Best-effort")},
+					},
+				)}
+				<p className="docs-p">
+					TinyGo is an experimental build target (<code>--tinygo</code>) for smaller WASM
+					binaries, not part of the default compatibility contract.
+				</p>
 
 				<h2 className="docs-h2" id="install-cli">Install the CLI</h2>
 				<p className="docs-p">

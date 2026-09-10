@@ -99,6 +99,7 @@ var htmlFormsTOCItems = []tocItem{
 
 var installationTOCItems = []tocItem{
 	{"prerequisites", "Prerequisites"},
+	{"compatibility", "Compatibility"},
 	{"install-cli", "Install the CLI"},
 	{"create-project", "Create a new project"},
 	{"run-it", "Run it"},
