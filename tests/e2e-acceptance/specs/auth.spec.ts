@@ -2,8 +2,7 @@ import { expect, test } from '@playwright/test'
 import { registerNewUser } from '../support/auth'
 
 // examples/fullstack-app uses hash-based routing (router.HashLocation, the
-// router package's default) - every URL below needs the leading '#'. See
-// production-acceptance-suite.md for where that was first flagged.
+// router package's default) - every URL below needs the leading '#'.
 
 test('visiting a protected route while logged out redirects to login', async ({ page }) => {
   await page.goto('/#/dashboard')

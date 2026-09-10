@@ -2,11 +2,9 @@ import { defineConfig, devices } from '@playwright/test';
 import { reporters, sharedUse, vaneCommand } from './playwright.shared';
 
 /**
- * Gate 7 (Production Acceptance Testing, see
- * vane-private/internal_docs/1.0.0/production-acceptance-suite.md): drives
- * examples/fullstack-app end-to-end against its real backend, as a separate
- * suite from tests/e2e (see playwright.shared.ts for why it's a separate
- * config, not a second project/webServer entry in the main one).
+ * Drives examples/fullstack-app end-to-end against its real backend, as a
+ * separate suite from tests/e2e (see playwright.shared.ts for why it's a
+ * separate config, not a second project/webServer entry in the main one).
  */
 export default defineConfig({
   testDir: './tests/e2e-acceptance/specs',
@@ -28,9 +26,8 @@ export default defineConfig({
   },
 
   /* Chromium only for now: this suite is slower (real backend, real WASM
-   * boot) than tests/e2e's per-spec cost, and the full 6-project browser
-   * matrix multiplying that is still an open question (see the doc's
-   * "Open questions" section) rather than a settled decision. */
+   * boot) than tests/e2e's per-spec cost, and whether to run the full
+   * multi-browser matrix here too is still undecided. */
   projects: [
     {
       name: 'chromium',
