@@ -12,7 +12,14 @@ permissions:
 jobs:
   checks:
     runs-on: ubuntu-latest
-    if: github.actor != 'github-actions[bot]'
+    # Skip two cases that don't need a fresh run: the changelog bot's own
+    # commit (push already got fully tested before the bot committed), and a
+    # pull_request from a branch inside this repo, which fires push too for
+    # the same SHA (a fork PR never fires push, so it still runs here).
+    if: >-
+      github.actor != 'github-actions[bot]' &&
+      (github.event_name != 'pull_request' ||
+       github.event.pull_request.head.repo.full_name != github.repository)
     steps:
       - uses: actions/checkout@v5
 
