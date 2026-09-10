@@ -105,6 +105,19 @@ var installationTOCItems = []tocItem{
 	{"run-it", "Run it"},
 }
 
+var languageSpecTOCItems = []tocItem{
+	{"scope", "What this page covers"},
+	{"elements", "Elements"},
+	{"components", "Components"},
+	{"fragments", "Fragments"},
+	{"text-and-comments", "Text and comments"},
+	{"expressions-and-spreads", "Expressions and spreads"},
+	{"attributes-and-props", "Attributes and props"},
+	{"control-flow", "Inline control flow"},
+	{"where-it-compiles", "Where .vane syntax compiles"},
+	{"compiler-errors", "Compiler errors"},
+}
+
 var jsxSyntaxTOCItems = []tocItem{
 	{"props-and-events", "Props & events"},
 	{"jsx-rules", "JSX rules"},
