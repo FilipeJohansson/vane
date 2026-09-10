@@ -1,12 +1,6 @@
-import { expect, test, type Page } from '@playwright/test'
+import { expect, test } from '@playwright/test'
 import { registerNewUser } from '../support/auth'
-
-// UserDetail.vane always renders a "← Back to Users" link, so a plain
-// getByRole('link', { name: 'Users' }) is ambiguous once that's on screen -
-// scope sidebar nav lookups to the <nav> element instead.
-function sidebarLink(page: Page, name: string) {
-  return page.getByRole('navigation').getByRole('link', { name })
-}
+import { sidebarLink } from '../support/nav'
 
 test('sidebar links navigate the nested dashboard routes and mark the active one', async ({ page }) => {
   const user = await registerNewUser(page, 'Routing Nav')
