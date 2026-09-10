@@ -1,0 +1,163 @@
+package docs
+
+import (
+	"github.com/filipejohansson/vane/core"
+)
+
+func LanguageSpec() core.Node {
+	core.Head(func() core.HeadConfig {
+		title := ".vane Language Spec | Vane Docs"
+		description := "The syntax .vane files must follow, and what's covered by Vane's compatibility contract."
+		url := core.Window().Get("location").Get("origin").String() + "/vane/docs/language-spec"
+		return core.HeadConfig{
+			Title:         title,
+			Description:   description,
+			Canonical:     url,
+			OGTitle:       title,
+			OGDescription: description,
+			OGURL:         url,
+		}
+	})
+
+	items := languageSpecTOCItems
+
+	return (
+		<div className="docs-page">
+			<article className="docs-article">
+				{docsHeader(
+					"Reference",
+					".vane Language Spec",
+					"The syntax .vane files must follow to compile.",
+				)}
+
+				<h2 className="docs-h2" id="scope">What this page covers</h2>
+				<p className="docs-p">
+					This is a reference for the syntax the <code>.vane</code> compiler accepts:
+					what compiles, what doesn't, and how ambiguous cases resolve. Existing valid{" "}
+					<code>.vane</code> files keep compiling across future minor and patch releases,
+					so anything documented here can be relied on to keep working.{" "}
+					{apiDocLink("concepts", "Concepts")}, {apiDocLink("jsx-syntax", "JSX Syntax")},
+					and {apiDocLink("components", "Components")} stay the place to learn the
+					language; this page is the place to check the exact rule.
+				</p>
+
+				<h2 className="docs-h2" id="elements">Elements</h2>
+				<p className="docs-p">
+					A lowercase tag name compiles to an HTML element, e.g. <code>{"<div>"}</code>{" "}
+					compiles to <code>core.El("div")</code>. Self-closing (<code>{"<br/>"}</code>)
+					and explicitly closed (<code>{"<div></div>"}</code>) forms are both accepted;
+					void elements such as <code>{"<input/>"}</code> don't require children either
+					way. The full static/reactive prop and event tables live on{" "}
+					{apiDocLink("jsx-syntax", "JSX Syntax")}.
+				</p>
+
+				<h2 className="docs-h2" id="components">Components</h2>
+				<p className="docs-p">
+					A tag whose name starts with an uppercase letter is <strong>not</strong> valid
+					vane syntax — components are plain Go function calls, not tags.{" "}
+					<code>{"<Counter/>"}</code> fails to compile with a "not valid vane syntax"
+					error, hinting the fix: call it as an expression, <code>{"{Counter()}"}</code>.
+					This is the language's actual element-vs-component ambiguity rule: the compiler
+					decides purely from the first letter's case, mirroring Go's own
+					exported/unexported convention. See {apiDocLink("components", "Components")} for
+					children, <code>HTMLProps</code>, and the controller/view pattern built on top of
+					this rule.
+				</p>
+
+				<h2 className="docs-h2" id="fragments">Fragments</h2>
+				<p className="docs-p">
+					<code>{"<></>"}</code> groups multiple nodes without a wrapper element, at the
+					root of a <code>return</code> or nested inside another element. A fragment
+					nested inside an element appends its children directly to that parent — no
+					extra wrapper node is emitted for it.
+				</p>
+
+				<h2 className="docs-h2" id="text-and-comments">Text and comments</h2>
+				<p className="docs-p">
+					Plain text inside an element becomes a text node. A <code>{"//"}</code> or{" "}
+					<code>{"/*"}</code> is only treated as a comment marker when nothing but
+					whitespace comes before it in that run of text — right after the previous tag,
+					or at the very start of an element's children. If real text already precedes
+					it, it's left alone:
+				</p>
+				<ul className="docs-list">
+					<li><code>{"http://localhost:8080"}</code> — "http:" comes before the{" "}
+						<code>{"//"}</code>, so it's just text.</li>
+					<li><code>{"Block comments start with /* and end with */"}</code> — words come
+						before the <code>{"/*"}</code>, so it's just text too.</li>
+				</ul>
+				<p className="docs-p">
+					When a <code>{"//"}</code> is recognized as a comment, everything to the end of
+					that physical source line is dropped — including any closing tag that happens
+					to share the line. Writing an element whose entire content is <code>{"//"}</code>{" "}
+					drops that element's own closing tag along with it. Wrap it in a string
+					expression instead — <code>{"{\"//\"}"}</code> — to render it as literal text.
+				</p>
+
+				<h2 className="docs-h2" id="expressions-and-spreads">Expressions and spreads</h2>
+				<p className="docs-p">
+					<code>{"{expr}"}</code> embeds a single reactive child node. <code>{"{slice...}"}</code>{" "}
+					spread compiles to one of two different things depending on what's spread:
+				</p>
+				<ul className="docs-list">
+					<li>Written as a function call, e.g. <code>{"{items()...}"}</code>, it compiles
+						to <code>core.DynList</code> — a reactive, optionally keyed list binding that
+						only touches the DOM nodes that actually changed.</li>
+					<li>Written as a plain value, e.g. a variadic children parameter or an existing{" "}
+						<code>[]core.Node</code> spread as <code>{"{children...}"}</code>, it compiles
+						to <code>core.Fragment(core.Spread(children)...)</code> instead — a plain
+						one-time spread, not a tracked <code>DynList</code>.</li>
+				</ul>
+				<p className="docs-p">
+					See {apiDocLink("jsx-syntax", "JSX Syntax")}'s "Reactive lists" section for the
+					full walkthrough, including <code>key</code>.
+				</p>
+
+				<h2 className="docs-h2" id="attributes-and-props">Attributes and props</h2>
+				<p className="docs-p">
+					A static string prop (<code>{"className=\"card\""}</code>) is set once; a
+					<code>{"{expr}"}</code> prop is reactive and re-applies when a signal it reads
+					changes. A bare boolean attribute, e.g. <code>{"<input disabled/>"}</code>, is
+					treated as an implicit <code>{"{true}"}</code> expression. <code>{"key={expr}"}</code>{" "}
+					and <code>{"ref={...}"}</code> are compiler-recognized special props, not passed
+					through as DOM attributes. The full prop/event name table is on{" "}
+					{apiDocLink("jsx-syntax", "JSX Syntax")}; how those HTML/JSX-style names map onto
+					real DOM properties (and the <code>Extra</code> escape hatch for names with no
+					dedicated field) is on {apiDocLink("components", "Components")}'s{" "}
+					<code>HTMLProps</code> section.
+				</p>
+
+				<h2 className="docs-h2" id="control-flow">Inline control flow</h2>
+				<p className="docs-p">
+					<code>{"{for ...}"}</code>, <code>{"{if ...}"}</code>, and{" "}
+					<code>{"{switch ...}"}</code> may appear directly as JSX children, each compiled
+					to a reactive binding that reruns only when a signal it reads changes. Full
+					syntax and constraints (one JSX element per branch or iteration, wrapping
+					multiple nodes in a fragment, <code>key</code> for keyed loops) are covered on{" "}
+					{apiDocLink("jsx-syntax", "JSX Syntax")} rather than restated here.
+				</p>
+
+				<h2 className="docs-h2" id="where-it-compiles">Where .vane syntax compiles</h2>
+				<p className="docs-p">
+					JSX only compiles inside a <code>return (...)</code> statement. Assigning it to
+					a variable, or leaving a <code>func() core.Node {"{ ... }"}</code> literal
+					uncalled, are both compile errors — the exact patterns and their fixes are
+					covered on {apiDocLink("jsx-syntax", "JSX Syntax")}'s "JSX rules" section.
+				</p>
+
+				<h2 className="docs-h2" id="compiler-errors">Compiler errors</h2>
+				<p className="docs-p">
+					Invalid syntax — an unclosed tag, a wrong closing tag, an unknown event
+					attribute, an uppercase component tag used as an element, and more — fails at
+					compile time with the file, line, and column, a snippet of source with a caret,
+					and, where the mistake maps to a likely correction, a "did you mean" hint. If a{" "}
+					<code>.vane</code> file doesn't compile, the error itself says what's wrong and
+					where — there's nothing here to separately memorize.
+				</p>
+
+				{pageNav("language-spec")}
+			</article>
+			{toc(items)}
+		</div>
+	)
+}

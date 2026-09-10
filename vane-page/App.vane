@@ -53,6 +53,7 @@ func App() core.Node {
 						router.Route("html-forms", docs.HTMLForms, router.WithTitle("Build HTML Forms | Vane Docs")),
 						router.Route("troubleshooting", docs.Troubleshooting, router.WithTitle("Troubleshooting | Vane Docs")),
 						router.Route("tutorial", docs.Tutorial, router.WithTitle("Tutorial: Build a Todo List | Vane Docs")),
+						router.Route("language-spec", docs.LanguageSpec, router.WithTitle(".vane Language Spec | Vane Docs")),
 						router.Route("api-reference", docs.APIReference, router.WithTitle("API Reference | Vane Docs")),
 						router.Route(":slug", docs.Stub),
 					),
