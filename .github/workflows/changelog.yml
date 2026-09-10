@@ -10,7 +10,7 @@ permissions:
 
 jobs:
   update-changelog:
-    if: "!contains(github.event.head_commit.message, '[skip ci]')"
+    if: github.actor != 'github-actions[bot]'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
@@ -55,7 +55,7 @@ jobs:
               `mutation($repositoryNameWithOwner: String!, $expectedHeadOid: GitObjectID!, $contents: Base64String!) {
                 createCommitOnBranch(input: {
                   branch: { repositoryNameWithOwner: $repositoryNameWithOwner, branchName: "master" },
-                  message: { headline: "chore: update CHANGELOG.md [skip ci]" },
+                  message: { headline: "chore: update CHANGELOG.md" },
                   expectedHeadOid: $expectedHeadOid,
                   fileChanges: { additions: [{ path: "CHANGELOG.md", contents: $contents }] }
                 }) {
