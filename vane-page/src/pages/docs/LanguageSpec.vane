@@ -74,20 +74,24 @@ func LanguageSpec() core.Node {
 
 				<h2 className="docs-h2" id="text-and-comments">Text and comments</h2>
 				<p className="docs-p">
-					Plain text inside an element becomes a text node. A <code>{"//"}</code> line
-					comment or <code>{"/* block comment */"}</code> is stripped from the compiled
-					output only when it's the entire text between two tags, with nothing else on
-					either side. If other text surrounds it, it's left untouched:
+					Plain text inside an element becomes a text node. A <code>{"//"}</code> or{" "}
+					<code>{"/*"}</code> is only treated as a comment marker when nothing but
+					whitespace comes before it in that run of text — right after the previous tag,
+					or at the very start of an element's children. If real text already precedes
+					it, it's left alone:
 				</p>
 				<ul className="docs-list">
-					<li><code>{"http://localhost:8080"}</code> — the <code>{"//"}</code> sits inside
-						a longer piece of text (the URL), not alone.</li>
-					<li><code>{"Block comments start with /* and end with */"}</code> — a sentence
-						like this, explaining comment syntax, keeps its <code>{"/*"}</code> and{" "}
-						<code>{"*/"}</code> exactly as written, since neither sits alone.</li>
+					<li><code>{"http://localhost:8080"}</code> — "http:" comes before the{" "}
+						<code>{"//"}</code>, so it's just text.</li>
+					<li><code>{"Block comments start with /* and end with */"}</code> — words come
+						before the <code>{"/*"}</code>, so it's just text too.</li>
 				</ul>
 				<p className="docs-p">
-					Both compile untouched, character for character.
+					When a <code>{"//"}</code> is recognized as a comment, everything to the end of
+					that physical source line is dropped — including any closing tag that happens
+					to share the line. Writing an element whose entire content is <code>{"//"}</code>{" "}
+					drops that element's own closing tag along with it. Wrap it in a string
+					expression instead — <code>{"{\"//\"}"}</code> — to render it as literal text.
 				</p>
 
 				<h2 className="docs-h2" id="expressions-and-spreads">Expressions and spreads</h2>
@@ -96,12 +100,12 @@ func LanguageSpec() core.Node {
 					spread compiles to one of two different things depending on what's spread:
 				</p>
 				<ul className="docs-list">
-					<li>A call whose return type is a slice, e.g. <code>{"{items()...}"}</code>,
-						compiles to <code>core.DynList</code> — a reactive, optionally keyed list
-						binding that only touches the DOM nodes that actually changed.</li>
-					<li>A variadic children parameter or an existing <code>[]core.Node</code> value,
-						e.g. <code>{"{children...}"}</code>, compiles to{" "}
-						<code>core.Fragment(core.Spread(children)...)</code> instead — a plain
+					<li>Written as a function call, e.g. <code>{"{items()...}"}</code>, it compiles
+						to <code>core.DynList</code> — a reactive, optionally keyed list binding that
+						only touches the DOM nodes that actually changed.</li>
+					<li>Written as a plain value, e.g. a variadic children parameter or an existing{" "}
+						<code>[]core.Node</code> spread as <code>{"{children...}"}</code>, it compiles
+						to <code>core.Fragment(core.Spread(children)...)</code> instead — a plain
 						one-time spread, not a tracked <code>DynList</code>.</li>
 				</ul>
 				<p className="docs-p">
