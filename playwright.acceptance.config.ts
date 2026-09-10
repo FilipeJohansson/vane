@@ -24,7 +24,7 @@ export default defineConfig({
   reporter: reporters('test-results/acceptance/playwright.json', 'playwright-report/acceptance'),
   use: {
     ...sharedUse,
-    baseURL: 'http://localhost:4174',
+    baseURL: 'http://localhost:8080',
   },
 
   /* Chromium only for now: this suite is slower (real backend, real WASM
@@ -46,8 +46,12 @@ export default defineConfig({
       timeout: 60 * 1000,
     },
     {
-      command: `${vaneCommand} run examples/fullstack-app --port 4174`,
-      url: 'http://localhost:4174',
+      // Port 8080, not e.g. 4174: examples/fullstack-app/api/middleware.go
+      // hardcodes its CORS Access-Control-Allow-Origin to localhost:8080 (the
+      // README's documented manual `vane run` port), so any other port gets a
+      // browser-side "Failed to fetch" on every API call.
+      command: `${vaneCommand} run examples/fullstack-app --port 8080`,
+      url: 'http://localhost:8080',
       reuseExistingServer: !process.env.CI,
       timeout: 120 * 1000,
     },
