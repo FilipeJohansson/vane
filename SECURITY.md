@@ -13,6 +13,12 @@ fixes; there are no parallel maintenance branches yet.
 Once `v1.0.0` ships, this table will be updated with a concrete support
 window covering more than just the latest release.
 
+## Dependency updates
+
+Dependabot security alerts are reviewed within one week of being opened.
+Outside of security alerts, dependencies (`go.mod`, `package.json`) are
+updated manually before each release rather than on a fixed schedule.
+
 ## Reporting a vulnerability
 
 **Do not open a public GitHub issue for security vulnerabilities.**
