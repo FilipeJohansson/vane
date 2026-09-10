@@ -19,6 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - Improve Untrack behavior to restore effect stack on panic and enhance Set documentation (#16)
+- Repair tag-triggered CI, release, and Pages deploy pipeline (#24)
 
 ## [0.3.0] - 2026-09-08
 
