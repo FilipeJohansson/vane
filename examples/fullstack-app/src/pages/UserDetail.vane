@@ -102,7 +102,7 @@ func UserDetail() core.Node {
 		}
 		if isSelf() {
 			return (
-				<div className="detail-card">
+				<form className="detail-card" onSubmit={func(core.SubmitEvent) { handleSave() }}>
 					{ui.Field(ui.FieldProps{Label: "Name", ID: "edit-name", Required: true}, name)}
 					<p className="field-static"><span className="field-label">Email</span>{user.Get().Email}</p>
 					<p className="field-static"><span className="field-label">Joined</span>{user.Get().JoinedDate()}</p>
@@ -112,14 +112,14 @@ func UserDetail() core.Node {
 					}}
 
 					<div className="detail-actions">
-						{ui.Button(ui.ButtonProps{Disabled: saving.Get(), OnClick: func(core.MouseEvent) { handleSave() }}, "Save changes")}
+						{ui.Button(ui.ButtonProps{Type: "submit", Disabled: saving.Get()}, "Save changes")}
 						{ui.Button(ui.ButtonProps{Variant: "danger", Disabled: deleting.Get(), OnClick: func(core.MouseEvent) { handleDelete() }}, "Delete account")}
 						{router.Link(router.LinkProps{
 							To:        fmt.Sprintf("/dashboard/users/%d/notes", user.Get().ID),
 							HTMLProps: core.HTMLProps{Class: "btn btn-secondary"},
 						}, "View notes")}
 					</div>
-				</div>
+				</form>
 			)
 		}
 		return (
