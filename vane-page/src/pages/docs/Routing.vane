@@ -44,13 +44,31 @@ func DashboardShell() core.Node {
     )
 }`
 
-const locationSnippet = `router.SetLocation(&router.PathLocation{})
+const locationSnippet = `func App() core.Node {
+    router.SetLocation(&router.HashLocation{})
 
-func App() core.Node {
     return router.Router(...)
 }`
 
 const basePathSnippet = `router.SetLocation(&router.PathLocation{BasePath: "/my-app"})`
+
+const serverConfigNginxSnippet = `location / {
+  try_files $uri $uri/ /index.html;
+}`
+
+const serverConfigApacheSnippet = `Options -MultiViews
+RewriteEngine On
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteRule ^ index.html [QSA,L]`
+
+const serverConfigNetlifySnippet = `[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200`
+
+const serverConfigVercelSnippet = `{
+  "rewrites": [{ "source": "/(.*)", "destination": "/index.html" }]
+}`
 
 const navigationSnippet = `router.Link(router.LinkProps{To: "/about"}, "About")
 
@@ -81,7 +99,7 @@ const activeLinkSnippet = `router.ActiveLink(router.ActiveLinkProps{
 func Routing() core.Node {
 	core.Head(func() core.HeadConfig {
 		title := "Routing | Vane Docs"
-		description := "Routing with router.Route, router.Layout, URL params, Link, and ActiveLink - hash-based by default, or real paths via PathLocation."
+		description := "Routing with router.Route, router.Layout, URL params, Link, and ActiveLink - real paths by default, or hash-based via HashLocation."
 		url := core.Window().Get("location").Get("origin").String() + "/vane/docs/routing"
 		return core.HeadConfig{
 			Title:         title,
@@ -101,7 +119,7 @@ func Routing() core.Node {
 				{docsHeader(
 					"Data & Navigation",
 					"Routing",
-					"Components run once on mount, the previous route's effects are disposed on navigation. Hash-based URLs by default, or real paths via PathLocation.",
+					"Components run once on mount, the previous route's effects are disposed on navigation. Real paths by default, or hash-based URLs via HashLocation.",
 				)}
 
 				<h2 className="docs-h2" id="basic-routes">Basic routes</h2>
@@ -115,18 +133,11 @@ func Routing() core.Node {
 				<h2 className="docs-h2" id="url-modes">Hash vs Path routing</h2>
 				<p className="docs-p">
 					The router represents the current route in the browser's URL through a{" "}
-					<code>router.Location</code>. The default, <code>router.HashLocation</code>,
-					stores the route after a <code>#</code> (e.g. <code>/#/dashboard</code>) and works
-					on any static host with zero server configuration - the fragment is never sent to
-					the server, so a page refresh or a shared link always resolves to the same file.
+					<code>router.Location</code>. The default, <code>router.PathLocation</code>,
+					represents the route as a real pathname (e.g. <code>/dashboard</code>), using the
+					browser's History API to navigate without a full page reload.
 				</p>
-				<p className="docs-p">
-					Call <code>router.SetLocation</code> before the router is first used to opt into{" "}
-					<code>router.PathLocation</code> instead, which represents the route as a real
-					pathname (e.g. <code>/dashboard</code>).
-				</p>
-				{components.CodeBlock("App.vane", locationSnippet)}
-				{callout("important", "Important", "PathLocation needs the host to serve index.html for any path that isn't a real file (a \"SPA fallback\"), since a direct load or refresh of e.g. /dashboard is a real request for that path. HashLocation never needs this: the server only ever sees \"/\".")}
+				{callout("important", "Important", "PathLocation needs the host to serve index.html for any path that isn't a real file (a \"SPA fallback\"), since a direct load or refresh of e.g. /dashboard is a real request for that path - see \"Server configuration\" below for how to set that up on common hosts.")}
 				<p className="docs-p">
 					Set <code>BasePath</code> when the app is deployed under a sub-path (e.g.{" "}
 					<code>https://example.com/my-app/</code>). It defaults to the root and doesn't need
@@ -134,6 +145,30 @@ func Routing() core.Node {
 				</p>
 				{components.CodeBlock("App.vane", basePathSnippet)}
 				{callout("tip", "Tip", "PathLocation doesn't use the URL fragment for routing, so a plain <a href=\"#section\"> keeps working as a native same-page anchor link - something HashLocation can't offer, since it treats the whole fragment as the route.")}
+				<p className="docs-p">
+					Call <code>router.SetLocation</code> before the router is first used to opt into{" "}
+					<code>router.HashLocation</code> instead, which stores the route after a{" "}
+					<code>#</code> (e.g. <code>/#/dashboard</code>) and works on any static host with
+					zero server configuration - the fragment is never sent to the server, so a page
+					refresh or a shared link always resolves to the same file. Trade-off: no in-page
+					anchor links (the whole fragment is the route) and no server-visible URL for
+					analytics or SEO.
+				</p>
+				{components.CodeBlock("App.vane", locationSnippet)}
+
+				<h2 className="docs-h2" id="server-config">Server configuration</h2>
+				<p className="docs-p">
+					A direct load or refresh of a non-root route (e.g. <code>/dashboard</code>) is a
+					real request the host has to answer, and a plain static file server has no file at
+					that path. Point it at <code>index.html</code> instead for any path it doesn't
+					recognize, so Vane's own router can take over once the page loads. Skip this
+					section entirely by using <code>HashLocation</code> above, which never needs it.
+				</p>
+				{components.PlainBlock("nginx.conf", serverConfigNginxSnippet)}
+				{components.PlainBlock(".htaccess", serverConfigApacheSnippet)}
+				{components.PlainBlock("netlify.toml", serverConfigNetlifySnippet)}
+				{components.PlainBlock("vercel.json", serverConfigVercelSnippet)}
+				{callout("important", "GitHub Pages", "GitHub Pages serves static files with no rewrite rules at all, so the fix above doesn't apply. Either switch to HashLocation, or copy the built index.html to 404.html in your deploy step - GitHub Pages serves 404.html's content for any unmatched path (keeping the real URL in the address bar), which boots the app and lets PathLocation read the actual path from there.")}
 
 				<h2 className="docs-h2" id="url-params">URL params</h2>
 				<p className="docs-p">
