@@ -1,23 +1,9 @@
-import { expect, test, type Page } from '@playwright/test'
+import { expect, test } from '@playwright/test'
+import { registerNewUser } from '../support/auth'
 
 // examples/fullstack-app uses hash-based routing (router.HashLocation, the
 // router package's default) - every URL below needs the leading '#'. See
 // production-acceptance-suite.md for where that was first flagged.
-
-async function registerNewUser(page: Page, name: string) {
-  const email = `${name.toLowerCase().replace(/\s+/g, '.')}.${Date.now()}.${Math.floor(Math.random() * 1e6)}@test.com`
-  const password = 'password123'
-
-  await page.goto('/#/register')
-  await page.getByLabel('Name').fill(name)
-  await page.getByLabel('Email').fill(email)
-  await page.getByLabel('Password', { exact: true }).fill(password)
-  await page.getByLabel('Confirm password').fill(password)
-  await page.getByRole('button', { name: 'Sign up' }).click()
-  await page.waitForURL(/#\/dashboard$/)
-
-  return { email, password }
-}
 
 test('visiting a protected route while logged out redirects to login', async ({ page }) => {
   await page.goto('/#/dashboard')
