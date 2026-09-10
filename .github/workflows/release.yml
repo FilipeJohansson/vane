@@ -16,11 +16,9 @@ jobs:
   checks:
     uses: ./.github/workflows/ci.yml
 
-  release:
+  build:
     needs: checks
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
     strategy:
       matrix:
         include:
@@ -45,10 +43,34 @@ jobs:
           [ "${{ matrix.goos }}" = "windows" ] && ext=".exe"
           go build -o "vane-${{ matrix.goos }}-${{ matrix.goarch }}${ext}" .
 
-      - name: Upload release asset
+      - uses: actions/upload-artifact@v4
+        with:
+          name: vane-${{ matrix.goos }}-${{ matrix.goarch }}
+          path: vane-${{ matrix.goos }}-${{ matrix.goarch }}*
+          retention-days: 1
+
+  # One non-matrix job publishes the release with every artifact attached, so
+  # generate_release_notes only runs once instead of once per build leg.
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      # `checks` runs ci.yml's whole workflow (via workflow_call), whose `e2e`
+      # job also uploads artifacts (playwright-report, playwright-test-results)
+      # into this same run. `pattern` keeps this step to only the binaries
+      # this job's own `build` job produced.
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          pattern: vane-*
+          merge-multiple: true
+
+      - name: Create release with all binaries
         uses: softprops/action-gh-release@v2
         with:
-          files: vane-*
+          files: dist/*
           generate_release_notes: true
 
   # go install/go get resolve through proxy.golang.org, which lazily
