@@ -1,0 +1,30 @@
+package ui
+
+import (
+	"github.com/filipejohansson/vane/core"
+)
+
+// Modal renders through core.Portal into #modal-root (see App.vane), so its
+// DOM sits outside the page's own tree regardless of which page opened it.
+func Modal(ctrl *ModalCtrl) core.Node {
+	return core.Portal("#modal-root", func() core.Node {
+		if !ctrl.open.Get() {
+			return nil
+		}
+
+		confirmFn := ctrl.onConfirm
+
+		return (
+			<div className="modal-overlay">
+				<div className="modal-box">
+					<h2 className="modal-title">{ctrl.title.Get()}</h2>
+					<p className="modal-body">{ctrl.body.Get()}</p>
+					<div className="modal-actions">
+						<button className="btn btn-danger" onClick={func(core.MouseEvent) { confirmFn() }}>Confirm</button>
+						<button className="btn btn-secondary" onClick={func(core.MouseEvent) { ctrl.Close() }}>Cancel</button>
+					</div>
+				</div>
+			</div>
+		)
+	})
+}

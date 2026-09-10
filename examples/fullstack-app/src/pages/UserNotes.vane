@@ -44,7 +44,12 @@ func UserNotes() core.Node {
 
 	notes := core.NewSignal([]api.Note{})
 	loading := core.NewSignal(true)
-	errMsg := core.NewSignal("")
+	errMsg := core.NewSignal("") // create/delete action errors, shown next to the form
+
+	// loadErr is separate from errMsg: it's the list fetch's own failure, guarded
+	// by the core.Try boundary in body() below, not shown inline like action errors.
+	loadErr := core.NewSignal("")
+	reload := core.NewSignal(0)
 
 	newTitle := core.NewSignal("")
 	newBody := core.NewSignal("")
@@ -53,19 +58,24 @@ func UserNotes() core.Node {
 	core.Effect(func() func() {
 		id := idOf()
 		token := store.Token.Get()
+		reload.Get()
 		loading.Set(true)
-		errMsg.Set("")
+		loadErr.Set("")
 		go func() {
 			defer loading.Set(false)
 			list, err := api.ListNotes(token, id)
 			if err != nil {
-				errMsg.Set(err.Error())
+				loadErr.Set(err.Error())
 				return
 			}
 			notes.Set(list)
 		}()
 		return nil
 	})
+
+	retryLoad := func() {
+		reload.Set(reload.Get() + 1)
+	}
 
 	handleCreate := func() {
 		title := newTitle.Get()
@@ -117,17 +127,33 @@ func UserNotes() core.Node {
 		return nodes
 	}
 
+	// body is a core.Try error boundary around the note list itself: a failed
+	// fetch panics (caught right here, in the same binding that reads
+	// loadErr) instead of leaving the page in a permanently-empty state, and
+	// the fallback offers a real retry rather than just a static message.
 	body := func() core.Node {
-		if loading.Get() {
-			return (<p className="status">Loading…</p>)
-		}
-		if errMsg.Get() != "" {
-			return (<p className="auth-error">{errMsg.Get()}</p>)
-		}
-		if len(notes.Get()) == 0 {
-			return (<p className="status">No notes yet.</p>)
-		}
-		return (<div className="notes-list">{cards()...}</div>)
+		return core.Try(
+			func() core.Node {
+				if loading.Get() {
+					return (<p className="status">Loading…</p>)
+				}
+				if loadErr.Get() != "" {
+					panic(loadErr.Get())
+				}
+				if len(notes.Get()) == 0 {
+					return (<p className="status">No notes yet.</p>)
+				}
+				return (<div className="notes-list">{cards()...}</div>)
+			},
+			func(err any) core.Node {
+				return (
+					<div className="notes-error">
+						<p className="auth-error">Couldn't load notes: {fmt.Sprint(err)}</p>
+						<button className="btn btn-secondary" onClick={func(core.MouseEvent) { retryLoad() }}>Retry</button>
+					</div>
+				)
+			},
+		)
 	}
 
 	form := func() core.Node {
@@ -148,6 +174,9 @@ func UserNotes() core.Node {
 					value={newBody.Get()}
 					onInput={func(e core.InputEvent) { newBody.Set(e.Value) }}
 				></textarea>
+				{if errMsg.Get() != "" {
+					<p className="auth-error">{errMsg.Get()}</p>
+				}}
 				{ui.Button(ui.ButtonProps{Disabled: creating.Get(), OnClick: func(core.MouseEvent) { handleCreate() }}, "Add note")}
 			</div>
 		)

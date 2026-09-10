@@ -19,6 +19,8 @@ func UserDetail() core.Node {
 	saving := core.NewSignal(false)
 	errMsg := core.NewSignal("")
 	notFound := core.NewSignal(false)
+	deleting := core.NewSignal(false)
+	modal := ui.NewModalCtrl()
 
 	core.Effect(func() func() {
 		idStr := params.Get()["id"]
@@ -63,17 +65,28 @@ func UserDetail() core.Node {
 		}()
 	}
 
-	handleDelete := func() {
+	confirmDelete := func() {
 		token := store.Token.Get()
 		id := user.Get().ID
+		deleting.Set(true)
 		go func() {
+			defer deleting.Set(false)
 			if err := api.DeleteUser(token, id); err != nil {
+				modal.Close()
 				errMsg.Set(err.Error())
 				return
 			}
 			store.Logout()
 			router.Navigate("/login")
 		}()
+	}
+
+	handleDelete := func() {
+		modal.Confirm(
+			"Delete account?",
+			"This permanently deletes your account and all of your notes. This cannot be undone.",
+			confirmDelete,
+		)
 	}
 
 	isSelf := func() bool {
@@ -89,7 +102,7 @@ func UserDetail() core.Node {
 		}
 		if isSelf() {
 			return (
-				<div className="detail-card">
+				<form className="detail-card" onSubmit={func(core.SubmitEvent) { handleSave() }}>
 					{ui.Field(ui.FieldProps{Label: "Name", ID: "edit-name", Required: true}, name)}
 					<p className="field-static"><span className="field-label">Email</span>{user.Get().Email}</p>
 					<p className="field-static"><span className="field-label">Joined</span>{user.Get().JoinedDate()}</p>
@@ -99,14 +112,14 @@ func UserDetail() core.Node {
 					}}
 
 					<div className="detail-actions">
-						{ui.Button(ui.ButtonProps{Disabled: saving.Get(), OnClick: func(core.MouseEvent) { handleSave() }}, "Save changes")}
-						{ui.Button(ui.ButtonProps{Variant: "danger", OnClick: func(core.MouseEvent) { handleDelete() }}, "Delete account")}
+						{ui.Button(ui.ButtonProps{Type: "submit", Disabled: saving.Get()}, "Save changes")}
+						{ui.Button(ui.ButtonProps{Variant: "danger", Disabled: deleting.Get(), OnClick: func(core.MouseEvent) { handleDelete() }}, "Delete account")}
 						{router.Link(router.LinkProps{
 							To:        fmt.Sprintf("/dashboard/users/%d/notes", user.Get().ID),
 							HTMLProps: core.HTMLProps{Class: "btn btn-secondary"},
 						}, "View notes")}
 					</div>
-				</div>
+				</form>
 			)
 		}
 		return (
@@ -129,6 +142,7 @@ func UserDetail() core.Node {
 			<h1 className="page-title">User detail</h1>
 			{router.Link(router.LinkProps{To: "/dashboard/users", HTMLProps: core.HTMLProps{Class: "back-link"}}, "← Back to Users")}
 			{body()}
+			{ui.Modal(modal)}
 		</div>
 	)
 }

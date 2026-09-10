@@ -11,7 +11,10 @@
     "e2e:webkit": "playwright test tests/e2e/specs --project=webkit",
     "e2e:ui": "playwright test --ui",
     "e2e:debug": "playwright test --debug",
-    "e2e:report": "playwright show-report"
+    "e2e:report": "playwright show-report",
+    "e2e:acceptance": "playwright test --config=playwright.acceptance.config.ts",
+    "e2e:acceptance:headed": "playwright test --config=playwright.acceptance.config.ts --headed",
+    "e2e:acceptance:report": "playwright show-report playwright-report/acceptance"
   },
   "keywords": ["vane", "e2e", "playwright", "webassembly"],
   "author": "Filipe Johansson",

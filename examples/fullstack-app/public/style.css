@@ -260,11 +260,41 @@ code {
   padding: 1rem 1.25rem;
 }
 
+.notes-error { display: flex; flex-direction: column; align-items: flex-start; gap: 0.6rem; }
+
 .note-header { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
 .note-title { font-size: 1rem; font-weight: 600; }
 .note-delete { padding: 0.25rem 0.5rem; font-size: 0.8rem; }
 .note-body { color: var(--muted); font-size: 0.9rem; margin-top: 0.35rem; white-space: pre-wrap; }
 .note-date { color: var(--hint); font-size: 0.75rem; display: block; margin-top: 0.5rem; }
+
+/** modal */
+
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(2px);
+  display: grid;
+  place-items: center;
+  z-index: 100;
+}
+
+.modal-box {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 2rem;
+  max-width: 400px;
+  width: calc(100% - 2rem);
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.modal-title { font-size: 1.1rem; font-weight: 700; color: var(--text); }
+.modal-body { color: var(--muted); line-height: 1.6; font-size: 0.92rem; }
+.modal-actions { display: flex; gap: 0.75rem; justify-content: flex-end; margin-top: 0.5rem; }
 
 /** responsive */
 

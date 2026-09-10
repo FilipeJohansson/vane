@@ -47,6 +47,7 @@ func DashboardShell() core.Node {
 				</div>
 			</aside>
 			<main className="content">{router.Outlet()}</main>
+			<div id="modal-root"></div>
 		</div>
 	)
 }
