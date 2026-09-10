@@ -167,3 +167,17 @@ test('a navigation with a fragment scrolls to that element instead of the page t
   await expect(page).toHaveURL(/\/smoke#target-section$/)
   await expect(page.getByTestId('target-section')).toBeInViewport()
 })
+
+// A Layout shell whose mount Effect redirects away when logged out. Browser
+// back after that redirect re-mounts the shell fresh, which must re-fire
+// the same redirect rather than briefly exposing the guarded content again.
+test('a mount guard re-fires on browser back after logging out', async ({ page }) => {
+  await page.goto('/guard')
+  await expect(page.getByTestId('guard-status')).toBeVisible()
+
+  await page.getByRole('button', { name: 'Log out' }).click()
+  await expect(page).toHaveURL(/\/smoke$/)
+
+  await page.goBack()
+  await expect(page).toHaveURL(/\/smoke$/)
+})

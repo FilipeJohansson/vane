@@ -35,6 +35,7 @@ func App() core.Node {
 				{router.Link(router.LinkProps{To: "/nested"}, "Nested")}
 				{router.Link(router.LinkProps{To: "/errors"}, "Errors")}
 				{router.Link(router.LinkProps{To: "/users/42"}, "User")}
+				{router.Link(router.LinkProps{To: "/guard"}, "Guard")}
 			</nav>
 			{router.Router(
 				router.Route("/", pages.Smoke, router.WithTitle("Smoke - Vane E2E")),
@@ -50,6 +51,9 @@ func App() core.Node {
 				),
 				router.Route("/errors", pages.Errors, router.WithTitle("Errors - Vane E2E")),
 				router.Route("/users/:id", pages.User, router.WithTitle("User - Vane E2E")),
+				router.Layout("/guard", pages.GuardShell,
+					router.Route("", pages.GuardHome, router.WithTitle("Guard - Vane E2E")),
+				),
 			)}
 			<div data-testid="portal-host"></div>
 		</div>

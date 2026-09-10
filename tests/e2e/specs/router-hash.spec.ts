@@ -45,3 +45,15 @@ test('supports a direct load and a refresh of a nested route', async ({ page }) 
   await expect(page).toHaveURL(/\/hash-mode#\/users\/42$/)
   await expect(page.getByTestId('user-id')).toHaveText('42')
 })
+
+// Same scenario as router.spec.ts's mount-guard test, under HashLocation.
+test('a mount guard re-fires on browser back after logging out', async ({ page }) => {
+  await page.goto('/hash-mode#/guard')
+  await expect(page.getByTestId('guard-status')).toBeVisible()
+
+  await page.getByRole('button', { name: 'Log out' }).click()
+  await expect(page).toHaveURL(/\/hash-mode#\/smoke$/)
+
+  await page.goBack()
+  await expect(page).toHaveURL(/\/hash-mode#\/smoke$/)
+})

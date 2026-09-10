@@ -1,0 +1,34 @@
+package pages
+
+import (
+	"github.com/filipejohansson/vane/core"
+	"github.com/filipejohansson/vane/core/router"
+)
+
+// guardLoggedIn is a package-level session flag, read by a layout shell's
+// mount Effect to decide whether to redirect away.
+var guardLoggedIn = core.NewSignal(true)
+
+// GuardShell is a Layout shell whose mount Effect redirects to a public
+// page when logged out, re-checked on every fresh mount (not just once per
+// process).
+func GuardShell() core.Node {
+	core.Effect(func() func() {
+		if !guardLoggedIn.Get() {
+			router.Navigate("/smoke")
+		}
+		return nil
+	})
+
+	return (
+		<section aria-label="Guarded">
+			<div data-testid="guard-status">protected content</div>
+			<button onClick={func(core.MouseEvent) { guardLoggedIn.Set(false) }}>Log out</button>
+			<div>{router.Outlet()}</div>
+		</section>
+	)
+}
+
+func GuardHome() core.Node {
+	return <p>guard home</p>
+}
