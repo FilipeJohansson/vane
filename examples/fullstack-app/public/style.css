@@ -260,6 +260,8 @@ code {
   padding: 1rem 1.25rem;
 }
 
+.notes-error { display: flex; flex-direction: column; align-items: flex-start; gap: 0.6rem; }
+
 .note-header { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
 .note-title { font-size: 1rem; font-weight: 600; }
 .note-delete { padding: 0.25rem 0.5rem; font-size: 0.8rem; }
