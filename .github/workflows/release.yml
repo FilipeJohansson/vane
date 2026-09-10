@@ -16,11 +16,9 @@ jobs:
   checks:
     uses: ./.github/workflows/ci.yml
 
-  release:
+  build:
     needs: checks
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
     strategy:
       matrix:
         include:
@@ -45,19 +43,56 @@ jobs:
           [ "${{ matrix.goos }}" = "windows" ] && ext=".exe"
           go build -o "vane-${{ matrix.goos }}-${{ matrix.goarch }}${ext}" .
 
-      - name: Upload release asset
+      - uses: actions/upload-artifact@v4
+        with:
+          name: vane-${{ matrix.goos }}-${{ matrix.goarch }}
+          path: vane-${{ matrix.goos }}-${{ matrix.goarch }}*
+          retention-days: 1
+
+  # One non-matrix job publishes the release with every artifact attached, so
+  # generate_release_notes only runs once instead of once per build leg.
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      # `checks` runs ci.yml's whole workflow (via workflow_call), whose `e2e`
+      # job also uploads artifacts (playwright-report, playwright-test-results)
+      # into this same run. `pattern` keeps this step to only the binaries
+      # this job's own `build` job produced.
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          pattern: vane-*
+          merge-multiple: true
+
+      - name: Create release with all binaries
         uses: softprops/action-gh-release@v2
         with:
-          files: vane-*
+          files: dist/*
           generate_release_notes: true
+          # SemVer prerelease grammar: any `-` after MAJOR.MINOR.PATCH means
+          # prerelease (-rc.1, -beta, -test.1, ...), matching GoReleaser's own
+          # default rule. Covers both real release candidates (v1.0.0-rc.1)
+          # and throwaway dry-run tags (-test).
+          prerelease: ${{ contains(github.ref_name, '-') }}
 
   # go install/go get resolve through proxy.golang.org, which lazily
   # fetches+caches a version on first request. Hitting the .info endpoint
   # here just means the very first real user of `@latest` isn't the one
   # paying that one-time fetch latency.
+  #
+  # Skipped only for a `-test` tag specifically (not every prerelease): a real
+  # release candidate (-rc.1, say) is meant to be `go get`-able during its RC
+  # period, so it should warm the proxy like any other real version. A `-test`
+  # tag is a pure CI dry-run, never meant to be fetched by anyone and
+  # proxy.golang.org/sum.golang.org are permanent, a version stays fetchable
+  # forever once warmed, even after the git tag itself is deleted.
   warm-proxy:
     needs: release
     runs-on: ubuntu-latest
+    if: "!contains(github.ref_name, '-test')"
     steps:
       - name: Ask proxy.golang.org to index this version
         run: curl -sf "https://proxy.golang.org/github.com/filipejohansson/vane/@v/${GITHUB_REF_NAME}.info"

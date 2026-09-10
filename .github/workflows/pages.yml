@@ -41,9 +41,6 @@ jobs:
       - name: Install binaryen (wasm-opt)
         run: sudo apt-get update && sudo apt-get install -y binaryen
 
-      - name: Build CLI
-        run: go build -o vane .
-
       # git worktree, not `go get module@tag`: avoids depending on the Go
       # module proxy having indexed the tag yet.
       - name: Resolve Vane version to build vane-page against
@@ -65,6 +62,14 @@ jobs:
 
       - name: Check out that version into a worktree
         run: git worktree add --detach "$RUNNER_TEMP/vane-ref" "${{ steps.vane_ref.outputs.ref }}"
+
+      # Built from the resolved worktree, not the ref that triggered this
+      # workflow, so a `workflow_dispatch` with an explicit `vane_version`
+      # gets a CLI/compiler that actually matches that version too (runtime/
+      # core was already correctly repinned via the worktree `replace` below;
+      # this closes the same gap for the CLI itself).
+      - name: Build CLI
+        run: (cd "$RUNNER_TEMP/vane-ref" && go build -o "$GITHUB_WORKSPACE/vane" .)
 
       - name: Point vane-page at that worktree
         run: |
