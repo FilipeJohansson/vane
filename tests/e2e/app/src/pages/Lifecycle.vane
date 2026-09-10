@@ -78,7 +78,6 @@ func Lifecycle() core.Node {
 
 			<div data-testid="list-items-created">{listItemsCreated.Get()}</div>
 			<div data-testid="list-items-cleaned">{listItemsCleaned.Get()}</div>
-			<ul data-testid="stress-list">{list()...}</ul>
 			<button onClick={func(core.MouseEvent) {
 				ids := make([]int, 200)
 				for i := range ids {
@@ -88,6 +87,7 @@ func Lifecycle() core.Node {
 				items.Set(ids)
 			}}>Populate list</button>
 			<button onClick={func(core.MouseEvent) { items.Set(nil) }}>Clear list</button>
+			<ul data-testid="stress-list">{list()...}</ul>
 		</section>
 	)
 }
