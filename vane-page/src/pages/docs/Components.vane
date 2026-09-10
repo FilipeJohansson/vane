@@ -140,6 +140,7 @@ func Components() core.Node {
 					"Components",
 					"Components are plain Go functions returning core.Node. JSX is compiled into direct DOM operations before the Go compiler ever sees your code.",
 				)}
+				{callout("tip", "Reference", "For the compiler's exact component-vs-element rule, see ", apiDocLink("language-spec", ".vane Language Spec"), ".")}
 
 				<h2 className="docs-h2" id="basic-components">Basic components</h2>
 				<p className="docs-p">

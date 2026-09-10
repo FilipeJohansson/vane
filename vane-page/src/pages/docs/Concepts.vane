@@ -43,6 +43,7 @@ func Concepts() core.Node {
 					"Concepts",
 					"Understanding these ideas first will make the rest of the documentation much easier to follow.",
 				)}
+				{callout("tip", "Reference", "For the exact syntax rules behind these ideas, see ", apiDocLink("language-spec", ".vane Language Spec"), ".")}
 
 				<h2 className="docs-h2" id="vane-syntax">Vane syntax, not JSX</h2>
 				<p className="docs-p">
