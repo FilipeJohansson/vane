@@ -1,10 +1,11 @@
 import type { Page } from '@playwright/test'
+import { randomInt } from 'crypto'
 
 // Shared across acceptance specs: every flow needs a logged-in user, and the
 // backend's in-memory store (examples/fullstack-app/api/store.go) persists
 // across specs within a run, so each call must produce a unique account.
 export async function registerNewUser(page: Page, name: string) {
-  const email = `${name.toLowerCase().replace(/\s+/g, '.')}.${Date.now()}.${Math.floor(Math.random() * 1e6)}@test.com`
+  const email = `${name.toLowerCase().replace(/\s+/g, '.')}.${Date.now()}.${randomInt(1_000_000)}@test.com`
   const password = 'password123'
 
   await page.goto('/#/register')
