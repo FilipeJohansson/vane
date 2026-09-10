@@ -20,6 +20,16 @@ import (
 	"github.com/filipejohansson/vane/core/signal"
 )
 
+// This file's tests exercise the package-level router singleton under
+// HashLocation, so they lock it explicitly here before any test can force
+// ensureInit onto the router's actual default (PathLocation) instead.
+// SetLocation can only succeed once per process; PathLocation's own
+// singleton-level coverage lives in the separate core/router/pathlocation_test
+// package for exactly that reason.
+func init() {
+	router.SetLocation(&router.HashLocation{})
+}
+
 func waitEffects(t *testing.T) {
 	t.Helper()
 	if !signal.WaitEffects(time.Second) {

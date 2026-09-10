@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test'
 
 test('dynamic list churn disposes every item exactly once', async ({ page }) => {
-  await page.goto('/#/lifecycle')
+  await page.goto('/lifecycle')
 
   const created = page.getByTestId('list-items-created')
   const cleaned = page.getByTestId('list-items-cleaned')
@@ -30,15 +30,15 @@ test('dynamic list churn disposes every item exactly once', async ({ page }) => 
 })
 
 test('leaving the route disposes a populated but never-cleared list', async ({ page }) => {
-  await page.goto('/#/lifecycle')
+  await page.goto('/lifecycle')
 
   await page.getByRole('button', { name: 'Populate list' }).click()
   await expect(page.getByTestId('list-items-created')).toHaveText('200')
   await expect(page.getByTestId('list-items-cleaned')).toHaveText('0')
 
-  await page.goto('/#/smoke')
+  await page.getByRole('link', { name: 'Smoke' }).click()
   await expect(page.getByTestId('app-ready')).toHaveText('ready')
 
-  await page.goto('/#/lifecycle')
+  await page.getByRole('link', { name: 'Lifecycle' }).click()
   await expect(page.getByTestId('list-items-cleaned')).toHaveText('200')
 })

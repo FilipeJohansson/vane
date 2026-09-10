@@ -20,22 +20,22 @@ test('DashboardShell persists across nested route changes, only the outlet conte
   await shellPersisted()
 
   await sidebarLink(page, 'Users').click()
-  await page.waitForURL(/#\/dashboard\/users$/)
+  await page.waitForURL(/\/dashboard\/users$/)
   await expect(page.getByRole('heading', { name: 'Users' })).toBeVisible()
   await shellPersisted()
 
   await page.getByRole('row', { name: new RegExp(user.email) }).getByRole('link', { name: 'View' }).click()
-  await page.waitForURL(/#\/dashboard\/users\/\d+$/)
+  await page.waitForURL(/\/dashboard\/users\/\d+$/)
   await expect(page.getByRole('heading', { name: 'User detail' })).toBeVisible()
   await shellPersisted()
 
   await page.getByRole('link', { name: 'View notes' }).click()
-  await page.waitForURL(/#\/dashboard\/users\/\d+\/notes$/)
+  await page.waitForURL(/\/dashboard\/users\/\d+\/notes$/)
   await expect(page.getByRole('heading', { name: 'Notes' })).toBeVisible()
   await shellPersisted()
 
   await sidebarLink(page, 'Overview').click()
-  await page.waitForURL(/#\/dashboard$/)
+  await page.waitForURL(/\/dashboard$/)
   await expect(page.getByRole('heading', { name: /^Welcome, Layout Persist$/ })).toBeVisible()
   await shellPersisted()
 })
@@ -51,10 +51,10 @@ test('the sidebar keeps showing the same signed-in user across sub-routes', asyn
   await expect(sidebarUser).toHaveText(user.name)
 
   await sidebarLink(page, 'Users').click()
-  await page.waitForURL(/#\/dashboard\/users$/)
+  await page.waitForURL(/\/dashboard\/users$/)
   await expect(sidebarUser).toHaveText(user.name)
 
   await page.getByRole('row', { name: new RegExp(user.email) }).getByRole('link', { name: 'View' }).click()
-  await page.waitForURL(/#\/dashboard\/users\/\d+$/)
+  await page.waitForURL(/\/dashboard\/users\/\d+$/)
   await expect(sidebarUser).toHaveText(user.name)
 })

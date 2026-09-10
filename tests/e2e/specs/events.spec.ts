@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test'
 
 test('updates a signal from browser input events', async ({ page }) => {
-  await page.goto('/#/events')
+  await page.goto('/events')
 
   const input = page.getByLabel('Name')
   const output = page.getByTestId('input-output')
@@ -23,7 +23,7 @@ test('updates a signal from browser input events', async ({ page }) => {
 })
 
 test('handles click, change, and keyup events', async ({ page }) => {
-  await page.goto('/#/events')
+  await page.goto('/events')
 
   await page.getByRole('button', { name: 'Click' }).click()
   await expect(page.getByTestId('click-count')).toHaveText('1')
@@ -36,11 +36,11 @@ test('handles click, change, and keyup events', async ({ page }) => {
 })
 
 test('prevents default navigation and controls propagation', async ({ page }) => {
-  await page.goto('/#/events')
+  await page.goto('/events')
 
   await page.getByRole('link', { name: 'Prevent navigation' }).click()
   await expect(page.getByTestId('prevented')).toHaveText('yes')
-  await expect(page).toHaveURL(/#\/events$/)
+  await expect(page).toHaveURL(/\/events$/)
 
   await page.getByRole('button', { name: 'Bubble', exact: true }).click()
   await expect(page.getByTestId('parent-clicks')).toHaveText('1')

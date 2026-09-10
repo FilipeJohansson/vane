@@ -12,7 +12,7 @@ test('router.Link navigates without a full page reload', async ({ page }) => {
   })
 
   await sidebarLink(page, 'Users').click()
-  await page.waitForURL(/#\/dashboard\/users$/)
+  await page.waitForURL(/\/dashboard\/users$/)
   await expect(page.locator('.shell')).toHaveAttribute('data-nav-probe', 'untouched')
 })
 
@@ -20,25 +20,25 @@ test('browser back and forward walk through nested dashboard navigation correctl
   const user = await registerNewUser(page, 'Nav History')
 
   await sidebarLink(page, 'Users').click()
-  await page.waitForURL(/#\/dashboard\/users$/)
+  await page.waitForURL(/\/dashboard\/users$/)
 
   await page.getByRole('row', { name: new RegExp(user.email) }).getByRole('link', { name: 'View' }).click()
-  await page.waitForURL(/#\/dashboard\/users\/\d+$/)
+  await page.waitForURL(/\/dashboard\/users\/\d+$/)
 
   await page.goBack()
-  await expect(page).toHaveURL(/#\/dashboard\/users$/)
+  await expect(page).toHaveURL(/\/dashboard\/users$/)
   await expect(page.getByRole('heading', { name: 'Users' })).toBeVisible()
 
   await page.goBack()
-  await expect(page).toHaveURL(/#\/dashboard$/)
+  await expect(page).toHaveURL(/\/dashboard$/)
   await expect(page.getByRole('heading', { name: /^Welcome, Nav History$/ })).toBeVisible()
 
   await page.goForward()
-  await expect(page).toHaveURL(/#\/dashboard\/users$/)
+  await expect(page).toHaveURL(/\/dashboard\/users$/)
   await expect(page.getByRole('heading', { name: 'Users' })).toBeVisible()
 
   await page.goForward()
-  await expect(page).toHaveURL(/#\/dashboard\/users\/\d+$/)
+  await expect(page).toHaveURL(/\/dashboard\/users\/\d+$/)
   await expect(page.getByRole('heading', { name: 'User detail' })).toBeVisible()
 })
 
@@ -55,10 +55,10 @@ test.fixme(
     await registerNewUser(page, 'Nav Logout Back')
 
     await page.getByRole('button', { name: 'Log out' }).click()
-    await page.waitForURL(/#\/login$/)
+    await page.waitForURL(/\/login$/)
 
     await page.goBack()
-    await expect(page).toHaveURL(/#\/login$/)
+    await expect(page).toHaveURL(/\/login$/)
     await expect(page.getByRole('heading', { name: 'Welcome back' })).toBeVisible()
   },
 )

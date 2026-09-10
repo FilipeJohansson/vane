@@ -15,8 +15,8 @@ func NestedLayout() core.Node {
 		<section data-testid="nested-layout">
 			<div data-testid="layout-mounts">{nestedLayoutMounts}</div>
 			<nav aria-label="Nested pages">
-				<a href="#/nested">Nested home</a>
-				<a href="#/nested/detail">Nested detail</a>
+				{router.Link(router.LinkProps{To: "/nested"}, "Nested home")}
+				{router.Link(router.LinkProps{To: "/nested/detail"}, "Nested detail")}
 			</nav>
 			<div data-testid="nested-outlet">{outlet}</div>
 		</section>

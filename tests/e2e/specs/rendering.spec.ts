@@ -1,14 +1,14 @@
 import { expect, test } from '@playwright/test'
 
 test('renders elements, attributes, and nested components', async ({ page }) => {
-  await page.goto('/#/rendering')
+  await page.goto('/rendering')
 
   await expect(page.getByTestId('rendering-heading')).toHaveText('Rendering')
   await expect(page.getByTestId('nested-child')).toHaveText('nested child')
 })
 
 test('renders fragments without an extra wrapper and toggles conditional content', async ({ page }) => {
-  await page.goto('/#/rendering')
+  await page.goto('/rendering')
 
   await expect(page.getByTestId('fragment').locator(':scope > *')).toHaveCount(2)
   await expect(page.getByTestId('conditional-content')).toHaveCount(0)
@@ -21,7 +21,7 @@ test('renders fragments without an extra wrapper and toggles conditional content
 })
 
 test('adds and removes dynamic children', async ({ page }) => {
-  await page.goto('/#/rendering')
+  await page.goto('/rendering')
 
   const items = page.getByTestId('dynamic-item')
   await expect(items).toHaveCount(2)

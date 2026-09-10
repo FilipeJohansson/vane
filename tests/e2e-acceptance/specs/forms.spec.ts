@@ -4,7 +4,7 @@ import { registerNewUser } from '../support/auth'
 test('register requires matching passwords before it ever submits', async ({ page }) => {
   const email = `forms.mismatch.${Date.now()}@test.com`
 
-  await page.goto('/#/register')
+  await page.goto('/register')
   await page.getByLabel('Name').fill('Forms Mismatch')
   await page.getByLabel('Email').fill(email)
   await page.getByLabel('Password', { exact: true }).fill('password123')
@@ -13,12 +13,12 @@ test('register requires matching passwords before it ever submits', async ({ pag
 
   await expect(page.locator('.auth-error')).toHaveText('passwords do not match')
   // Never even attempted the API call - still on the register form.
-  await expect(page).toHaveURL(/#\/register$/)
+  await expect(page).toHaveURL(/\/register$/)
 
   // Fixing the mismatch lets the same form actually succeed.
   await page.getByLabel('Confirm password').fill('password123')
   await page.getByRole('button', { name: 'Sign up' }).click()
-  await page.waitForURL(/#\/dashboard$/)
+  await page.waitForURL(/\/dashboard$/)
 })
 
 test('saving an empty name is blocked client-side and never touches the session', async ({ page }) => {
@@ -26,9 +26,9 @@ test('saving an empty name is blocked client-side and never touches the session'
   const sidebarUser = page.locator('.sidebar-user')
 
   await page.getByText('View all').click()
-  await page.waitForURL(/#\/dashboard\/users\/\d+\/notes$/)
+  await page.waitForURL(/\/dashboard\/users\/\d+\/notes$/)
   await page.getByRole('link', { name: '← Back to user' }).click()
-  await page.waitForURL(/#\/dashboard\/users\/\d+$/)
+  await page.waitForURL(/\/dashboard\/users\/\d+$/)
 
   const nameInput = page.locator('#edit-name')
   await nameInput.fill('')
@@ -49,7 +49,7 @@ test('creating a note requires a title; a valid submission clears the form and a
   await registerNewUser(page, 'Forms Notes')
 
   await page.getByText('View all').click()
-  await page.waitForURL(/#\/dashboard\/users\/\d+\/notes$/)
+  await page.waitForURL(/\/dashboard\/users\/\d+\/notes$/)
   await expect(page.getByText('No notes yet.')).toBeVisible()
 
   // Empty title: handleCreate no-ops, nothing happens, nothing crashes.

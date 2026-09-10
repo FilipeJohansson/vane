@@ -10,14 +10,14 @@ test('a real backend error renders the error boundary instead of crashing the pa
 
   // No such user id - the real API's own 404 ("user not found"), not a
   // fabricated response.
-  await page.goto('/#/dashboard/users/999999/notes')
+  await page.goto('/dashboard/users/999999/notes')
 
   await expect(page.locator('.notes-error')).toBeVisible()
   await expect(page.locator('.notes-error')).toContainText('user not found')
 
   // The boundary contained the failure - the rest of the page still works.
   await page.getByRole('link', { name: '← Back to user' }).click()
-  await page.waitForURL(/#\/dashboard\/users\/999999$/)
+  await page.waitForURL(/\/dashboard\/users\/999999$/)
 })
 
 test('a real network failure is recoverable: Retry succeeds once the network recovers', async ({ page }) => {
@@ -25,11 +25,15 @@ test('a real network failure is recoverable: Retry succeeds once the network rec
 
   // "View all ->" on the dashboard links to this account's own notes page.
   await page.getByText('View all').click()
-  await page.waitForURL(/#\/dashboard\/users\/\d+\/notes$/)
+  await page.waitForURL(/\/dashboard\/users\/\d+\/notes$/)
 
   // Genuinely aborted request, not a fabricated response - real network
   // failure, same shape client.go itself wraps as "network error: ...".
-  await page.route('**/notes', async (route) => {
+  // Scoped to the backend's own origin: a bare '**/notes' also matches this
+  // page's own document request (the frontend route itself ends in
+  // "/notes" under the router's default PathLocation), which would abort
+  // the page load instead of just the API call.
+  await page.route('http://localhost:8081/**/notes', async (route) => {
     if (route.request().method() === 'GET') {
       await route.abort()
       return
@@ -41,7 +45,7 @@ test('a real network failure is recoverable: Retry succeeds once the network rec
   await expect(page.locator('.notes-error')).toBeVisible()
   await expect(page.locator('.notes-error')).toContainText('network error')
 
-  await page.unroute('**/notes')
+  await page.unroute('http://localhost:8081/**/notes')
   await page.getByRole('button', { name: 'Retry' }).click()
 
   await expect(page.locator('.notes-error')).toHaveCount(0)

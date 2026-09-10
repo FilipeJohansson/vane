@@ -44,9 +44,10 @@ var (
 
 // PathLocation represents the router's state in the pathname of the
 // browser's URL (e.g. "/docs"), using the History API (pushState/
-// replaceState) to navigate without a full page reload. Requires the host
-// server to fall back to index.html for unknown paths, since a direct
-// load or refresh of e.g. "/docs" is a real request for that path.
+// replaceState) to navigate without a full page reload. This is the
+// router's default. Requires the host server to fall back to index.html for
+// unknown paths, since a direct load or refresh of e.g. "/docs" is a real
+// request for that path.
 //
 // A plain <a href="/docs"> would otherwise make the browser reload the page;
 // PathLocation intercepts same-origin, unmodified left-clicks on in-app
@@ -216,9 +217,10 @@ func (l *PathLocation) handleClick(_ js.Value, args []js.Value) interface{} {
 }
 
 // HashLocation represents the router's state in the hash fragment of the
-// browser's URL (e.g. "#/docs"). This is the router's default: the hash is
-// never sent to the server, so it works on any static host without needing
-// a server-side rewrite rule for unknown paths.
+// browser's URL (e.g. "#/docs"). The hash is never sent to the server, so it
+// works on any static host without needing a server-side rewrite rule for
+// unknown paths — use it via SetLocation when the host can't be configured
+// with a PathLocation (the router's default) SPA fallback.
 type HashLocation struct {
 	onChange func()
 }
