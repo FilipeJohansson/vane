@@ -1001,8 +1001,27 @@ func mapColumn(doc *document, vaneLine, vaneCol, goLine, gc int) (int, int) {
 	// multi-byte content (accents, emoji, non-ASCII identifiers) before the
 	// cursor.
 	var ident string
+	extra := 0 // bytes to add after ident's own match, for a trigger char between ident and cursor
 	if vaneLine >= 0 && vaneLine < len(doc.vaneLines) {
-		ident = identAt(doc.vaneLines[vaneLine], utf16ToByte(doc.vaneLines[vaneLine], vaneCol))
+		vaneLineText := doc.vaneLines[vaneLine]
+		byteCol := utf16ToByte(vaneLineText, vaneCol)
+		ident = identAt(vaneLineText, byteCol)
+		if ident == "" && byteCol > 0 && vaneLineText[byteCol-1] == '.' {
+			// Cursor right after a bare "." with nothing typed yet - the live
+			// "ctrl.title.|" trigger-completion case. identAt finds nothing
+			// AT the cursor, so fall back to the identifier immediately
+			// before the dot ("title") and land one byte past its go-text
+			// occurrence plus the dot itself, since "." passes through
+			// verbatim in this region. Without this, the raw-column
+			// fallback below is used instead, landing wherever the linear
+			// go-line extrapolation happens to point (confirmed live:
+			// inside the unrelated "_vane1" handle), so gopls has nothing
+			// relevant to complete.
+			ident = identAt(vaneLineText, byteCol-2)
+			if ident != "" {
+				extra = len(ident) + 1
+			}
+		}
 	}
 
 	tryLine := func(gl int) (int, bool) {
@@ -1018,7 +1037,7 @@ func mapColumn(doc *document, vaneLine, vaneCol, goLine, gc int) (int, int) {
 			// tryLine call), so it must be converted to a byte offset before
 			// seeding findIdentInLine's byte-indexed search too.
 			if col := findIdentInLine(s, ident, utf16ToByte(s, gc)); col >= 0 {
-				return byteToUTF16(s, col), true
+				return byteToUTF16(s, col+extra), true
 			}
 		}
 		return 0, false

@@ -357,6 +357,33 @@ func TestTranslateCompletionRange_DynChildWrappedExpr(t *testing.T) {
 	}
 }
 
+// TestMapColumn_TrailingDotTriggersCompletion covers the live bug: typing
+// "ctrl.title." and invoking completion for a member (e.g. "Get") returned
+// nothing. Nothing is typed yet after the dot, so identAt finds no word AT
+// the cursor and mapColumn fell through to its raw-column fallback, which
+// landed inside the unrelated "_vane1" handle in the DynChild wrapper,
+// gopls had nothing relevant there to complete. mapColumn must instead
+// recognize the trigger-dot and anchor on the identifier before it.
+func TestMapColumn_TrailingDotTriggersCompletion(t *testing.T) {
+	doc := mustDoc(t, wrap(`<h2 className="modal-title">{ctrl.title.}</h2>`))
+	vaneLine := 4
+	line := doc.vaneLines[vaneLine]
+	dotCol := strings.Index(line, "title.") + len("title.")
+
+	gl, gc, ok := doc.sourceMap.VaneToGo(vaneLine, dotCol)
+	if !ok {
+		t.Fatalf("VaneToGo failed for col %d", dotCol)
+	}
+	gl, gc = mapColumn(doc, vaneLine, dotCol, gl, gc)
+
+	goLine := doc.goLines[gl]
+	wantCol := strings.Index(goLine, "ctrl.title.") + len("ctrl.title.")
+	if gc != wantCol {
+		t.Errorf("mapColumn landed at col %d (%q), want col %d (right after \"ctrl.title.\" in %q)",
+			gc, identAt(goLine, gc), wantCol, goLine)
+	}
+}
+
 func TestTranslateCompletionResultJSON_NoChangeWhenNull(t *testing.T) {
 	result := json.RawMessage("null")
 	translated, changed := translateCompletionResultJSON("file:///D:/proj/Test.vane", -1, -1, -1, -1, result, newDocStore())
