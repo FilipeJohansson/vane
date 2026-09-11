@@ -249,6 +249,8 @@ func printUsage() {
 	fmt.Println("  run     [dir] [--port N] [--debug] [--tinygo]  build then serve dist/ on :8080 with hot-reload")
 	fmt.Println("  build   [dir] [--tinygo] [--release]           compile .vane files and build WASM to dist/ (default: .)")
 	fmt.Println("  compile <file>                                 compile a single .vane file to stdout (dry-run)")
+	fmt.Println("  lsp                                            start the language server (JSON-RPC over stdio);")
+	fmt.Println("                                                 spawned by an editor extension, not run directly")
 	fmt.Println("  version                                        print the vane version")
 	fmt.Println("  help                                           show this help")
 	fmt.Println()
