@@ -1,6 +1,7 @@
 dist/
 *.exe
 vane
+*_vane.go
 
 ### Playwright ###
 # Logs

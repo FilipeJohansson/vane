@@ -1222,10 +1222,18 @@ func translateGoRangeToVaneImpl(uri string, r lspRange, store *docStore, dropImp
 	var goIdent string
 	refinedStart := -1
 	if refineColumns && r.Start.Line >= 0 && r.Start.Line < len(doc.goLines) && sl < len(doc.vaneLines) {
-		goIdent = identAt(doc.goLines[r.Start.Line], r.Start.Character)
-		refinedStart = findIdentInLine(doc.vaneLines[sl], goIdent, sc)
+		// r.Start.Character and sc are both UTF-16 columns (the former from
+		// gopls's response, the latter from GoToVane - see PosEntry's doc
+		// comment); identAt/findIdentInLine index bytes, so both must be
+		// converted before use. The identifier they return is always plain
+		// ASCII (isIdentByte only matches ASCII), so its own length needs no
+		// conversion below.
+		goLine := doc.goLines[r.Start.Line]
+		vaneLine := doc.vaneLines[sl]
+		goIdent = identAt(goLine, utf16ToByte(goLine, r.Start.Character))
+		refinedStart = findIdentInLine(vaneLine, goIdent, utf16ToByte(vaneLine, sc))
 		if goIdent != "" && refinedStart >= 0 {
-			sc = refinedStart
+			sc = byteToUTF16(vaneLine, refinedStart)
 		}
 	}
 	// A compiler-synthesized handle (_vane1, _vaneItems1, ...) never appears in
@@ -1257,7 +1265,7 @@ func translateGoRangeToVaneImpl(uri string, r lspRange, store *docStore, dropImp
 		if sl < len(doc.vaneLines) {
 			vaneLineStr = doc.vaneLines[sl]
 		}
-		el, ec = sl, sc+len(identAt(vaneLineStr, sc))
+		el, ec = sl, sc+len(identAt(vaneLineStr, utf16ToByte(vaneLineStr, sc)))
 	}
 	return lspRange{lspPos{sl, sc}, lspPos{el, ec}}, true, false
 }
@@ -1480,7 +1488,10 @@ func translateDocumentHighlightResultJSON(vaneURI string, reqGoLine, reqGoCol in
 	doc, hasDoc := store.getByNorm(vaneURI)
 	var expectedIdent string
 	if hasDoc && reqGoLine >= 0 && reqGoLine < len(doc.goLines) {
-		expectedIdent = identAt(doc.goLines[reqGoLine], reqGoCol)
+		// reqGoCol is UTF-16 (the position actually sent to gopls); identAt
+		// indexes bytes.
+		goLine := doc.goLines[reqGoLine]
+		expectedIdent = identAt(goLine, utf16ToByte(goLine, reqGoCol))
 	}
 
 	changed := false
@@ -1502,7 +1513,8 @@ func translateDocumentHighlightResultJSON(vaneURI string, reqGoLine, reqGoCol in
 			continue
 		}
 		if expectedIdent != "" && hasDoc && r.Start.Line < len(doc.goLines) {
-			if identAt(doc.goLines[r.Start.Line], r.Start.Character) != expectedIdent {
+			goLine := doc.goLines[r.Start.Line]
+			if identAt(goLine, utf16ToByte(goLine, r.Start.Character)) != expectedIdent {
 				changed = true
 				continue
 			}
