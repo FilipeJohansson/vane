@@ -15,6 +15,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Add cross-platform CLI tests and update installation documentation (#28)
 - Add VS Code extension with LSP-backed editor support (#29)
 
+
+### Fixed
+- *(lsp)* Correct column translation for completion and codeAction (#30)
+
 ## [0.4.0] - 2026-09-10
 
 ### Breaking Changes
