@@ -12,6 +12,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"unicode/utf8"
 )
 
 // Serve starts the LSP proxy: reads from editorIn, writes to editorOut,
@@ -852,8 +853,54 @@ func findIdentInLine(line, ident string, preferredCol int) int {
 	return best
 }
 
+// utf16ToByte converts a 0-based UTF-16 code-unit column (the unit every LSP
+// position uses on the wire) to the corresponding 0-based byte offset within
+// line (a Go string, i.e. UTF-8 bytes). A rune outside the Basic Multilingual
+// Plane counts as 2 UTF-16 units, matching how VS Code/gopls count columns;
+// indexing line directly with a raw LSP column instead (treating it as a
+// byte offset) silently misaligns on any line with non-ASCII content before
+// the target column.
+func utf16ToByte(line string, utf16Col int) int {
+	u := 0
+	for i := 0; i < len(line); {
+		if u >= utf16Col {
+			return i
+		}
+		r, size := utf8.DecodeRuneInString(line[i:])
+		if r > 0xFFFF {
+			u += 2
+		} else {
+			u++
+		}
+		i += size
+	}
+	return len(line)
+}
+
+// byteToUTF16 converts a 0-based byte offset within line to the
+// corresponding 0-based UTF-16 code-unit column - the inverse of
+// utf16ToByte, and the unit any position sent back over LSP (to the editor,
+// or forwarded to gopls) must use.
+func byteToUTF16(line string, byteOffset int) int {
+	if byteOffset > len(line) {
+		byteOffset = len(line)
+	}
+	col := 0
+	for i := 0; i < byteOffset; {
+		r, size := utf8.DecodeRuneInString(line[i:])
+		if r > 0xFFFF {
+			col += 2
+		} else {
+			col++
+		}
+		i += size
+	}
+	return col
+}
+
 // mapColumn refines the mapped (goLine, gc) by finding the identifier at the vane
-// cursor position in the compiled Go output. Returns the corrected (goLine, goCol).
+// cursor position in the compiled Go output. Returns the corrected (goLine, goCol),
+// both in UTF-16 columns (matching every other position in this proxy).
 //
 // A single vane line can expand to multiple Go lines (e.g. core.El + core.DynProp +
 // core.SetProp for one JSX element with attributes). VaneToGo returns the last of
@@ -862,9 +909,13 @@ func findIdentInLine(line, ident string, preferredCol int) int {
 // ALL go lines that carry a //line directive for vaneLine, not just the primary one.
 func mapColumn(doc *document, vaneLine, vaneCol, goLine, gc int) (int, int) {
 	// Extract the identifier the user is pointing at in the vane source.
+	// identAt indexes bytes, so the incoming UTF-16 column must be converted
+	// first, using it directly would misalign on any vane line with
+	// multi-byte content (accents, emoji, non-ASCII identifiers) before the
+	// cursor.
 	var ident string
 	if vaneLine >= 0 && vaneLine < len(doc.vaneLines) {
-		ident = identAt(doc.vaneLines[vaneLine], vaneCol)
+		ident = identAt(doc.vaneLines[vaneLine], utf16ToByte(doc.vaneLines[vaneLine], vaneCol))
 	}
 
 	tryLine := func(gl int) (int, bool) {
@@ -876,8 +927,11 @@ func mapColumn(doc *document, vaneLine, vaneCol, goLine, gc int) (int, int) {
 			return 0, false
 		}
 		if ident != "" {
-			if col := findIdentInLine(s, ident, gc); col >= 0 {
-				return col, true
+			// gc is itself a UTF-16 column (from VaneToGo, or the previous
+			// tryLine call), so it must be converted to a byte offset before
+			// seeding findIdentInLine's byte-indexed search too.
+			if col := findIdentInLine(s, ident, utf16ToByte(s, gc)); col >= 0 {
+				return byteToUTF16(s, col), true
 			}
 		}
 		return 0, false
@@ -913,7 +967,7 @@ func mapColumn(doc *document, vaneLine, vaneCol, goLine, gc int) (int, int) {
 	} else if goLine >= len(doc.goLines) {
 		goLine = len(doc.goLines) - 1
 	}
-	if n := len(doc.goLines[goLine]); gc > n {
+	if n := byteToUTF16(doc.goLines[goLine], len(doc.goLines[goLine])); gc > n {
 		gc = n
 	} else if gc < 0 {
 		gc = 0

@@ -7,26 +7,45 @@ import (
 	"strconv"
 	"strings"
 	"unicode"
+	"unicode/utf8"
 
 	"github.com/filipejohansson/vane/core/domattrs"
 )
 
-// PosEntry is a single entry in a SourceMap: a .vane line mapped to a generated Go line.
-// Both fields are 0-based.
+// PosEntry is a single entry in a SourceMap: a .vane position mapped to a
+// generated Go position. Line fields are 0-based. Col fields are 0-based
+// UTF-16 code-unit offsets, the same unit the LSP spec's `character` field
+// uses, and are only meaningful when HasCol is true; GoCol is always 0
+// when HasCol is true, since a //line directive only ever anchors the start
+// of the Go line immediately following it (Go has no mid-line //line
+// syntax), never a specific column within that line. HasCol is false for a
+// directive parsed without a column segment (e.g. the file-level `:1`
+// anchor), in which case callers fall back to line-level-only mapping (col
+// passed through unchanged) - see VaneToGo/GoToVane.
 type PosEntry struct {
 	VaneLine int
+	VaneCol  int
 	GoLine   int
+	GoCol    int
+	HasCol   bool
 }
 
-// SourceMap provides bidirectional line-level mapping between .vane source and
-// the compiled Go output. Built from //line directives in the generated code.
+// SourceMap provides bidirectional line- and column-level mapping between
+// .vane source and the compiled Go output. Built from //line directives in
+// the generated code.
 type SourceMap struct {
-	byVane []PosEntry // sorted by VaneLine
+	byVane []PosEntry // sorted by VaneLine, then GoLine
 	byGo   []PosEntry // sorted by GoLine (monotonically increasing in generated output)
 }
 
-// VaneToGo maps a 0-based .vane line to the nearest Go line in compiled output.
-// col is passed through unchanged (column-level mapping not yet implemented).
+// VaneToGo maps a 0-based .vane line+col to the nearest Go line+col in
+// compiled output. When the entry covering the queried line has column data
+// (HasCol), col is translated as a same-line UTF-16 offset from that entry's
+// anchor; a .vane line with several directives (e.g. multiple attributes on
+// one line) is disambiguated by nearest-preceding column, not just the last
+// directive emitted for that line - see bestColEntry. Otherwise col is
+// passed through unchanged, exactly as before column support existed; this
+// is additive, not a replacement for that line-only behavior.
 func (m *SourceMap) VaneToGo(line, col int) (goLine, goCol int, ok bool) {
 	if len(m.byVane) == 0 {
 		return 0, 0, false
@@ -45,7 +64,34 @@ func (m *SourceMap) VaneToGo(line, col int) (goLine, goCol int, ok bool) {
 		return 0, 0, false
 	}
 	e := entries[lo-1]
-	return e.GoLine + (line - e.VaneLine), col, true
+	if e.VaneLine == line {
+		e = bestColEntry(entries, lo-1, line, col)
+	}
+	goLine = e.GoLine + (line - e.VaneLine)
+	if e.HasCol && e.VaneLine == line {
+		return goLine, e.GoCol + (col - e.VaneCol), true
+	}
+	return goLine, col, true
+}
+
+// bestColEntry scans backward through the run of entries sharing VaneLine ==
+// line, ending at idx, for the one whose VaneCol nearest-precedes-or-equals
+// col, i.e. the directive that actually covers the queried column, not
+// just whichever directive was emitted last for that line. Falls back to the
+// first (leftmost-column) entry in the run when col precedes all of them,
+// e.g. a cursor sitting in indentation before the first attribute.
+func bestColEntry(entries []PosEntry, idx, line, col int) PosEntry {
+	best := entries[idx]
+	for i := idx; i >= 0 && entries[i].VaneLine == line; i-- {
+		if !entries[i].HasCol {
+			continue
+		}
+		if entries[i].VaneCol <= col {
+			return entries[i]
+		}
+		best = entries[i]
+	}
+	return best
 }
 
 // GoLinesForVaneLine returns all Go line numbers that are directly mapped from
@@ -71,8 +117,10 @@ func (m *SourceMap) GoLinesForVaneLine(vaneLine int) []int {
 	return result
 }
 
-// GoToVane maps a 0-based Go line in compiled output back to the .vane source line.
-// col is passed through unchanged.
+// GoToVane maps a 0-based Go line+col in compiled output back to the .vane
+// source line+col. col is translated the same way as VaneToGo, in reverse,
+// when the covering entry has column data; otherwise passed through
+// unchanged (additive, not a replacement for the line-only behavior).
 func (m *SourceMap) GoToVane(line, col int) (vaneLine, vaneCol int, ok bool) {
 	if len(m.byGo) == 0 {
 		return 0, 0, false
@@ -91,13 +139,22 @@ func (m *SourceMap) GoToVane(line, col int) (vaneLine, vaneCol int, ok bool) {
 		return 0, 0, false
 	}
 	e := entries[lo-1]
-	return e.VaneLine + (line - e.GoLine), col, true
+	vaneLine = e.VaneLine + (line - e.GoLine)
+	if e.HasCol && e.GoLine == line {
+		return vaneLine, e.VaneCol + (col - e.GoCol), true
+	}
+	return vaneLine, col, true
 }
 
 // buildSourceMap parses //line directives in generated Go source and returns a SourceMap.
 // GoLine values in the returned entries are 0-based line indices in the STRIPPED file
 // (i.e. the file as gopls sees it, with //line directives removed). This keeps GoLine
 // values consistent with the content actually sent to gopls.
+//
+// A directive is `//line filename:line` or `//line filename:line:col` (col
+// optional, matching Go's own //line syntax); filename itself never contains
+// a colon (always a bare basename, e.g. "Home.vane"), so the last one or two
+// colon-separated segments are always the position, never part of the name.
 func buildSourceMap(goSrc string) *SourceMap {
 	lines := strings.Split(goSrc, "\n")
 	var byGo []PosEntry
@@ -106,12 +163,28 @@ func buildSourceMap(goSrc string) *SourceMap {
 		trimmed := strings.TrimSpace(line)
 		if strings.HasPrefix(trimmed, "//line ") {
 			rest := trimmed[len("//line "):]
-			colonIdx := strings.LastIndex(rest, ":")
-			if colonIdx >= 0 {
-				n, err := strconv.Atoi(rest[colonIdx+1:])
-				if err == nil && n >= 1 {
+			parts := strings.Split(rest, ":")
+			if len(parts) >= 2 {
+				lineIdx := len(parts) - 1
+				vaneCol := 0
+				hasCol := false
+				if len(parts) >= 3 {
+					if c, err := strconv.Atoi(parts[len(parts)-1]); err == nil && c >= 1 {
+						if _, err2 := strconv.Atoi(parts[len(parts)-2]); err2 == nil {
+							vaneCol = c - 1
+							hasCol = true
+							lineIdx = len(parts) - 2
+						}
+					}
+				}
+				if n, err := strconv.Atoi(parts[lineIdx]); err == nil && n >= 1 {
 					// directive removed from stripped file; next non-directive line is at strippedLine
-					byGo = append(byGo, PosEntry{VaneLine: n - 1, GoLine: strippedLine})
+					byGo = append(byGo, PosEntry{
+						VaneLine: n - 1,
+						VaneCol:  vaneCol,
+						GoLine:   strippedLine,
+						HasCol:   hasCol,
+					})
 				}
 			}
 			continue // //line line is removed; don't increment strippedLine
@@ -146,7 +219,7 @@ func CompileWithMap(src, filename string) (string, *SourceMap, error) {
 	}
 	lineAnchor := ""
 	if filename != "" {
-		lineAnchor = "//line " + filename + ":1\n"
+		lineAnchor = "//line " + filename + ":1:1\n"
 	}
 	header := "//go:build js && wasm\n\n"
 	if strings.Contains(src, "//go:build") {
@@ -308,6 +381,33 @@ func lineAt(src string, pos int) int {
 		}
 	}
 	return line
+}
+
+// colAt returns the 1-based UTF-16 code-unit column of byte offset pos on
+// its line in src - the same unit the LSP spec's `character` field uses. A
+// rune outside the Basic Multilingual Plane (most emoji) counts as 2 UTF-16
+// code units (a surrogate pair), matching how VS Code and gopls count
+// columns; counting bytes or runes instead would both diverge from that on
+// such a line.
+func colAt(src string, pos int) int {
+	start := pos
+	if start > len(src) {
+		start = len(src)
+	}
+	for start > 0 && src[start-1] != '\n' {
+		start--
+	}
+	col := 1
+	for i := start; i < pos && i < len(src); {
+		r, size := utf8.DecodeRuneInString(src[i:])
+		if r > 0xFFFF {
+			col += 2
+		} else {
+			col++
+		}
+		i += size
+	}
+	return col
 }
 
 //* Rich error formatting
@@ -626,16 +726,6 @@ func (s *scanner) readString() string {
 		}
 	}
 	return s.src[start:s.pos]
-}
-
-func (s *scanner) lineNum(pos int) int {
-	n := 1
-	for i := 0; i < pos && i < len(s.src); i++ {
-		if s.src[i] == '\n' {
-			n++
-		}
-	}
-	return n
 }
 
 func (s *scanner) readLineComment() string {
@@ -996,8 +1086,8 @@ func (s *scanner) scan() (string, error) {
 			}
 			out.WriteString(result)
 			// Re-sync //line after vane syntax expansion so subsequent errors map to the right source line.
-			if wasVane && s.filename != "" {
-				fmt.Fprintf(&out, "//line %s:%d\n", s.filename, s.lineNum(s.pos))
+			if wasVane {
+				out.WriteString(lineDirFor(s.filename, s.src, s.pos))
 			}
 			continue
 		}
@@ -1059,10 +1149,7 @@ func (s *scanner) handleReturn(nilSugar string) (string, bool, error) {
 		}
 		tail := s.readUntilStatementEnd()
 
-		lineDir := ""
-		if s.filename != "" {
-			lineDir = fmt.Sprintf("//line %s:%d\n", s.filename, lineAt(s.src, returnPos))
-		}
+		lineDir := lineDirFor(s.filename, s.src, returnPos)
 
 		if tail != "" {
 			return "\n" + lineDir + em.stmts.String() + "\treturn " + rootVar + tail + "\n", true, nil
@@ -1377,16 +1464,31 @@ func (em *emitter) errorf(pos int, msg, hint string) error {
 	return &ParseError{filename: em.filename, src: em.src, pos: pos + em.posOffset, msg: msg, hint: hint}
 }
 
+// lineDirFor returns a //line directive comment for absolute byte offset abs
+// in src, or "" if filename is empty or abs is out of range. Shared by every
+// //line-emitting call site (both emitter and scanner) so line/column
+// semantics stay identical everywhere a directive is emitted.
+func lineDirFor(filename, src string, abs int) string {
+	if filename == "" || abs < 0 || abs >= len(src) {
+		return ""
+	}
+	return fmt.Sprintf("//line %s:%d:%d\n", filename, lineAt(src, abs), colAt(src, abs))
+}
+
 // lineDir returns a //line directive string for pos, or "" if source mapping is disabled.
 func (em *emitter) lineDir(pos int) string {
-	if em.filename == "" || pos <= 0 {
+	if pos <= 0 {
 		return ""
 	}
-	abs := pos + em.posOffset
-	if abs < 0 || abs >= len(em.src) {
-		return ""
-	}
-	return fmt.Sprintf("//line %s:%d\n", em.filename, lineAt(em.src, abs))
+	return em.lineDirAbs(pos + em.posOffset)
+}
+
+// lineDirAbs is lineDir for an absolute byte offset in em.src (already
+// resolved, no posOffset applied) -- used by the inline control-flow
+// emission sites (for/if/switch headers) that compute absolute positions
+// themselves rather than going through lineDir's relative pos.
+func (em *emitter) lineDirAbs(abs int) string {
+	return lineDirFor(em.filename, em.src, abs)
 }
 
 // bodyAbsStart finds the absolute byte offset of a ctrl-flow body string within src,
@@ -1724,9 +1826,7 @@ func (em *emitter) emitForCtrl(raw, parentVar string, basePos int) {
 	// Emit //line before the for header so VaneToGo maps the {for} vane line directly
 	// to the for statement (not to the DynList wrapper above it). Without this,
 	// linear interpolation lands 2 go-lines too late for the for header and body.
-	if em.filename != "" {
-		fmt.Fprintf(&out, "//line %s:%d\n", em.filename, lineAt(em.src, basePos+em.posOffset))
-	}
+	out.WriteString(em.lineDirAbs(basePos + em.posOffset))
 	fmt.Fprintf(&out, "\t\tfor %s {\n", header)
 	for _, p := range parts {
 		if p.goCode != "" {
@@ -1759,11 +1859,10 @@ func (em *emitter) emitForCtrl(raw, parentVar string, basePos int) {
 		} else if p.callExpr != "" {
 			// Emit //line for the call expression so GoToVane maps the append line
 			// back to the correct vane source line (the call inside the for body).
-			if em.filename != "" && subEm.posOffset > 0 {
+			if subEm.posOffset > 0 {
 				exprIdx := strings.Index(body, p.callExpr)
 				if exprIdx >= 0 {
-					lineNum := lineAt(em.src, subEm.posOffset+exprIdx)
-					fmt.Fprintf(&out, "//line %s:%d\n", em.filename, lineNum)
+					out.WriteString(em.lineDirAbs(subEm.posOffset + exprIdx))
 				}
 			}
 			fmt.Fprintf(&out, "\t\t\t%s = append(%s, %s)\n", listVar, listVar, p.callExpr)
@@ -1814,9 +1913,7 @@ func (em *emitter) emitIfCtrl(raw, parentVar string, basePos int) {
 				em.err = fmt.Errorf("if scan: %w", err)
 				return
 			}
-			if em.filename != "" {
-				fmt.Fprintf(&out, "//line %s:%d\n", em.filename, lineAt(em.src, condPos))
-			}
+			out.WriteString(em.lineDirAbs(condPos))
 			fmt.Fprintf(&out, "\t\tif %s {\n", cond)
 			em.emitBranchParts(parts, &out, bodyAbsStart(em.src, basePos+em.posOffset, body))
 			rest = strings.TrimSpace(remaining)
@@ -1844,9 +1941,7 @@ func (em *emitter) emitIfCtrl(raw, parentVar string, basePos int) {
 				em.err = fmt.Errorf("else if scan: %w", err)
 				return
 			}
-			if em.filename != "" {
-				fmt.Fprintf(&out, "//line %s:%d\n", em.filename, lineAt(em.src, condPos))
-			}
+			out.WriteString(em.lineDirAbs(condPos))
 			fmt.Fprintf(&out, "\t\t} else if %s {\n", cond)
 			em.emitBranchParts(parts, &out, bodyAbsStart(em.src, basePos+em.posOffset, body))
 			rest = strings.TrimSpace(remaining)
@@ -1868,9 +1963,7 @@ func (em *emitter) emitIfCtrl(raw, parentVar string, basePos int) {
 				em.err = fmt.Errorf("else scan: %w", err)
 				return
 			}
-			if em.filename != "" {
-				fmt.Fprintf(&out, "//line %s:%d\n", em.filename, lineAt(em.src, condPos))
-			}
+			out.WriteString(em.lineDirAbs(condPos))
 			out.WriteString("\t\t} else {\n")
 			em.emitBranchParts(parts, &out, bodyAbsStart(em.src, basePos+em.posOffset, body))
 		}
@@ -1917,9 +2010,7 @@ func (em *emitter) emitSwitchCtrl(raw, parentVar string, basePos int) {
 	// Emit //line before the switch header so VaneToGo maps the {switch} vane
 	// line directly to the switch statement (not to the DynChild wrapper above
 	// it), same fix as {for}'s header (see emitForCtrl).
-	if em.filename != "" {
-		fmt.Fprintf(&out, "//line %s:%d\n", em.filename, lineAt(em.src, basePos+em.posOffset))
-	}
+	out.WriteString(em.lineDirAbs(basePos + em.posOffset))
 	if expr != "" {
 		fmt.Fprintf(&out, "\t\tswitch %s {\n", expr)
 	} else {
