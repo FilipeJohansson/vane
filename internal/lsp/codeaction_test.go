@@ -316,7 +316,7 @@ func TestTranslateCompletionResultJSON_TranslatesImportFixAdditionalEdit(t *test
 		},
 	})
 
-	translated, changed := translateCompletionResultJSON(vaneURI, result, store)
+	translated, changed := translateCompletionResultJSON(vaneURI, -1, -1, -1, -1, result, store)
 	if !changed {
 		t.Fatalf("expected changed=true")
 	}
@@ -387,5 +387,32 @@ func TestTranslateGoRangeToVaneForEdit_DistinctZeroWidthInsertsStayDistinct(t *t
 			t.Errorf("col %d: collided with a previous edit's translated range %s — this is exactly the overlap bug", vaneCol, key)
 		}
 		seen[key] = true
+	}
+}
+
+// TestClampRangeOrder covers the "start (offset N) > end (offset M)" error
+// gopls returned live for a codeAction request: translateRequestPos's Range
+// branch refines each endpoint via mapColumn independently, and nothing
+// guarantees the refined end still follows the refined start.
+func TestClampRangeOrder(t *testing.T) {
+	cases := []struct {
+		name           string
+		sl, sc, el, ec int
+		wantEl, wantEc int
+	}{
+		{name: "already ordered", sl: 1, sc: 5, el: 1, ec: 10, wantEl: 1, wantEc: 10},
+		{name: "different lines, ordered", sl: 1, sc: 5, el: 2, ec: 0, wantEl: 2, wantEc: 0},
+		{name: "same line, inverted columns", sl: 1, sc: 10, el: 1, ec: 5, wantEl: 1, wantEc: 10},
+		{name: "inverted lines", sl: 2, sc: 0, el: 1, ec: 5, wantEl: 2, wantEc: 0},
+		{name: "equal", sl: 1, sc: 5, el: 1, ec: 5, wantEl: 1, wantEc: 5},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			gotEl, gotEc := clampRangeOrder(tc.sl, tc.sc, tc.el, tc.ec)
+			if gotEl != tc.wantEl || gotEc != tc.wantEc {
+				t.Errorf("clampRangeOrder(%d,%d,%d,%d) = (%d,%d), want (%d,%d)",
+					tc.sl, tc.sc, tc.el, tc.ec, gotEl, gotEc, tc.wantEl, tc.wantEc)
+			}
+		})
 	}
 }
