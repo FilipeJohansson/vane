@@ -1,4 +1,4 @@
-.PHONY: all build force install dev test test-dom test-e2e test-e2e-chromium test-e2e-firefox test-e2e-webkit lint security install-hooks clean
+.PHONY: all build force install dev test test-dom test-e2e test-e2e-chromium test-e2e-firefox test-e2e-webkit lint security install-hooks clean build-vscode-extension
 
 all: build
 
@@ -53,4 +53,4 @@ clean:
 	del /f vane.exe 2>nul || true
 
 build-vscode-extension:
-	cd tools/vscode-vane && npx @vscode/vsce package
+	cd tools/vscode-vane && pnpm install --silent && pnpm run package

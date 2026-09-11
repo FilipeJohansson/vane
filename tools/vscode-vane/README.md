@@ -27,6 +27,8 @@ pnpm install                     # first time only
 pnpm run package                 # builds and packages -> vscode-vane-<version>.vsix
 ```
 
+Or, from the repo root: `make build-vscode-extension`.
+
 ### Install
 
 **Command line:**

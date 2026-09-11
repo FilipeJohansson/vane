@@ -234,6 +234,7 @@ var tutorialTOCItems = []tocItem{
 var vscodeExtensionTOCItems = []tocItem{
 	{"install", "Install"},
 	{"what-it-does", "What it does"},
+	{"tooling-checks", "Tooling checks on startup"},
 	{"workspace-settings", "Workspace settings it manages"},
 	{"commands", "Commands"},
 }

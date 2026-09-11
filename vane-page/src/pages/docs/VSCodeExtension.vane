@@ -8,8 +8,8 @@ import (
 
 const vscodeInstallSnippet = `git clone https://github.com/filipejohansson/vane
 cd vane/tools/vscode-vane
-npm install
-npx vsce package
+pnpm install
+pnpm run package
 code --install-extension vscode-vane-0.1.0.vsix`
 
 const vscodeConfigDefaultsSnippet = `"contributes": {
@@ -44,6 +44,11 @@ func VSCodeExtension() core.Node {
 					from source.
 				</p>
 				{components.TerminalBlock("Terminal", vscodeInstallSnippet)}
+				<p className="docs-p">
+					The last step can also be done from the UI instead: Extensions view
+					(Ctrl/Cmd+Shift+X) → the <code>...</code> menu → <strong>Install from
+					VSIX...</strong> → select the generated <code>.vsix</code> file.
+				</p>
 
 				<h2 className="docs-h2" id="what-it-does">What it does</h2>
 				<p className="docs-p">
@@ -54,7 +59,21 @@ func VSCodeExtension() core.Node {
 					autocomplete, quick fixes, and diagnostics all work directly against your{" "}
 					<code>.vane</code> source, backed by real Go tooling.
 				</p>
-				{callout("tip", "Tip", "Ctrl+click into generated code (e.g. from a plain .go file) redirects you to the matching .vane line. Opening a _vane.go file directly (double-click, Quick Open) shows the raw generated Go instead, no redirect, since that's a deliberate look at the compiler's output.")}
+				{callout("tip", "Tip", "Ctrl+click into generated code (e.g. from a plain .go file) redirects you to the matching .vane line and column, however you got there, including opening a _vane.go file directly. To actually inspect the generated Go, use the Vane: Open Generated Go File command below instead of opening the file yourself, that's the one deliberate way to bypass the redirect.")}
+
+				<h2 className="docs-h2" id="tooling-checks">Tooling checks on startup</h2>
+				<p className="docs-p">
+					On activation, the extension checks for two things <code>vane lsp</code> and{" "}
+					<code>.vane</code> syntax highlighting both depend on, and offers to fix
+					whichever is missing instead of failing silently:
+				</p>
+				{docsTable(
+					[]string{"Check", "If missing"},
+					[][]core.Node{
+						{core.Text("gopls on PATH"), core.Text("Prompts to run go install golang.org/x/tools/gopls@latest in a new terminal")},
+						{core.Text("Go extension (golang.go)"), core.Text("Prompts to install it from the Marketplace")},
+					},
+				)}
 
 				<h2 className="docs-h2" id="workspace-settings">Settings it defaults for you</h2>
 				<p className="docs-p">
