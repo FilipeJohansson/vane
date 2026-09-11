@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - Add end-to-end acceptance suite for the fullstack example app (#26)
 - Add cross-platform CLI tests and update installation documentation (#28)
+- Add VS Code extension with LSP-backed editor support (#29)
 
 ## [0.4.0] - 2026-09-10
 
