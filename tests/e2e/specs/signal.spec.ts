@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test'
 
 test('updates the DOM when a signal changes', async ({ page }) => {
-  await page.goto('/#/signals')
+  await page.goto('/signals')
 
   const count = page.getByTestId('signal-count')
 
@@ -16,7 +16,7 @@ test('updates the DOM when a signal changes', async ({ page }) => {
 })
 
 test('updates computed values and tracks multiple dependencies', async ({ page }) => {
-  await page.goto('/#/signals')
+  await page.goto('/signals')
 
   await expect(page.getByTestId('computed-double')).toHaveText('0')
   await expect(page.getByTestId('multiple-dependencies')).toHaveText('10')

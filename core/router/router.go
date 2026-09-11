@@ -41,7 +41,7 @@ var (
 	ctxStack       []routerCtx
 	pathSignal     *signal.Signal[string]
 	pathReadOnly   *signal.ReadOnlySignal[string]
-	activeLocation Location = &HashLocation{}
+	activeLocation Location = &PathLocation{}
 	initialized    bool
 )
 
@@ -91,10 +91,10 @@ func ensureInit() {
 }
 
 // SetLocation configures how the router represents its current route in the
-// browser's URL. By default the router uses HashLocation; call SetLocation
-// to opt into a different one (e.g. PathLocation). Must be called before the
-// router is used (before Router, Navigate, Replace, Path, Link, etc.), panics
-// otherwise.
+// browser's URL. By default the router uses PathLocation; call SetLocation
+// to opt into a different one (e.g. HashLocation, for a static host with no
+// SPA-fallback configuration). Must be called before the router is used
+// (before Router, Navigate, Replace, Path, Link, etc.), panics otherwise.
 func SetLocation(loc Location) {
 	if initialized {
 		panic("router.SetLocation must be called before the router is used")

@@ -165,9 +165,9 @@ func APIReference() core.Node {
 						apiRow(routerPkgURL, "Params", "Params", "The current route's params as a reactive read-only signal."),
 						apiRow(routerPkgURL, "IsActive", "IsActive", "A reactive signal that's true when the current path matches a given one."),
 						apiRow(routerPkgURL, "Outlet", "Outlet", "The stable node a Layout's nested routes render into."),
-						apiRow(routerPkgURL, "SetLocation", "SetLocation", "Chooses how the router represents its route in the URL (HashLocation, the default, or PathLocation)."),
-						apiRow(routerPkgURL, "HashLocation", "HashLocation", "URL scheme using the hash fragment (#/path) — works on any static host."),
+						apiRow(routerPkgURL, "SetLocation", "SetLocation", "Chooses how the router represents its route in the URL (PathLocation, the default, or HashLocation)."),
 						apiRow(routerPkgURL, "PathLocation", "PathLocation", "URL scheme using real pathnames via the History API — needs a server fallback to index.html."),
+						apiRow(routerPkgURL, "HashLocation", "HashLocation", "URL scheme using the hash fragment (#/path) — works on any static host."),
 					},
 				)}
 

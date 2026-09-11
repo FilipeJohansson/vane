@@ -95,7 +95,7 @@ func DevelopAndBuild() core.Node {
 					server-side rendering and nothing to run on the host.
 				</p>
 				{components.TerminalBlock("Terminal", dabBuildSnippet)}
-				{callout("tip", "Tip", "Routing is hash-based (#/path), so every route is the same URL as far as the server is concerned, only the part after # changes. A plain static file server just works, unlike history-API routers, no SPA fallback or catch-all rewrite rule to configure on the host.")}
+				{callout("tip", "Tip", "The router's default PathLocation needs the host to serve index.html for any path it doesn't recognize (a \"SPA fallback\") - see the Server configuration section of the Routing guide for nginx/Apache/Netlify/Vercel/GitHub Pages recipes. Skip it entirely with router.SetLocation(&router.HashLocation{}), which needs no server config at all.")}
 				{callout("important", "Important", "instantiateStreaming (index.html's boot script) requires the server to send Content-Type: application/wasm for app.wasm. Most static hosts already do; if the WASM fails to load on a host you configured yourself, check that header first.")}
 
 				<h2 className="docs-h2" id="cli-reference">CLI reference</h2>

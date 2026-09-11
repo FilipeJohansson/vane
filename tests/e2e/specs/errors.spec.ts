@@ -1,14 +1,14 @@
 import { expect, test } from '@playwright/test'
 
 test('renders the synchronous panic fallback', async ({ page }) => {
-  await page.goto('/#/errors')
+  await page.goto('/errors')
 
   await expect(page.getByTestId('sync-fallback')).toHaveText('sync failure')
   await expect(page.getByTestId('outside-content')).toHaveText('outside')
 })
 
 test('recovers reactive panics while content outside the boundary keeps working', async ({ page }) => {
-  await page.goto('/#/errors')
+  await page.goto('/errors')
 
   await expect(page.getByTestId('recovered-value')).toHaveText('healthy')
   await page.getByRole('button', { name: 'Toggle reactive panic' }).click()
@@ -22,7 +22,7 @@ test('recovers reactive panics while content outside the boundary keeps working'
 })
 
 test('disposes an unguarded reactive binding after panic', async ({ page }) => {
-  await page.goto('/#/errors')
+  await page.goto('/errors')
 
   await expect(page.getByTestId('inner-binding')).toHaveText('healthy')
   await page.getByRole('button', { name: 'Toggle inner panic' }).click()
@@ -33,7 +33,7 @@ test('disposes an unguarded reactive binding after panic', async ({ page }) => {
 })
 
 test('many panic/recover cycles never leave stale content or a dead boundary behind', async ({ page }) => {
-  await page.goto('/#/errors')
+  await page.goto('/errors')
 
   const boundary = page.getByTestId('reactive-boundary')
   const toggle = page.getByRole('button', { name: 'Toggle reactive panic' })

@@ -1,14 +1,14 @@
 import { expect, test } from '@playwright/test'
 
 test('navigates between fixture pages', async ({ page }) => {
-  await page.goto('/#/smoke')
+  await page.goto('/smoke')
 
   await expect(page.getByTestId('app-ready')).toHaveText('ready')
   await expect(page).toHaveTitle('Smoke - Vane E2E')
 
   await page.getByRole('link', { name: 'Signals' }).click()
 
-  await expect(page).toHaveURL(/#\/signals$/)
+  await expect(page).toHaveURL(/\/signals$/)
   await expect(page.getByTestId('signal-count')).toHaveText('0')
   await expect(page).toHaveTitle('Signals - Vane E2E')
 })
@@ -21,79 +21,79 @@ test('boots the fixture from the root route', async ({ page }) => {
 })
 
 test('renders a route parameter and the built-in 404 fallback', async ({ page }) => {
-  await page.goto('/#/users/42')
+  await page.goto('/users/42')
 
   await expect(page.getByTestId('user-id')).toHaveText('42')
   await expect(page).toHaveTitle('User - Vane E2E')
 
-  await page.goto('/#/missing')
+  await page.goto('/missing')
 
   await expect(page.getByText('404')).toBeVisible()
 })
 
 test('supports direct navigation and refresh', async ({ page }) => {
-  await page.goto('/#/signals')
+  await page.goto('/signals')
   await expect(page.getByTestId('signal-count')).toHaveText('0')
 
   await page.reload()
-  await expect(page).toHaveURL(/#\/signals$/)
+  await expect(page).toHaveURL(/\/signals$/)
   await expect(page.getByTestId('signal-count')).toHaveText('0')
 })
 
 test('supports browser back and forward', async ({ page }) => {
-  await page.goto('/#/smoke')
+  await page.goto('/smoke')
   await page.getByRole('link', { name: 'Signals' }).click()
-  await expect(page).toHaveURL(/#\/signals$/)
+  await expect(page).toHaveURL(/\/signals$/)
 
   await page.goBack()
-  await expect(page).toHaveURL(/#\/smoke$/)
+  await expect(page).toHaveURL(/\/smoke$/)
   await expect(page.getByTestId('app-ready')).toHaveText('ready')
 
   await page.goForward()
-  await expect(page).toHaveURL(/#\/signals$/)
+  await expect(page).toHaveURL(/\/signals$/)
   await expect(page.getByTestId('signal-count')).toHaveText('0')
 })
 
 test('keeps nested layouts mounted while child routes change', async ({ page }) => {
-  await page.goto('/#/nested')
+  await page.goto('/nested')
 
   await expect(page.getByTestId('nested-layout')).toBeVisible()
   await expect(page.getByTestId('nested-page')).toHaveText('Nested home')
   await expect(page.getByTestId('layout-mounts')).toHaveText('1')
 
   await page.getByRole('link', { name: 'Nested detail' }).click()
-  await expect(page).toHaveURL(/#\/nested\/detail$/)
+  await expect(page).toHaveURL(/\/nested\/detail$/)
   await expect(page.getByTestId('nested-page')).toHaveText('Nested detail')
   await expect(page.getByTestId('layout-mounts')).toHaveText('1')
 })
 
 test('router.Replace does not push a history entry, so back skips the replaced route', async ({ page }) => {
-  await page.goto('/#/rendering')
+  await page.goto('/rendering')
   await page.getByRole('link', { name: 'Smoke' }).click()
-  await expect(page).toHaveURL(/#\/smoke$/)
+  await expect(page).toHaveURL(/\/smoke$/)
 
   await page.getByTestId('replace-to-signals').click()
-  await expect(page).toHaveURL(/#\/signals$/)
+  await expect(page).toHaveURL(/\/signals$/)
   await expect(page.getByTestId('signal-count')).toHaveText('0')
 
   // If Replace had pushed a new entry instead of replacing, this would land
   // back on /smoke; since it doesn't push, back must skip straight over the
   // replaced entry to whatever preceded it (/rendering).
   await page.goBack()
-  await expect(page).toHaveURL(/#\/rendering$/)
+  await expect(page).toHaveURL(/\/rendering$/)
 })
 
 test('cleans route-scoped content when navigating away', async ({ page }) => {
-  await page.goto('/#/lifecycle')
+  await page.goto('/lifecycle')
   await expect(page.getByTestId('lifecycle-cleanups')).toHaveText('0')
 
-  await page.goto('/#/smoke')
+  await page.getByRole('link', { name: 'Smoke' }).click()
   await expect(page.getByTestId('app-ready')).toHaveText('ready')
   await expect(page.getByTestId('portal-host')).toBeEmpty()
 })
 
 test('repeated navigation round trips do not leak route lifecycle state', async ({ page }) => {
-  await page.goto('/#/lifecycle')
+  await page.goto('/lifecycle')
   await expect(page.getByTestId('effect-runs')).toHaveText('1')
   await expect(page.getByTestId('lifecycle-cleanups')).toHaveText('0')
 
@@ -109,4 +109,75 @@ test('repeated navigation round trips do not leak route lifecycle state', async 
     await expect(page.getByTestId('effect-runs')).toHaveText('1')
     await expect(page.getByTestId('lifecycle-cleanups')).toHaveText(String(i + 1))
   }
+})
+
+// The router's default Location is PathLocation, so a plain <a href="/x">
+// needs its click intercepted (see PathLocation.handleClick) to navigate via
+// the router instead of a full page reload - these specs are that
+// interception's regression coverage, plus the direct-load/refresh and
+// fragment-scroll behavior that only apply under real paths.
+
+test('a modified click opens a new tab instead of navigating in place', async ({ page, context }) => {
+  await page.goto('/smoke')
+
+  const [popup] = await Promise.all([
+    context.waitForEvent('page'),
+    page.getByRole('link', { name: 'Signals' }).click({ modifiers: ['ControlOrMeta'] }),
+  ])
+  await popup.waitForLoadState()
+
+  expect(popup.url()).toContain('/signals')
+  await expect(page).toHaveURL(/\/smoke$/)
+})
+
+test('a middle click does not navigate the current page', async ({ page, browserName }) => {
+  // Playwright's WebKit driver dispatches a middle click as button: 0 (a
+  // regular left click) instead of button: 1, unlike Chromium/Firefox -
+  // a driver quirk, not real Safari behavior (which, like every other
+  // browser, fires "auxclick" for the middle button, never "click", so
+  // PathLocation's listener wouldn't even see it). The button check itself
+  // is already covered directly and reliably by a unit test
+  // (TestPathLocationHandleClick/middle_click, core/router/path_location_dom_test.go).
+  test.skip(browserName === 'webkit', "WebKit's Playwright driver simulates a middle click as button: 0")
+
+  await page.goto('/smoke')
+
+  await page.getByRole('link', { name: 'Signals' }).click({ button: 'middle' })
+
+  await expect(page).toHaveURL(/\/smoke$/)
+})
+
+test('supports a direct load and a refresh of a nested route', async ({ page }) => {
+  await page.goto('/users/42')
+  await expect(page.getByTestId('user-id')).toHaveText('42')
+
+  await page.reload()
+
+  await expect(page).toHaveURL(/\/users\/42$/)
+  await expect(page.getByTestId('user-id')).toHaveText('42')
+})
+
+test('a navigation with a fragment scrolls to that element instead of the page top', async ({ page }) => {
+  await page.goto('/smoke')
+  await expect(page.getByTestId('app-ready')).toHaveText('ready')
+  await expect(page.getByTestId('target-section')).not.toBeInViewport()
+
+  await page.getByTestId('scroll-to-anchor').click()
+
+  await expect(page).toHaveURL(/\/smoke#target-section$/)
+  await expect(page.getByTestId('target-section')).toBeInViewport()
+})
+
+// A Layout shell whose mount Effect redirects away when logged out. Browser
+// back after that redirect re-mounts the shell fresh, which must re-fire
+// the same redirect rather than briefly exposing the guarded content again.
+test('a mount guard re-fires on browser back after logging out', async ({ page }) => {
+  await page.goto('/guard')
+  await expect(page.getByTestId('guard-status')).toBeVisible()
+
+  await page.getByRole('button', { name: 'Log out' }).click()
+  await expect(page).toHaveURL(/\/smoke$/)
+
+  await page.goBack()
+  await expect(page).toHaveURL(/\/smoke$/)
 })

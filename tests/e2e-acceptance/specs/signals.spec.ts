@@ -15,9 +15,9 @@ test('editing the name field stays local until saved, then propagates through th
   const newName = 'Signals Updated'
 
   await sidebarLink(page, 'Users').click()
-  await page.waitForURL(/#\/dashboard\/users$/)
+  await page.waitForURL(/\/dashboard\/users$/)
   await page.getByRole('row', { name: new RegExp(user.email) }).getByRole('link', { name: 'View' }).click()
-  await page.waitForURL(/#\/dashboard\/users\/\d+$/)
+  await page.waitForURL(/\/dashboard\/users\/\d+$/)
 
   const nameInput = page.locator('#edit-name')
   await expect(nameInput).toHaveValue(user.name)
@@ -36,7 +36,7 @@ test('editing the name field stays local until saved, then propagates through th
   // Still true after actually navigating elsewhere: it's the same signal,
   // not a value that happened to be passed down to the sidebar once.
   await sidebarLink(page, 'Overview').click()
-  await page.waitForURL(/#\/dashboard$/)
+  await page.waitForURL(/\/dashboard$/)
   await expect(page.getByRole('heading', { name: new RegExp(`^Welcome, ${newName}$`) })).toBeVisible()
   await expect(sidebarUser).toHaveText(newName)
 })

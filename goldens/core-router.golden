@@ -33,7 +33,7 @@ func SetLocation(loc Location)
 func WithTitle(title string) RouteOption
 type type ActiveLinkProps struct{LinkProps; ActiveClass string; Exact bool}
 type type Entry interface{routerEntry()}
-type type HashLocation struct{onChange func()}
+type type HashLocation struct{onChange func(); lastNotified string}
 type type LinkProps struct{github.com/filipejohansson/vane/core.HTMLProps; To string; Target string; Rel string}
 type type Location interface{AnchorID() string; Href(path string) string; Navigate(path string); OnChange(fn func()); Path() string; Replace(path string)}
 type type PathLocation struct{BasePath string; onChange func()}

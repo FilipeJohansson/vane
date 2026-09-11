@@ -10,9 +10,9 @@ test('the modal renders through the portal target, not inline, and Cancel leaves
   const user = await registerNewUser(page, 'Portal User')
 
   await sidebarLink(page, 'Users').click()
-  await page.waitForURL(/#\/dashboard\/users$/)
+  await page.waitForURL(/\/dashboard\/users$/)
   await page.getByRole('row', { name: new RegExp(user.email) }).getByRole('link', { name: 'View' }).click()
-  await page.waitForURL(/#\/dashboard\/users\/\d+$/)
+  await page.waitForURL(/\/dashboard\/users\/\d+$/)
 
   await expect(page.locator('#modal-root .modal-overlay')).toHaveCount(0)
 
@@ -27,7 +27,7 @@ test('the modal renders through the portal target, not inline, and Cancel leaves
   await page.getByRole('button', { name: 'Cancel' }).click()
   await expect(page.locator('#modal-root .modal-overlay')).toHaveCount(0)
   // Cancel didn't navigate or delete anything.
-  await expect(page).toHaveURL(/#\/dashboard\/users\/\d+$/)
+  await expect(page).toHaveURL(/\/dashboard\/users\/\d+$/)
   await expect(page.getByRole('button', { name: 'Delete account' })).toBeVisible()
 })
 
@@ -35,9 +35,9 @@ test('repeated open/close cycles leave no leftover content in the portal target'
   const user = await registerNewUser(page, 'Portal Cycles')
 
   await sidebarLink(page, 'Users').click()
-  await page.waitForURL(/#\/dashboard\/users$/)
+  await page.waitForURL(/\/dashboard\/users$/)
   await page.getByRole('row', { name: new RegExp(user.email) }).getByRole('link', { name: 'View' }).click()
-  await page.waitForURL(/#\/dashboard\/users\/\d+$/)
+  await page.waitForURL(/\/dashboard\/users\/\d+$/)
 
   for (let i = 0; i < 3; i++) {
     await page.getByRole('button', { name: 'Delete account' }).click()
@@ -51,13 +51,13 @@ test('confirming in the modal actually deletes the account and navigates to logi
   await registerNewUser(page, 'Portal Confirm Delete')
 
   await page.getByText('View all').click()
-  await page.waitForURL(/#\/dashboard\/users\/\d+\/notes$/)
+  await page.waitForURL(/\/dashboard\/users\/\d+\/notes$/)
   await page.getByRole('link', { name: '← Back to user' }).click()
-  await page.waitForURL(/#\/dashboard\/users\/\d+$/)
+  await page.waitForURL(/\/dashboard\/users\/\d+$/)
 
   await page.getByRole('button', { name: 'Delete account' }).click()
   await expect(page.locator('#modal-root .modal-overlay')).toBeVisible()
 
   await page.locator('#modal-root').getByRole('button', { name: 'Confirm' }).click()
-  await page.waitForURL(/#\/login$/)
+  await page.waitForURL(/\/login$/)
 })

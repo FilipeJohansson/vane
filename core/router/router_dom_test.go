@@ -20,6 +20,16 @@ import (
 	"github.com/filipejohansson/vane/core/signal"
 )
 
+// This file's tests exercise the package-level router singleton under
+// HashLocation, so they lock it explicitly here before any test can force
+// ensureInit onto the router's actual default (PathLocation) instead.
+// SetLocation can only succeed once per process; PathLocation's own
+// singleton-level coverage lives in the separate core/router/pathlocation_test
+// package for exactly that reason.
+func init() {
+	router.SetLocation(&router.HashLocation{})
+}
+
 func waitEffects(t *testing.T) {
 	t.Helper()
 	if !signal.WaitEffects(time.Second) {
@@ -325,5 +335,41 @@ func TestHashLocationIgnoresNonRouteHashChange(t *testing.T) {
 	}
 	if scrollCalls != 0 {
 		t.Errorf("window.scrollTo called %d times, want 0", scrollCalls)
+	}
+}
+
+// TestHashLocationNavigateNotifiesOnceNotTwice guards the auth-guard flake
+// fix: Navigate notifies synchronously right after setting location.hash,
+// but the browser still fires a real "hashchange" for that same change a
+// moment later - without the dedupe in HashLocation.notify, that would
+// double-invoke every effect reacting to the navigation (the scroll
+// decision in particular). Exercises a standalone *HashLocation, like
+// TestHashLocationIgnoresNonRouteHashChange's sibling tests do, so it
+// doesn't depend on - or interfere with - the package singleton.
+func TestHashLocationNavigateNotifiesOnceNotTwice(t *testing.T) {
+	loc := &router.HashLocation{}
+	calls := 0
+	loc.OnChange(func() { calls++ })
+	t.Cleanup(func() { js.Global().Get("location").Set("hash", "") })
+
+	loc.Navigate("/guard-test-a")
+	if calls != 1 {
+		t.Fatalf("calls right after Navigate = %d, want 1 (synchronous notify)", calls)
+	}
+
+	// Give the native "hashchange" event that Navigate's own location.hash
+	// assignment triggers a real chance to arrive and confirm it's deduped.
+	time.Sleep(100 * time.Millisecond)
+	if calls != 1 {
+		t.Errorf("calls after the native hashchange settles = %d, want still 1 (deduped)", calls)
+	}
+
+	// A genuinely distinct subsequent change (browser back/forward, a typed
+	// URL, or any location.hash write Navigate didn't make) must still
+	// notify - the dedupe must not swallow real changes.
+	js.Global().Get("location").Set("hash", "#/guard-test-b")
+	time.Sleep(100 * time.Millisecond)
+	if calls != 2 {
+		t.Errorf("calls after a distinct external hash change = %d, want 2", calls)
 	}
 }

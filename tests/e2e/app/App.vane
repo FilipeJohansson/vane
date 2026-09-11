@@ -10,18 +10,17 @@ import (
 	"github.com/filipejohansson/vane/core/router"
 )
 
-// A pathname under /path-mode boots this fixture with PathLocation instead
-// of the default HashLocation, so the same app/routes serve both the
-// existing hash-based specs and the path-routing ones (see
-// tests/e2e/specs/router-path.spec.ts). BasePath doubles as the gate: it's
-// baked into the pathname itself, so it survives reloads and pushState
-// navigation alike, unlike a query param that PathLocation.Navigate has no
-// reason to preserve.
-const pathModeBase = "/path-mode"
+// A pathname under /hash-mode boots this fixture with HashLocation instead
+// of the router's default PathLocation, so the same app/routes serve both
+// the path-routing specs (router.spec.ts) and the hash-routing ones (see
+// tests/e2e/specs/router-hash.spec.ts). Checked against the pathname rather
+// than a query param since HashLocation.Navigate never touches the
+// pathname, so the gate stays put across reloads and route changes alike.
+const hashModeBase = "/hash-mode"
 
 func App() core.Node {
-	if strings.HasPrefix(js.Global().Get("location").Get("pathname").String(), pathModeBase) {
-		router.SetLocation(&router.PathLocation{BasePath: pathModeBase})
+	if strings.HasPrefix(js.Global().Get("location").Get("pathname").String(), hashModeBase) {
+		router.SetLocation(&router.HashLocation{})
 	}
 
 	return (
@@ -36,6 +35,7 @@ func App() core.Node {
 				{router.Link(router.LinkProps{To: "/nested"}, "Nested")}
 				{router.Link(router.LinkProps{To: "/errors"}, "Errors")}
 				{router.Link(router.LinkProps{To: "/users/42"}, "User")}
+				{router.Link(router.LinkProps{To: "/guard"}, "Guard")}
 			</nav>
 			{router.Router(
 				router.Route("/", pages.Smoke, router.WithTitle("Smoke - Vane E2E")),
@@ -51,6 +51,9 @@ func App() core.Node {
 				),
 				router.Route("/errors", pages.Errors, router.WithTitle("Errors - Vane E2E")),
 				router.Route("/users/:id", pages.User, router.WithTitle("User - Vane E2E")),
+				router.Layout("/guard", pages.GuardShell,
+					router.Route("", pages.GuardHome, router.WithTitle("Guard - Vane E2E")),
+				),
 			)}
 			<div data-testid="portal-host"></div>
 		</div>

@@ -44,9 +44,10 @@ var (
 
 // PathLocation represents the router's state in the pathname of the
 // browser's URL (e.g. "/docs"), using the History API (pushState/
-// replaceState) to navigate without a full page reload. Requires the host
-// server to fall back to index.html for unknown paths, since a direct
-// load or refresh of e.g. "/docs" is a real request for that path.
+// replaceState) to navigate without a full page reload. This is the
+// router's default. Requires the host server to fall back to index.html for
+// unknown paths, since a direct load or refresh of e.g. "/docs" is a real
+// request for that path.
 //
 // A plain <a href="/docs"> would otherwise make the browser reload the page;
 // PathLocation intercepts same-origin, unmodified left-clicks on in-app
@@ -216,11 +217,17 @@ func (l *PathLocation) handleClick(_ js.Value, args []js.Value) interface{} {
 }
 
 // HashLocation represents the router's state in the hash fragment of the
-// browser's URL (e.g. "#/docs"). This is the router's default: the hash is
-// never sent to the server, so it works on any static host without needing
-// a server-side rewrite rule for unknown paths.
+// browser's URL (e.g. "#/docs"). The hash is never sent to the server, so it
+// works on any static host without needing a server-side rewrite rule for
+// unknown paths — use it via SetLocation when the host can't be configured
+// with a PathLocation (the router's default) SPA fallback.
 type HashLocation struct {
 	onChange func()
+	// lastNotified is the hash last passed to notify, so the native
+	// "hashchange" event firing after Navigate's own manual notify (see
+	// Navigate/notify) doesn't invoke onChange a second time for the same
+	// change.
+	lastNotified string
 }
 
 // Path reads location.hash. Only hashes starting with "#/" are router
@@ -240,10 +247,34 @@ func (l *HashLocation) Href(path string) string {
 }
 
 // Navigate sets location.hash, which the browser turns into a new history
-// entry and fires "hashchange" on its own — that's what invokes the
-// OnChange callback below.
+// entry and (usually) fires "hashchange" on its own. Also notifies
+// synchronously right away rather than relying solely on that event:
+// browsers dispatch "hashchange" as an ordinary queued task, and a Go/WASM
+// goroutine that's mid-flush when the assignment happens is not guaranteed
+// to yield back to the event loop in time to pick it up promptly (seen in
+// CI as a route guard's own Navigate, called during a fresh mount from
+// inside an effect flush, never observably completing). notify's dedupe
+// (see its doc comment) makes the eventual native event a no-op once this
+// has already run.
 func (l *HashLocation) Navigate(path string) {
-	js.Global().Get("location").Set("hash", l.Href(path))
+	href := l.Href(path)
+	js.Global().Get("location").Set("hash", href)
+	l.notify(href)
+}
+
+// notify invokes onChange for hash, unless it's the hash Navigate already
+// notified for — the native "hashchange" event fires independently of
+// Navigate's own manual call, and without this check both would run,
+// double-invoking every effect that reacts to a single navigation (e.g. the
+// scroll-to-top/anchor decision in ensureInit's OnChange).
+func (l *HashLocation) notify(hash string) {
+	if hash == l.lastNotified {
+		return
+	}
+	l.lastNotified = hash
+	if l.onChange != nil {
+		l.onChange()
+	}
 }
 
 // Replace swaps the current history entry via history.replaceState, since
@@ -267,7 +298,7 @@ func (l *HashLocation) OnChange(fn func()) {
 			if !strings.HasPrefix(hash, "#/") {
 				return nil
 			}
-			fn()
+			l.notify(hash)
 			return nil
 		},
 	))

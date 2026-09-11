@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test'
 
 test('mounts portal content in an external host and cleans it up', async ({ page }) => {
-  await page.goto('/#/portals')
+  await page.goto('/portals')
 
   await expect(page.getByTestId('portal-source')).toHaveText('source')
   await expect(page.getByTestId('portal-host')).toBeEmpty()
@@ -16,14 +16,14 @@ test('mounts portal content in an external host and cleans it up', async ({ page
   await page.getByRole('button', { name: 'Open portal' }).click()
   await expect(page.getByTestId('portal-content')).toBeVisible()
 
-  await page.goto('/#/smoke')
+  await page.getByRole('link', { name: 'Smoke' }).click()
 
   await expect(page.getByTestId('app-ready')).toHaveText('ready')
   await expect(page.getByTestId('portal-host')).toBeEmpty()
 })
 
 test('repeated open/close cycles do not leak portal content', async ({ page }) => {
-  await page.goto('/#/portals')
+  await page.goto('/portals')
 
   const opens = page.getByTestId('portal-opens')
   const closes = page.getByTestId('portal-closes')
