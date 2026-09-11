@@ -7,6 +7,9 @@ const { execSync } = require('child_process');
 const path = require('path');
 const fs = require('fs');
 const { vaneLineFromGoContent } = require('./linemap');
+const { checkGoplsPresent } = require('./gopls');
+
+const GO_EXTENSION_ID = 'golang.go';
 
 let client;
 let output;
@@ -63,9 +66,45 @@ function makeClient() {
   return new LanguageClient('vane', 'Vane Language Server', serverOptions, clientOptions);
 }
 
+// ensureTooling checks for the two things the vane language server actually
+// needs to be useful and prompts to fix whichever is missing, matching
+// vscode-go's own pattern for the exact same underlying tool (gopls) rather
+// than failing silently or bundling a binary: `vane lsp` is a proxy in
+// front of a real `gopls` process (see internal/lsp), and .vane's own
+// syntax highlighting layers Go highlighting from the Go extension's own
+// grammar (see syntaxes/vane-jsx.tmLanguage.json's `{"include":
+// "source.go"}`) - without the Go extension, that highlighting silently
+// degrades to no color for attributes, not a crash, but a real rough edge.
+// Runs in the background; doesn't block activation.
+async function ensureTooling() {
+  if (!checkGoplsPresent(execSync)) {
+    const choice = await vscode.window.showWarningMessage(
+      'Vane: gopls not found on PATH. The language server needs it for diagnostics, hover, and go-to-definition.',
+      'Install gopls',
+    );
+    if (choice === 'Install gopls') {
+      const term = vscode.window.createTerminal('Vane: install gopls');
+      term.show();
+      term.sendText('go install golang.org/x/tools/gopls@latest');
+    }
+  }
+
+  if (!vscode.extensions.getExtension(GO_EXTENSION_ID)) {
+    const choice = await vscode.window.showWarningMessage(
+      "Vane: the Go extension isn't installed. Without it, .go syntax highlighting won't work, including inside .vane files.",
+      'Install Go extension',
+    );
+    if (choice === 'Install Go extension') {
+      await vscode.commands.executeCommand('workbench.extensions.installExtension', GO_EXTENSION_ID);
+    }
+  }
+}
+
 function activate(context) {
   output = vscode.window.createOutputChannel('Vane');
   context.subscriptions.push(output);
+
+  ensureTooling().catch((err) => log(`[ensureTooling] ${err}`));
 
   client = makeClient();
   client.start();
