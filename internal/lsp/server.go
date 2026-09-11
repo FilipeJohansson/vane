@@ -116,7 +116,7 @@ func Serve(editorIn io.Reader, editorOut io.Writer) error {
 						// asked about, which is why completions never surfaced at all,
 						// not just at wrong positions. Translate every range back to vane.
 						if len(resp.Result) > 0 && string(resp.Result) != "null" && info.vaneURI != "" {
-							if newResult, changed := translateCompletionResultJSON(info.vaneURI, resp.Result, store); changed {
+							if newResult, changed := translateCompletionResultJSON(info.vaneURI, info.reqVaneLine, info.reqVaneCol, info.reqGoLine, info.reqGoCol, resp.Result, store); changed {
 								var full map[string]json.RawMessage
 								if json.Unmarshal(msg, &full) == nil {
 									full["result"] = newResult
@@ -274,9 +274,19 @@ type pendingInfo struct {
 	method  string
 	vaneURI string // normalized vane URI, set for hover requests
 	// reqGoLine/reqGoCol are the go-coordinate position sent to gopls for a
-	// textDocument/documentHighlight request. Used to filter gopls's response:
-	// see translateDocumentHighlightResultJSON.
+	// textDocument/documentHighlight or textDocument/completion request. Used
+	// to filter/refine gopls's response: see translateDocumentHighlightResultJSON
+	// and translateCompletionRange.
 	reqGoLine, reqGoCol int
+	// reqVaneLine/reqVaneCol are the original vane-coordinate cursor position
+	// for a textDocument/completion request (-1, -1 if not applicable), taken
+	// before translateRequestPos ran. translateCompletionRange uses these to
+	// rebuild a completion item's replace range by identifier-prefix matching
+	// directly on the vane line, instead of trusting column-delta arithmetic
+	// across a go line - see translateCompletionRange for why that arithmetic
+	// is unsound for anything wrapped in synthetic boilerplate (core.DynChild
+	// closures, etc).
+	reqVaneLine, reqVaneCol int
 }
 
 // rpcMsg is a minimal JSONRPC message envelope for method/id extraction.
@@ -428,6 +438,22 @@ func proxyEditorToGopls(src *bufio.Reader, goplsIn io.Writer, editorOut io.Write
 			}
 		}
 
+		// Capture the pre-translation vane cursor position for completion
+		// requests, before translateRequestPos overwrites it below. See
+		// pendingInfo.reqVaneLine.
+		reqVaneLine, reqVaneCol := -1, -1
+		if env.Method == "textDocument/completion" {
+			var posWrapper struct {
+				Params struct {
+					Position *lspPos `json:"position,omitempty"`
+				} `json:"params"`
+			}
+			if json.Unmarshal(msg, &posWrapper) == nil && posWrapper.Params.Position != nil {
+				reqVaneLine = posWrapper.Params.Position.Line
+				reqVaneCol = posWrapper.Params.Position.Character
+			}
+		}
+
 		// Translate position from vane coordinates → Go coordinates before URI swap.
 		msg = translateRequestPos(msg, store)
 		// Translate any remaining .vane URIs to virtual Go URIs before forwarding.
@@ -458,7 +484,7 @@ func proxyEditorToGopls(src *bufio.Reader, goplsIn io.Writer, editorOut io.Write
 						info.vaneURI = normalizeFileURI(vaneURI)
 					}
 				}
-				if env.Method == "textDocument/documentHighlight" {
+				if env.Method == "textDocument/documentHighlight" || env.Method == "textDocument/completion" {
 					var posWrapper struct {
 						Params struct {
 							Position *lspPos `json:"position,omitempty"`
@@ -470,6 +496,7 @@ func proxyEditorToGopls(src *bufio.Reader, goplsIn io.Writer, editorOut io.Write
 					}
 				}
 			}
+			info.reqVaneLine, info.reqVaneCol = reqVaneLine, reqVaneCol
 			pendingMu.Lock()
 			pendingMethods[string(env.ID)] = info
 			pendingMu.Unlock()
@@ -866,6 +893,20 @@ func identAt(line string, col int) string {
 	return line[start:end]
 }
 
+// identPrefixStart returns the byte offset where the identifier ending at
+// byteCol begins, scanning backward over identifier bytes. Returns byteCol
+// itself if the preceding byte isn't part of an identifier.
+func identPrefixStart(line string, byteCol int) int {
+	if byteCol > len(line) {
+		byteCol = len(line)
+	}
+	start := byteCol
+	for start > 0 && isIdentByte(line[start-1]) {
+		start--
+	}
+	return start
+}
+
 // findIdentInLine searches line for ident as a whole word, returning the
 // column of the occurrence nearest to preferredCol. Returns -1 if not found.
 func findIdentInLine(line, ident string, preferredCol int) int {
@@ -1021,6 +1062,21 @@ func mapColumn(doc *document, vaneLine, vaneCol, goLine, gc int) (int, int) {
 	return goLine, gc
 }
 
+// clampRangeOrder returns (el, ec) unless it precedes (sl, sc), in which case
+// it returns (sl, sc) instead, collapsing to an empty range at start rather
+// than an inverted one. mapColumn refines a range's two endpoints
+// independently (ident search, or a raw clamp when no identifier covers that
+// exact point, e.g. it sits on punctuation like the closing `}`/`)` of a JSX
+// expression), and nothing otherwise guarantees the end still follows the
+// start once both are refined - confirmed live as gopls rejecting codeAction
+// requests with "start (offset N) > end (offset M)".
+func clampRangeOrder(sl, sc, el, ec int) (int, int) {
+	if el < sl || (el == sl && ec < sc) {
+		return sl, sc
+	}
+	return el, ec
+}
+
 // translateRequestPos translates position/range fields in requests targeting
 // .vane files from vane line coordinates to compiled Go line coordinates.
 // Handles both params.position (hover, definition, completion, …) and
@@ -1095,6 +1151,7 @@ func translateRequestPos(msg Message, store *docStore) Message {
 		if sok && eok {
 			sl, sc = mapColumn(doc, outer.Params.Range.Start.Line, outer.Params.Range.Start.Character, sl, sc)
 			el, ec = mapColumn(doc, outer.Params.Range.End.Line, outer.Params.Range.End.Character, el, ec)
+			el, ec = clampRangeOrder(sl, sc, el, ec)
 			newRange, _ := json.Marshal(lspRange{lspPos{sl, sc}, lspPos{el, ec}})
 			params["range"] = json.RawMessage(newRange)
 			changed = true
@@ -1323,12 +1380,12 @@ func translateGoRangeToVaneImpl(uri string, r lspRange, store *docStore, dropImp
 // ({"start", "end"}), the last is what CompletionList.itemDefaults.editRange
 // uses when every item shares the same replacement span. Untranslatable or
 // already-vane ranges are left untouched; returns (value, changed).
-func translateCompletionEdit(vaneURI string, raw json.RawMessage, store *docStore) (json.RawMessage, bool) {
+func translateCompletionEdit(vaneURI string, raw json.RawMessage, store *docStore, reqVaneLine, reqVaneCol, reqGoLine, reqGoCol int) (json.RawMessage, bool) {
 	var obj map[string]json.RawMessage
 	if json.Unmarshal(raw, &obj) != nil {
 		return raw, false
 	}
-	// translateGoRangeToVaneForEdit, not translateGoRangeToVane: these ranges
+	// translateCompletionRange, not translateGoRangeToVane: these ranges
 	// describe an edit the editor will apply (the completion's own insertion,
 	// or itemDefaults.editRange), not a navigation result, so a range landing
 	// in the import block, e.g. completing an unimported symbol, which gopls
@@ -1338,7 +1395,7 @@ func translateCompletionEdit(vaneURI string, raw json.RawMessage, store *docStor
 		if json.Unmarshal(raw, &r) != nil {
 			return raw, false
 		}
-		nr, ok, drop := translateGoRangeToVaneForEdit(vaneURI, r, store)
+		nr, ok, drop := translateCompletionRange(vaneURI, r, store, reqVaneLine, reqVaneCol, reqGoLine, reqGoCol)
 		if !ok || drop {
 			return raw, false
 		}
@@ -1350,7 +1407,7 @@ func translateCompletionEdit(vaneURI string, raw json.RawMessage, store *docStor
 		if json.Unmarshal(rangeRaw, &r) != nil {
 			return raw, false
 		}
-		nr, ok, drop := translateGoRangeToVaneForEdit(vaneURI, r, store)
+		nr, ok, drop := translateCompletionRange(vaneURI, r, store, reqVaneLine, reqVaneCol, reqGoLine, reqGoCol)
 		if !ok || drop {
 			return raw, false
 		}
@@ -1369,7 +1426,7 @@ func translateCompletionEdit(vaneURI string, raw json.RawMessage, store *docStor
 		if json.Unmarshal(raw, &r) != nil {
 			continue
 		}
-		if nr, ok, drop := translateGoRangeToVaneForEdit(vaneURI, r, store); ok && !drop {
+		if nr, ok, drop := translateCompletionRange(vaneURI, r, store, reqVaneLine, reqVaneCol, reqGoLine, reqGoCol); ok && !drop {
 			b, _ := json.Marshal(nr)
 			obj[key] = json.RawMessage(b)
 			changed = true
@@ -1382,9 +1439,39 @@ func translateCompletionEdit(vaneURI string, raw json.RawMessage, store *docStor
 	return json.RawMessage(out), true
 }
 
+// translateCompletionRange translates a single completion edit range from
+// go-coordinates to vane-coordinates. When the range's end is exactly the
+// go position gopls was asked about (the common case: replace the word
+// ending at the cursor), it is rebuilt directly from the vane line instead
+// of going through translateGoRangeToVaneForEdit's column-delta arithmetic.
+//
+// That arithmetic assumes go-column N on the mapped line corresponds to
+// vane-column (anchorVaneCol + N), i.e. that the go line is a verbatim,
+// same-offset copy of the vane line from the anchor on. That holds for
+// plain passthrough statements, but every reactive JSX expression is
+// wrapped as `core.DynChild(_vane1, func() any { return EXPR })`: the go
+// line's column 0 is "core.DynChild(...", not EXPR, so the same arithmetic
+// overshoots by the wrapper's length - confirmed live as both a corrupted
+// completion insert ("ctrl.ti" + accepting "title" produced "ctrl.tititle"
+// instead of "ctrl.title") and a gopls "column is beyond end of line"
+// error. Reconstructing the range from the vane side, by walking back over
+// identifier bytes from the actual request cursor, sidesteps that
+// arithmetic entirely for this case.
+func translateCompletionRange(vaneURI string, r lspRange, store *docStore, reqVaneLine, reqVaneCol, reqGoLine, reqGoCol int) (lspRange, bool, bool) {
+	if reqVaneLine >= 0 && r.End.Line == reqGoLine && r.End.Character == reqGoCol {
+		if doc, ok := store.getByNorm(vaneURI); ok && reqVaneLine < len(doc.vaneLines) {
+			line := doc.vaneLines[reqVaneLine]
+			startByte := identPrefixStart(line, utf16ToByte(line, reqVaneCol))
+			startCol := byteToUTF16(line, startByte)
+			return lspRange{lspPos{reqVaneLine, startCol}, lspPos{reqVaneLine, reqVaneCol}}, true, false
+		}
+	}
+	return translateGoRangeToVaneForEdit(vaneURI, r, store)
+}
+
 // translateCompletionItemsJSON translates textEdit and additionalTextEdits
 // ranges on every completion item from go-coordinates to vane-coordinates.
-func translateCompletionItemsJSON(vaneURI string, items []json.RawMessage, store *docStore) ([]json.RawMessage, bool) {
+func translateCompletionItemsJSON(vaneURI string, items []json.RawMessage, store *docStore, reqVaneLine, reqVaneCol, reqGoLine, reqGoCol int) ([]json.RawMessage, bool) {
 	changed := false
 	out := make([]json.RawMessage, len(items))
 	for i, raw := range items {
@@ -1396,7 +1483,7 @@ func translateCompletionItemsJSON(vaneURI string, items []json.RawMessage, store
 		itemChanged := false
 
 		if te, ok := item["textEdit"]; ok && len(te) > 0 && string(te) != "null" {
-			if newTE, ok := translateCompletionEdit(vaneURI, te, store); ok {
+			if newTE, ok := translateCompletionEdit(vaneURI, te, store, reqVaneLine, reqVaneCol, reqGoLine, reqGoCol); ok {
 				item["textEdit"] = newTE
 				itemChanged = true
 			}
@@ -1448,7 +1535,7 @@ func translateCompletionItemsJSON(vaneURI string, items []json.RawMessage, store
 // from go-coordinates to vane-coordinates so the editor's range sanity checks
 // (the edit range must contain the cursor position the request was sent for)
 // pass and items actually surface, instead of being silently discarded.
-func translateCompletionResultJSON(vaneURI string, result json.RawMessage, store *docStore) (json.RawMessage, bool) {
+func translateCompletionResultJSON(vaneURI string, reqVaneLine, reqVaneCol, reqGoLine, reqGoCol int, result json.RawMessage, store *docStore) (json.RawMessage, bool) {
 	if len(result) == 0 || string(result) == "null" {
 		return result, false
 	}
@@ -1460,14 +1547,14 @@ func translateCompletionResultJSON(vaneURI string, result json.RawMessage, store
 			if json.Unmarshal(itemsRaw, &items) != nil {
 				return result, false
 			}
-			newItems, changed := translateCompletionItemsJSON(vaneURI, items, store)
+			newItems, changed := translateCompletionItemsJSON(vaneURI, items, store, reqVaneLine, reqVaneCol, reqGoLine, reqGoCol)
 
 			defaultsChanged := false
 			if defRaw, ok := list["itemDefaults"]; ok && len(defRaw) > 0 && string(defRaw) != "null" {
 				var defaults map[string]json.RawMessage
 				if json.Unmarshal(defRaw, &defaults) == nil {
 					if er, ok := defaults["editRange"]; ok {
-						if newER, ok := translateCompletionEdit(vaneURI, er, store); ok {
+						if newER, ok := translateCompletionEdit(vaneURI, er, store, reqVaneLine, reqVaneCol, reqGoLine, reqGoCol); ok {
 							defaults["editRange"] = newER
 							defaultsChanged = true
 						}
@@ -1492,7 +1579,7 @@ func translateCompletionResultJSON(vaneURI string, result json.RawMessage, store
 	// Bare CompletionItem[] (no isIncomplete/items wrapper).
 	var arr []json.RawMessage
 	if json.Unmarshal(result, &arr) == nil {
-		items, changed := translateCompletionItemsJSON(vaneURI, arr, store)
+		items, changed := translateCompletionItemsJSON(vaneURI, arr, store, reqVaneLine, reqVaneCol, reqGoLine, reqGoCol)
 		if !changed {
 			return result, false
 		}

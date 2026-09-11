@@ -81,7 +81,7 @@ func TestTranslateCompletionResultJSON_CompletionList(t *testing.T) {
 		},
 	})
 
-	translated, changed := translateCompletionResultJSON(vaneURI, result, store)
+	translated, changed := translateCompletionResultJSON(vaneURI, -1, -1, -1, -1, result, store)
 	if !changed {
 		t.Fatalf("expected translation to report a change")
 	}
@@ -125,7 +125,7 @@ func TestTranslateCompletionResultJSON_BareArray(t *testing.T) {
 		},
 	})
 
-	translated, changed := translateCompletionResultJSON(vaneURI, result, store)
+	translated, changed := translateCompletionResultJSON(vaneURI, -1, -1, -1, -1, result, store)
 	if !changed {
 		t.Fatalf("expected translation to report a change")
 	}
@@ -166,7 +166,7 @@ func TestTranslateCompletionEdit_InsertReplace(t *testing.T) {
 		"newText": "count",
 	})
 
-	translated, changed := translateCompletionEdit(vaneURI, raw, store)
+	translated, changed := translateCompletionEdit(vaneURI, raw, store, -1, -1, -1, -1)
 	if !changed {
 		t.Fatalf("expected translation to report a change")
 	}
@@ -210,7 +210,7 @@ func TestTranslateCompletionResultJSON_ItemDefaultsEditRange(t *testing.T) {
 		},
 	})
 
-	translated, changed := translateCompletionResultJSON(vaneURI, result, store)
+	translated, changed := translateCompletionResultJSON(vaneURI, -1, -1, -1, -1, result, store)
 	if !changed {
 		t.Fatalf("expected translation to report a change")
 	}
@@ -289,9 +289,77 @@ func TestMapColumn_ClampsOverlongGoLine(t *testing.T) {
 	}
 }
 
+// TestTranslateCompletionRange_DynChildWrappedExpr covers the corruption seen
+// live: completing "title" inside a JSX dynamic child ({ctrl.title.Get()})
+// produced "ctrl.tititle" instead of "ctrl.title". The go line for a dynamic
+// child is `core.DynChild(_vane1, func() any { return ctrl.title.Get() })`,
+// not a verbatim copy of the vane line from column 0, so the old plain
+// column-delta translation (translateGoRangeToVaneForEdit) overshot the real
+// vane column by the length of that wrapper prefix. Asserts both that the
+// new reqVaneLine/reqVaneCol-based reconstruction is exact, and that the old
+// delta math it replaced for this case really was wrong (not just untested).
+func TestTranslateCompletionRange_DynChildWrappedExpr(t *testing.T) {
+	src := wrap(`<h2 className="modal-title">{ctrl.title.Get()}</h2>`)
+	doc := mustDoc(t, src)
+	vaneURI := "file:///D:/proj/Test.vane"
+	store := newTestStore(vaneURI, doc)
+
+	goLine, goColStart, vaneLine, vaneColStart := goRangeForVaneIdent(t, doc, 4, "title")
+	const wordLen = len("title")
+	reqGoCol := goColStart + wordLen
+	reqVaneCol := vaneColStart + wordLen
+
+	// Sanity: this only exercises the bug if the go line is not a verbatim,
+	// same-offset copy of the vane line (i.e. the wrapper prefix is real).
+	if goColStart == vaneColStart {
+		t.Fatalf("fixture doesn't reproduce the wrapper offset (goColStart == vaneColStart == %d)", goColStart)
+	}
+
+	goRange := lspRange{lspPos{goLine, goColStart}, lspPos{goLine, reqGoCol}}
+	result, _ := json.Marshal(map[string]any{
+		"isIncomplete": false,
+		"items": []map[string]any{
+			{
+				"label": "title",
+				"textEdit": map[string]any{
+					"range":   goRange,
+					"newText": "title",
+				},
+			},
+		},
+	})
+
+	translated, changed := translateCompletionResultJSON(vaneURI, vaneLine, reqVaneCol, goLine, reqGoCol, result, store)
+	if !changed {
+		t.Fatalf("expected translation to report a change")
+	}
+	var out struct {
+		Items []struct {
+			TextEdit struct {
+				Range lspRange `json:"range"`
+			} `json:"textEdit"`
+		} `json:"items"`
+	}
+	if err := json.Unmarshal(translated, &out); err != nil {
+		t.Fatalf("unmarshal translated result: %v", err)
+	}
+	got := out.Items[0].TextEdit.Range
+	want := lspRange{lspPos{vaneLine, vaneColStart}, lspPos{vaneLine, reqVaneCol}}
+	if got != want {
+		t.Errorf("translated range = %+v, want %+v (the exact vane-line span of \"title\")", got, want)
+	}
+
+	// Confirm the old delta-based path this replaces really was broken for
+	// this shape, not merely unexercised: it should NOT land on vaneColStart.
+	oldRange, ok, drop := translateGoRangeToVaneForEdit(vaneURI, goRange, store)
+	if ok && !drop && oldRange.Start == want.Start {
+		t.Errorf("translateGoRangeToVaneForEdit unexpectedly matched the correct range %+v; the DynChild-wrapper-offset bug this test guards against may no longer reproduce with this fixture", want)
+	}
+}
+
 func TestTranslateCompletionResultJSON_NoChangeWhenNull(t *testing.T) {
 	result := json.RawMessage("null")
-	translated, changed := translateCompletionResultJSON("file:///D:/proj/Test.vane", result, newDocStore())
+	translated, changed := translateCompletionResultJSON("file:///D:/proj/Test.vane", -1, -1, -1, -1, result, newDocStore())
 	if changed {
 		t.Errorf("expected no change for null result")
 	}
