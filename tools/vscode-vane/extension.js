@@ -6,6 +6,7 @@ const { workspace } = vscode;
 const { execSync } = require('child_process');
 const path = require('path');
 const fs = require('fs');
+const { vaneLineFromGoContent } = require('./linemap');
 
 let client;
 let output;
@@ -41,22 +42,6 @@ function resolveVaneBin() {
   } catch (_) {
     return 'vane';
   }
-}
-
-// Parse //line directives from a _vane.go file to map a go line (0-indexed)
-// back to the corresponding .vane source line (0-indexed).
-function vaneLineFromGoContent(goContent, goLine) {
-  const lines = goContent.split('\n');
-  let lastVaneLine = 0;
-  let lastGoLine = 0;
-  for (let i = 0; i <= goLine && i < lines.length; i++) {
-    const m = lines[i].match(/^\/\/line [^:]+:(\d+)\s*$/);
-    if (m) {
-      lastVaneLine = parseInt(m[1], 10) - 1; // convert 1-indexed to 0-indexed
-      lastGoLine = i + 1; // code starts at the line after the directive
-    }
-  }
-  return Math.max(0, lastVaneLine + (goLine - lastGoLine));
 }
 
 function makeClient() {
