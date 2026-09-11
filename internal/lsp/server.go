@@ -366,6 +366,10 @@ func proxyEditorToGopls(src *bufio.Reader, goplsIn io.Writer, editorOut io.Write
 			case "exit":
 				continue
 
+			case "vane/goToVanePosition":
+				handleGoToVanePosition(msg, editorOut, store)
+				continue
+
 			case "textDocument/didOpen":
 				if handleDidOpen(msg, goplsIn, store) {
 					continue // intercepted, don't forward original
@@ -522,6 +526,48 @@ func normalizeDriveLetters(s string) string {
 // virtualToVane is the reverse: _vane.go" → .vane" so the editor sees .vane URIs.
 func virtualToVane(msg Message) Message {
 	return Message(strings.ReplaceAll(string(msg), `_vane.go"`, `.vane"`))
+}
+
+// handleGoToVanePosition answers the custom vane/goToVanePosition request:
+// given a position in a generated _vane.go file (as the editor sees it, i.e.
+// gopls/UTF-16 coordinates in the //line-stripped file), returns the
+// corresponding .vane file URI and position via the doc's real SourceMap.
+// Used by the extension's navigation-redirect feature (a jump from a plain
+// .go file lands on _vane.go through VS Code's own Go tooling, never through
+// this proxy, so there's no other point where that position could be
+// translated). Responds directly; never forwarded to gopls, which has no
+// such method.
+func handleGoToVanePosition(msg Message, editorOut io.Writer, store *docStore) {
+	var req struct {
+		ID     json.RawMessage `json:"id"`
+		Params struct {
+			URI      string `json:"uri"`
+			Position lspPos `json:"position"`
+		} `json:"params"`
+	}
+	if json.Unmarshal(msg, &req) != nil || req.ID == nil {
+		return
+	}
+
+	result := "null"
+	vaneURI := strings.TrimSuffix(req.Params.URI, "_vane.go") + ".vane"
+	if doc, ok := store.getByNorm(normalizeFileURI(vaneURI)); ok && doc.sourceMap != nil {
+		vl, vc, ok := doc.sourceMap.GoToVane(req.Params.Position.Line, req.Params.Position.Character)
+		if ok {
+			b, err := json.Marshal(struct {
+				URI      string `json:"uri"`
+				Position lspPos `json:"position"`
+			}{URI: vaneURI, Position: lspPos{Line: vl, Character: vc}})
+			if err == nil {
+				result = string(b)
+			}
+		}
+	}
+
+	resp := fmt.Sprintf(`{"jsonrpc":"2.0","id":%s,"result":%s}`, req.ID, result)
+	if err := WriteMessage(editorOut, Message(resp)); err != nil {
+		fmt.Fprintf(os.Stderr, "[vane lsp] vane/goToVanePosition write error: %v\n", err)
+	}
 }
 
 // handleDidOpen intercepts didOpen for .vane files. Returns true if intercepted.

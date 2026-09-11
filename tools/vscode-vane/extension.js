@@ -6,7 +6,6 @@ const { workspace } = vscode;
 const { execSync } = require('child_process');
 const path = require('path');
 const fs = require('fs');
-const { vaneLineFromGoContent } = require('./linemap');
 const { checkGoplsPresent } = require('./gopls');
 
 const GO_EXTENSION_ID = 'golang.go';
@@ -66,16 +65,9 @@ function makeClient() {
   return new LanguageClient('vane', 'Vane Language Server', serverOptions, clientOptions);
 }
 
-// ensureTooling checks for the two things the vane language server actually
-// needs to be useful and prompts to fix whichever is missing, matching
-// vscode-go's own pattern for the exact same underlying tool (gopls) rather
-// than failing silently or bundling a binary: `vane lsp` is a proxy in
-// front of a real `gopls` process (see internal/lsp), and .vane's own
-// syntax highlighting layers Go highlighting from the Go extension's own
-// grammar (see syntaxes/vane-jsx.tmLanguage.json's `{"include":
-// "source.go"}`) - without the Go extension, that highlighting silently
-// degrades to no color for attributes, not a crash, but a real rough edge.
-// Runs in the background; doesn't block activation.
+// ensureTooling prompts to install gopls and/or the Go extension if either
+// is missing, matching vscode-go's own pattern for gopls rather than failing
+// silently. Runs in the background; doesn't block activation.
 async function ensureTooling() {
   if (!checkGoplsPresent(execSync)) {
     const choice = await vscode.window.showWarningMessage(
@@ -161,36 +153,39 @@ function activate(context) {
   // proxy at all, so there's no opportunity to translate the URI there — this
   // listener, watching the active editor itself, is the only hook available.
   //
-  // Distinguish "the editor navigated here" from "I opened this file myself"
-  // by selection, not tab-preview state: every navigation source (go to
-  // definition, ctrl+click, clicking a reference in the References panel)
-  // selects the target symbol's range, a non-empty selection. Deliberately
-  // opening a file (double-click in Explorer, Quick Open, a restored tab)
-  // just places the cursor, an empty selection. This also fixed a case
-  // tab-preview state got wrong: double-clicking a reference in the
-  // References panel opens the file pinned (not preview, same as opening it
-  // deliberately), which used to skip the redirect entirely.
+  // Always redirect, unless suppressed via vane.openGeneratedGoFile. Used to
+  // skip redirecting on an empty selection (assuming that meant "deliberate
+  // open"), but plain ctrl+click go-to-definition onto a declaration also
+  // leaves selection empty, so it never redirected. _vane.go is also
+  // Explorer-hidden (files.exclude), so accidental opens are rare anyway.
   context.subscriptions.push(
     vscode.window.onDidChangeActiveTextEditor(editor => {
       if (!editor) return;
       const file = editor.document.fileName;
       if (!file.endsWith('_vane.go')) return;
 
-      const tab = vscode.window.tabGroups.activeTabGroup.activeTab;
-      log(
-        `[activeEditor] file=${file} ` +
-        `selection.isEmpty=${editor.selection.isEmpty} ` +
-        `selection=${editor.selection.start.line}:${editor.selection.start.character}-${editor.selection.end.line}:${editor.selection.end.character} ` +
-        `isPreview=${tab ? tab.isPreview : 'n/a'} ` +
-        `suppressed=${suppressRedirect.has(file)}`
-      );
+      log(`[activeEditor] file=${file} suppressed=${suppressRedirect.has(file)}`);
 
-      if (editor.selection.isEmpty) {
-        log(`[activeEditor] SKIP: empty selection, treating as deliberate open`);
-        return;
-      }
-
-      maybeRedirectVaneGoFile(file, editor);
+      // editor.selection isn't necessarily at the real navigation target
+      // yet at this exact event (confirmed live: ctrl+click go-to-definition
+      // always read back as 0,0 here), so wait for the selection VS Code
+      // sets right after activating the editor, with a timeout fallback for
+      // opens that never fire a follow-up selection change (0,0 is then the
+      // real target).
+      let settled = false;
+      const sub = vscode.window.onDidChangeTextEditorSelection(e => {
+        if (settled || e.textEditor !== editor) return;
+        settled = true;
+        clearTimeout(timer);
+        sub.dispose();
+        maybeRedirectVaneGoFile(file, editor);
+      });
+      const timer = setTimeout(() => {
+        if (settled) return;
+        settled = true;
+        sub.dispose();
+        maybeRedirectVaneGoFile(file, editor);
+      }, 150);
     })
   );
 }
@@ -200,18 +195,34 @@ async function maybeRedirectVaneGoFile(file, editor) {
     log(`[redirect] SKIP: ${file} suppressed (vane.openGeneratedGoFile)`);
     return;
   }
-
-  const vaneFile = file.replace(/_vane\.go$/, '.vane');
-  if (!fs.existsSync(vaneFile)) {
-    log(`[redirect] SKIP: no matching .vane file for ${file} (looked for ${vaneFile})`);
+  if (!client) {
+    log(`[redirect] SKIP: no language client running`);
     return;
   }
 
-  log(`[redirect] REDIRECTING ${file} -> ${vaneFile}`);
-  const goLine = editor.selection.active.line;
-  const vaneLine = vaneLineFromGoContent(editor.document.getText(), goLine);
-  const vaneUri = vscode.Uri.file(vaneFile);
-  const pos = new vscode.Position(vaneLine, 0);
+  // Ask the running vane lsp server to translate this generated-file
+  // position back to .vane, using its real SourceMap, the file on disk
+  // never has //line directives (writeToDisk strips them so gopls isn't
+  // confused by them), so there's nothing to parse client-side.
+  const active = editor.selection.active;
+  let result;
+  try {
+    result = await client.sendRequest('vane/goToVanePosition', {
+      uri: editor.document.uri.toString(),
+      position: { line: active.line, character: active.character },
+    });
+  } catch (err) {
+    log(`[redirect] vane/goToVanePosition request failed: ${err}`);
+    return;
+  }
+  if (!result) {
+    log(`[redirect] SKIP: no vane mapping for ${file}:${active.line}:${active.character}`);
+    return;
+  }
+
+  log(`[redirect] REDIRECTING ${file} -> ${result.uri}:${result.position.line}`);
+  const vaneUri = vscode.Uri.parse(result.uri);
+  const pos = new vscode.Position(result.position.line, result.position.character);
 
   await vscode.window.showTextDocument(vaneUri, {
     viewColumn: editor.viewColumn,
