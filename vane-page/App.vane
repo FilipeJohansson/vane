@@ -12,6 +12,41 @@ import (
 	"github.com/filipejohansson/vane/core/router"
 )
 
+func docPages() []router.Entry {
+	return []router.Entry{
+		router.Route("", docs.Overview, router.WithTitle("Vane Docs")),
+		router.Route("signals", docs.Signals, router.WithTitle("Signals & Reactivity | Vane Docs")),
+		router.Route("routing", docs.Routing, router.WithTitle("Routing | Vane Docs")),
+		router.Route("components", docs.Components, router.WithTitle("Components | Vane Docs")),
+		router.Route("concepts", docs.Concepts, router.WithTitle("Concepts | Vane Docs")),
+		router.Route("lifecycle", docs.Lifecycle, router.WithTitle("Lifecycle | Vane Docs")),
+		router.Route("portal", docs.Portal, router.WithTitle("Portal | Vane Docs")),
+		router.Route("installation", docs.Installation, router.WithTitle("Installation | Vane Docs")),
+		router.Route("vscode-extension", docs.VSCodeExtension, router.WithTitle("VS Code Extension | Vane Docs")),
+		router.Route("jsx-syntax", docs.JSXSyntax, router.WithTitle("JSX Syntax | Vane Docs")),
+		router.Route("project-structure", docs.ProjectStructure, router.WithTitle("Project Structure | Vane Docs")),
+		router.Route("develop-and-build", docs.DevelopAndBuild, router.WithTitle("Develop & Build | Vane Docs")),
+		router.Route("style", docs.Style, router.WithTitle("Styles and CSS | Vane Docs")),
+		router.Route("store", docs.Store, router.WithTitle("Global Store | Vane Docs")),
+		router.Route("refs-and-dom", docs.RefsAndDOM, router.WithTitle("Refs & DOM | Vane Docs")),
+		router.Route("head", docs.Head, router.WithTitle("Head Management | Vane Docs")),
+		router.Route("dos-and-donts", docs.DosAndDonts, router.WithTitle("Do's and Don'ts | Vane Docs")),
+		router.Route("security", docs.Security, router.WithTitle("Security | Vane Docs")),
+		router.Route("accessibility", docs.Accessibility, router.WithTitle("Accessibility | Vane Docs")),
+		router.Route("error-boundary", docs.HandleErrors, router.WithTitle("Handle Errors | Vane Docs")),
+		router.Route("patterns", docs.Patterns, router.WithTitle("Patterns | Vane Docs")),
+		router.Route("bundle-size", docs.BundleSize, router.WithTitle("Analyze Bundle Size | Vane Docs")),
+		router.Route("data-fetching", docs.DataFetching, router.WithTitle("Data Fetching | Vane Docs")),
+		router.Route("lucide-icons", docs.LucideIcons, router.WithTitle("Add Lucide Icons | Vane Docs")),
+		router.Route("html-forms", docs.HTMLForms, router.WithTitle("Build HTML Forms | Vane Docs")),
+		router.Route("troubleshooting", docs.Troubleshooting, router.WithTitle("Troubleshooting | Vane Docs")),
+		router.Route("tutorial", docs.Tutorial, router.WithTitle("Tutorial: Build a Todo List | Vane Docs")),
+		router.Route("language-spec", docs.LanguageSpec, router.WithTitle(".vane Language Spec | Vane Docs")),
+		router.Route("api-reference", docs.APIReference, router.WithTitle("API Reference | Vane Docs")),
+		router.Route(":slug", docs.Stub),
+	}
+}
+
 func App() core.Node {
 	// window.__vaneBasePath (set by boot.js from its own script src) is "/"
 	// in local dev and "/vane" on GitHub Pages, where this app is served
@@ -26,37 +61,7 @@ func App() core.Node {
 			<main className="main">
 				{router.Router(
 					router.Route("/", pages.Home, router.WithTitle("Vane")),
-					router.Layout("/docs", layouts.DocsLayout,
-						router.Route("", docs.Overview, router.WithTitle("Vane Docs")),
-						router.Route("signals", docs.Signals, router.WithTitle("Signals & Reactivity | Vane Docs")),
-						router.Route("routing", docs.Routing, router.WithTitle("Routing | Vane Docs")),
-						router.Route("components", docs.Components, router.WithTitle("Components | Vane Docs")),
-						router.Route("concepts", docs.Concepts, router.WithTitle("Concepts | Vane Docs")),
-						router.Route("lifecycle", docs.Lifecycle, router.WithTitle("Lifecycle | Vane Docs")),
-						router.Route("portal", docs.Portal, router.WithTitle("Portal | Vane Docs")),
-						router.Route("installation", docs.Installation, router.WithTitle("Installation | Vane Docs")),
-						router.Route("jsx-syntax", docs.JSXSyntax, router.WithTitle("JSX Syntax | Vane Docs")),
-						router.Route("project-structure", docs.ProjectStructure, router.WithTitle("Project Structure | Vane Docs")),
-						router.Route("develop-and-build", docs.DevelopAndBuild, router.WithTitle("Develop & Build | Vane Docs")),
-						router.Route("style", docs.Style, router.WithTitle("Styles and CSS | Vane Docs")),
-						router.Route("store", docs.Store, router.WithTitle("Global Store | Vane Docs")),
-						router.Route("refs-and-dom", docs.RefsAndDOM, router.WithTitle("Refs & DOM | Vane Docs")),
-						router.Route("head", docs.Head, router.WithTitle("Head Management | Vane Docs")),
-						router.Route("dos-and-donts", docs.DosAndDonts, router.WithTitle("Do's and Don'ts | Vane Docs")),
-						router.Route("security", docs.Security, router.WithTitle("Security | Vane Docs")),
-						router.Route("accessibility", docs.Accessibility, router.WithTitle("Accessibility | Vane Docs")),
-						router.Route("error-boundary", docs.HandleErrors, router.WithTitle("Handle Errors | Vane Docs")),
-						router.Route("patterns", docs.Patterns, router.WithTitle("Patterns | Vane Docs")),
-						router.Route("bundle-size", docs.BundleSize, router.WithTitle("Analyze Bundle Size | Vane Docs")),
-						router.Route("data-fetching", docs.DataFetching, router.WithTitle("Data Fetching | Vane Docs")),
-						router.Route("lucide-icons", docs.LucideIcons, router.WithTitle("Add Lucide Icons | Vane Docs")),
-						router.Route("html-forms", docs.HTMLForms, router.WithTitle("Build HTML Forms | Vane Docs")),
-						router.Route("troubleshooting", docs.Troubleshooting, router.WithTitle("Troubleshooting | Vane Docs")),
-						router.Route("tutorial", docs.Tutorial, router.WithTitle("Tutorial: Build a Todo List | Vane Docs")),
-						router.Route("language-spec", docs.LanguageSpec, router.WithTitle(".vane Language Spec | Vane Docs")),
-						router.Route("api-reference", docs.APIReference, router.WithTitle("API Reference | Vane Docs")),
-						router.Route(":slug", docs.Stub),
-					),
+					router.Layout("/docs", layouts.DocsLayout, docPages()...),
 					router.Route("*", pages.NotFound, router.WithTitle("Not found | Vane")),
 				)}
 			</main>

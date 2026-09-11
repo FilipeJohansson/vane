@@ -1,0 +1,87 @@
+{
+  "name": "vscode-vane",
+  "displayName": "Vane",
+  "description": "Syntax highlighting and language server for .vane files (Go + JSX)",
+  "version": "0.1.0",
+  "publisher": "filipejohansson",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/filipejohansson/vane"
+  },
+  "engines": {
+    "vscode": "^1.75.0"
+  },
+  "categories": [
+    "Programming Languages"
+  ],
+  "icon": "icon.png",
+  "main": "./dist/extension.js",
+  "activationEvents": [
+    "onLanguage:vane"
+  ],
+  "contributes": {
+    "configurationDefaults": {
+      "go.toolsEnvVars": {
+        "GOOS": "js",
+        "GOARCH": "wasm"
+      },
+      "files.exclude": {
+        "**/*_vane.go": true
+      }
+    },
+    "commands": [
+      {
+        "command": "vane.restartLanguageServer",
+        "title": "Vane: Restart Language Server"
+      },
+      {
+        "command": "vane.openGeneratedGoFile",
+        "title": "Vane: Open Generated Go File"
+      }
+    ],
+    "languages": [
+      {
+        "id": "vane",
+        "aliases": [
+          "Vane",
+          "vane"
+        ],
+        "extensions": [
+          ".vane"
+        ],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "vane",
+        "scopeName": "source.vane",
+        "path": "./syntaxes/vane.tmLanguage.json",
+        "embeddedLanguages": {
+          "source.go": "go"
+        }
+      },
+      {
+        "scopeName": "source.vane.jsx",
+        "path": "./syntaxes/vane-jsx.tmLanguage.json",
+        "injectTo": [
+          "source.vane"
+        ]
+      }
+    ]
+  },
+  "scripts": {
+    "test": "node test/grammar.test.js && node test/gopls.test.js",
+    "build": "esbuild extension.js --bundle --minify --platform=node --target=node18 --format=cjs --external:vscode --outfile=dist/extension.js",
+    "package": "pnpm run build && vsce package --no-dependencies"
+  },
+  "dependencies": {
+    "vscode-languageclient": "^9.0.1"
+  },
+  "devDependencies": {
+    "@vscode/vsce": "^3.9.2",
+    "esbuild": "^0.28.2",
+    "vscode-oniguruma": "^2.0.1",
+    "vscode-textmate": "^9.3.2"
+  }
+}

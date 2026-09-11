@@ -22,6 +22,7 @@ var Manifest = []Topic{
 	{Slug: "tutorial", Title: "Build a Todo List", Summary: "A hands-on walkthrough: signals, events, a reactive keyed list, and routing.", Category: "Tutorial"},
 
 	{Slug: "installation", Title: "Installation", Summary: "Install the CLI and scaffold a project with vane init.", Category: "Start a New Project"},
+	{Slug: "vscode-extension", Title: "VS Code Extension", Summary: "Syntax highlighting and a real language server for .vane files, plus the workspace settings it manages for you.", Category: "Start a New Project"},
 	{Slug: "project-structure", Title: "Project Structure", Summary: "What vane init scaffolds: App.vane, src/pages, src/components, public/.", Category: "Start a New Project"},
 	{Slug: "develop-and-build", Title: "Develop & Build", Summary: "The dev loop with vane run, production builds with vane build, deploying dist/.", Category: "Start a New Project"},
 	{Slug: "signals", Title: "Signals & Reactivity", Summary: "Effect, OnDispose, ComputedOf, Untrack.", Category: "Start a New Project"},

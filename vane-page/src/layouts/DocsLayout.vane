@@ -186,6 +186,7 @@ func DocsLayout() core.Node {
 			>
 				<span className={backToTopIconClass(backToTopSpinning.Get())} aria-hidden="true">{components.Icon("arrow-up")}</span>
 			</button>
+			<div id="modal-root"></div>
 		</>
 	)
 }

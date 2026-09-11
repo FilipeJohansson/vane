@@ -1,0 +1,122 @@
+package docs
+
+import (
+	"github.com/filipejohansson/vane/core"
+
+	"vane-page/src/components"
+)
+
+const vscodeInstallSnippet = `git clone https://github.com/filipejohansson/vane
+cd vane/tools/vscode-vane
+pnpm install
+pnpm run package
+code --install-extension vscode-vane-0.1.0.vsix`
+
+const vscodeConfigDefaultsSnippet = `"contributes": {
+  "configurationDefaults": {
+    "go.toolsEnvVars": { "GOOS": "js", "GOARCH": "wasm" },
+    "files.exclude": { "**/*_vane.go": true }
+  }
+}`
+
+func VSCodeExtension() core.Node {
+	core.Head(func() core.HeadConfig {
+		return core.HeadConfig{
+			Title:       "VS Code Extension | Vane Docs",
+			Description: "Syntax highlighting and a real language server for .vane files, plus the workspace settings it manages for you.",
+		}
+	})
+
+	items := vscodeExtensionTOCItems
+
+	return (
+		<div className="docs-page">
+			<article className="docs-article">
+				{docsHeader(
+					"Start a New Project",
+					"VS Code Extension",
+					"Syntax highlighting and a real language server for .vane files, plus the workspace settings it manages for you.",
+				)}
+
+				<h2 className="docs-h2" id="install">Install</h2>
+				<p className="docs-p">
+					Not published to the Marketplace yet: build and install the <code>.vsix</code>{" "}
+					from source.
+				</p>
+				{components.TerminalBlock("Terminal", vscodeInstallSnippet)}
+				<p className="docs-p">
+					The last step can also be done from the UI instead: Extensions view
+					(Ctrl/Cmd+Shift+X) → the <code>...</code> menu → <strong>Install from
+					VSIX...</strong> → select the generated <code>.vsix</code> file.
+				</p>
+
+				<h2 className="docs-h2" id="what-it-does">What it does</h2>
+				<p className="docs-p">
+					Syntax highlighting for <code>.vane</code> (Go with embedded JSX), and a language
+					server: <code>vane lsp</code> compiles your <code>.vane</code> file to a hidden{" "}
+					<code>_vane.go</code> file behind the scenes, forwards every request to{" "}
+					<code>gopls</code>, and translates positions both ways. Hover, go-to-definition,
+					autocomplete, quick fixes, and diagnostics all work directly against your{" "}
+					<code>.vane</code> source, backed by real Go tooling.
+				</p>
+				{callout("tip", "Tip", "Ctrl+click into generated code (e.g. from a plain .go file) redirects you to the matching .vane line and column, however you got there, including opening a _vane.go file directly. To actually inspect the generated Go, use the Vane: Open Generated Go File command below instead of opening the file yourself, that's the one deliberate way to bypass the redirect.")}
+
+				<h2 className="docs-h2" id="tooling-checks">Tooling checks on startup</h2>
+				<p className="docs-p">
+					On activation, the extension checks for two things <code>vane lsp</code> and{" "}
+					<code>.vane</code> syntax highlighting both depend on, and offers to fix
+					whichever is missing instead of failing silently:
+				</p>
+				{docsTable(
+					[]string{"Check", "If missing"},
+					[][]core.Node{
+						{core.Text("gopls on PATH"), core.Text("Prompts to run go install golang.org/x/tools/gopls@latest in a new terminal")},
+						{core.Text("Go extension (golang.go)"), core.Text("Prompts to install it from the Marketplace")},
+					},
+				)}
+
+				<h2 className="docs-h2" id="workspace-settings">Settings it defaults for you</h2>
+				<p className="docs-p">
+					The extension declares two configuration defaults in its own{" "}
+					<code>package.json</code>:
+				</p>
+				{components.PlainBlock("package.json", vscodeConfigDefaultsSnippet)}
+				<p className="docs-p">
+					A configuration default is not the same as writing to your{" "}
+					<code>settings.json</code>: nothing is ever written to disk. It's an extra
+					default layer, active only while the extension is installed and enabled, that
+					any explicit setting of yours, at any scope, still overrides. Disabling or
+					uninstalling the extension makes the default disappear on its own, no revert
+					step, no leftover keys.
+				</p>
+				<p className="docs-p">
+					<code>go.toolsEnvVars</code> matters because VS Code's own Go extension runs its
+					own, separate <code>gopls</code> process, independent from the one{" "}
+					<code>vane lsp</code> manages. Every generated <code>_vane.go</code> carries a{" "}
+					<code>{"//go:build js && wasm"}</code> tag; without this default, the Go
+					extension's <code>gopls</code> checks against your host's native{" "}
+					<code>GOOS</code>/<code>GOARCH</code>, which excludes every one of those files from
+					the build, producing false <code>could not import</code> and{" "}
+					<code>build constraints exclude all Go files</code> errors for every package your
+					app has. <code>files.exclude</code> hides <code>_vane.go</code> files from the
+					Explorer, they're a build artifact, edits to them are silently overwritten on the
+					next compile.
+				</p>
+				{callout("important", "Important", "If your own workspace or user settings already set go.toolsEnvVars to something, VS Code may not merge it with this default: for that specific setting (unlike files.exclude, which VS Code always merges across scopes), your value can end up replacing ours outright. Add GOOS/GOARCH to your own toolsEnvVars yourself if that happens.")}
+
+				<h2 className="docs-h2" id="commands">Commands</h2>
+				<p className="docs-p">Available from the Command Palette (Ctrl/Cmd+Shift+P):</p>
+				{docsTable(
+					[]string{"Command", "What it does"},
+					[][]core.Node{
+						{code("Vane: Restart Language Server"), core.Text("Stops and restarts the vane lsp process, useful if it gets into a bad state (e.g. after an unrelated crash of gopls)")},
+						{code("Vane: Open Generated Go File"), core.Text("Opens the current file's _vane.go directly, pinned, bypassing the go-to-definition redirect, for inspecting the compiler's output")},
+					},
+				)}
+
+				{pageNav("vscode-extension")}
+			</article>
+			{toc(items)}
+		</div>
+	)
+}

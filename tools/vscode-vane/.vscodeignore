@@ -1,0 +1,20 @@
+package-lock.json
+pnpm-lock.yaml
+.gitignore
+test/
+node_modules/
+# Bundled into dist/extension.js by `pnpm run build` (esbuild); the raw
+# sources aren't needed at runtime once that bundle ships.
+extension.js
+linemap.js
+gopls.js
+*/out/
+.vscode-test/
+*.vsix
+
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+.DS_Store
+Thumbs.db
