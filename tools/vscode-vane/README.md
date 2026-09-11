@@ -15,6 +15,30 @@ Syntax highlighting and a real language server for `.vane` files — [Vane](http
 - [`gopls`](https://pkg.go.dev/golang.org/x/tools/gopls). The extension checks for it on activation and offers to install it (`go install golang.org/x/tools/gopls@latest`) if missing.
 - The [Go extension](https://marketplace.visualstudio.com/items?itemName=golang.go) for VS Code. The extension checks for it too and offers to install it if missing — without it, embedded Go syntax inside `.vane` files won't be highlighted.
 
+## Build and install
+
+Not on the Marketplace yet — build and install it locally:
+
+### Build
+
+```bash
+cd tools/vscode-vane
+pnpm install                     # first time only
+pnpm run package                 # builds and packages -> vscode-vane-<version>.vsix
+```
+
+### Install
+
+**Command line:**
+
+```bash
+code --install-extension vscode-vane-<version>.vsix
+```
+
+**VS Code UI:** Extensions view (`Ctrl+Shift+X`) → `...` menu (top right) → **Install from VSIX...** → select the generated file.
+
+Reload the VS Code window (`Developer: Reload Window` in the command palette) after installing or updating. To reinstall after making changes: repeat `pnpm run package`, then reinstall the same way (`--force` on the CLI, or just pick **Install from VSIX...** again in the UI).
+
 ## How it works
 
 `.vane` files compile to real Go (`<Name>_vane.go`, written alongside your source). `vane lsp` spawns `gopls` against that generated Go and translates every position back and forth, so diagnostics, hover, and go-to-definition all point at your actual `.vane` source. The generated `_vane.go` files are implementation detail — they're hidden from the Explorer, and navigating into one automatically redirects you back to the `.vane` file it came from.

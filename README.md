@@ -62,6 +62,30 @@ func main() {
 - Browsers: current desktop versions of Chrome, Edge, Firefox, and Safari
 - TinyGo: experimental build target for smaller WASM binaries; not part of the default compatibility contract
 
+## Editor support
+
+VS Code extension for `.vane` files: syntax highlighting, diagnostics, hover, and go-to-definition. Not on the Marketplace yet — build and install it locally:
+
+### Build
+
+```bash
+cd tools/vscode-vane
+pnpm install
+pnpm run package                 # produces vscode-vane-<version>.vsix
+```
+
+### Install
+
+**Command line:**
+
+```bash
+code --install-extension vscode-vane-<version>.vsix
+```
+
+**VS Code UI:** Extensions view (`Ctrl+Shift+X`) → `...` menu (top right) → **Install from VSIX...** → select the generated file.
+
+Reload the VS Code window after installing. See [tools/vscode-vane/README.md](tools/vscode-vane/README.md) for features, requirements, and known limitations.
+
 ## A counter
 
 ```go
