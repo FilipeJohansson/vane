@@ -8,10 +8,14 @@
     "type": "git",
     "url": "https://github.com/filipejohansson/vane"
   },
-  "engines": { "vscode": "^1.75.0" },
-  "categories": ["Programming Languages"],
+  "engines": {
+    "vscode": "^1.75.0"
+  },
+  "categories": [
+    "Programming Languages"
+  ],
   "icon": "icon.png",
-  "main": "./extension.js",
+  "main": "./dist/extension.js",
   "activationEvents": [
     "onLanguage:vane"
   ],
@@ -38,8 +42,13 @@
     "languages": [
       {
         "id": "vane",
-        "aliases": ["Vane", "vane"],
-        "extensions": [".vane"],
+        "aliases": [
+          "Vane",
+          "vane"
+        ],
+        "extensions": [
+          ".vane"
+        ],
         "configuration": "./language-configuration.json"
       }
     ],
@@ -55,17 +64,23 @@
       {
         "scopeName": "source.vane.jsx",
         "path": "./syntaxes/vane-jsx.tmLanguage.json",
-        "injectTo": ["source.vane"]
+        "injectTo": [
+          "source.vane"
+        ]
       }
     ]
   },
   "scripts": {
-    "test": "node test/grammar.test.js && node test/linemap.test.js && node test/gopls.test.js"
+    "test": "node test/grammar.test.js && node test/linemap.test.js && node test/gopls.test.js",
+    "build": "esbuild extension.js --bundle --minify --platform=node --target=node18 --format=cjs --external:vscode --outfile=dist/extension.js",
+    "package": "pnpm run build && vsce package --no-dependencies"
   },
   "dependencies": {
     "vscode-languageclient": "^9.0.1"
   },
   "devDependencies": {
+    "@vscode/vsce": "^3.9.2",
+    "esbuild": "^0.28.2",
     "vscode-oniguruma": "^2.0.1",
     "vscode-textmate": "^9.3.2"
   }
