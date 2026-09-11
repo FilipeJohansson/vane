@@ -1,9 +1,13 @@
 package main_test
 
 import (
+	"bytes"
 	"fmt"
 	"go/parser"
 	"go/token"
+	"io"
+	"net"
+	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -411,6 +415,92 @@ func TestVaneVersion(t *testing.T) {
 	if outputs["version"] != outputs["--version"] || outputs["version"] != outputs["-v"] {
 		t.Errorf("aliases produced different output:\nversion:   %q\n--version: %q\n-v:        %q",
 			outputs["version"], outputs["--version"], outputs["-v"])
+	}
+}
+
+// freePort asks the OS for an unused TCP port by binding to :0 and releasing
+// it immediately, instead of hardcoding :8080 -- avoids collisions once
+// TestVaneRunServesApp runs across an OS matrix in CI.
+func freePort(t *testing.T) string {
+	t.Helper()
+	l, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("finding free port: %v", err)
+	}
+	defer l.Close()
+	_, port, err := net.SplitHostPort(l.Addr().String())
+	if err != nil {
+		t.Fatalf("parsing free port: %v", err)
+	}
+	return port
+}
+
+// TestVaneRunServesApp is an end-to-end test of "vane run": scaffold a
+// project, start the dev server as a real background subprocess the same
+// way a user would, poll it over real HTTP until it answers, and assert it
+// actually serves the scaffolded app's HTML shell rather than just opening
+// a socket. This is the one leg of the install->init->run->open flow that
+// nothing else in this file drives.
+//
+// "vane run" (cmdServe) blocks forever on srv.ListenAndServe with no
+// signal handling or graceful shutdown, so this can't reuse runVane's
+// CombinedOutput pattern: it starts the process, waits for it to answer,
+// then kills it in cleanup.
+func TestVaneRunServesApp(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping WASM build in short mode")
+	}
+
+	name := uniqueName("tst")
+	appDir := newProject(t, name)
+	pinToLocalVane(t, appDir)
+
+	port := freePort(t)
+
+	cmd := exec.Command(vaneBin, "run", "--port", port)
+	cmd.Dir = appDir
+	var stderr bytes.Buffer
+	cmd.Stderr = &stderr
+	if err := cmd.Start(); err != nil {
+		t.Fatalf("starting vane run: %v", err)
+	}
+	t.Cleanup(func() {
+		_ = cmd.Process.Kill()
+		_ = cmd.Wait()
+	})
+
+	url := "http://localhost:" + port + "/"
+	var resp *http.Response
+	var getErr error
+	deadline := time.Now().Add(30 * time.Second)
+	for time.Now().Before(deadline) {
+		resp, getErr = http.Get(url) //nolint:gosec // localhost URL built from a port we just chose
+		if getErr == nil {
+			break
+		}
+		time.Sleep(200 * time.Millisecond)
+	}
+	if getErr != nil {
+		t.Fatalf("vane run never answered on %s within timeout: %v\nstderr:\n%s", url, getErr, stderr.String())
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		t.Errorf("GET %s: status = %d, want %d", url, resp.StatusCode, http.StatusOK)
+	}
+	if ct := resp.Header.Get("Content-Type"); !strings.HasPrefix(ct, "text/html") {
+		t.Errorf("GET %s: Content-Type = %q, want text/html", url, ct)
+	}
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		t.Fatalf("reading response body: %v", err)
+	}
+	if wantTitle := "<title>" + name + "</title>"; !strings.Contains(string(body), wantTitle) {
+		t.Errorf("response body missing %q, got:\n%s", wantTitle, body)
+	}
+	if !strings.Contains(string(body), `id="root"`) {
+		t.Errorf("response body missing app mount element, got:\n%s", body)
 	}
 }
 

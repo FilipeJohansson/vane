@@ -73,9 +73,9 @@ func Installation() core.Node {
 					[][]core.Node{
 						{core.Text("Linux (amd64)"), core.Text("Primary")},
 						{core.Text("Linux (arm64)"), core.Text("Best-effort")},
+						{core.Text("macOS (arm64)"), core.Text("Primary")},
 						{core.Text("macOS (amd64)"), core.Text("Best-effort")},
-						{core.Text("macOS (arm64)"), core.Text("Best-effort")},
-						{core.Text("Windows (amd64)"), core.Text("Best-effort")},
+						{core.Text("Windows (amd64)"), core.Text("Primary")},
 					},
 				)}
 				<p className="docs-p">
