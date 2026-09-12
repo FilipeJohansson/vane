@@ -338,6 +338,36 @@ func TestHashLocationIgnoresNonRouteHashChange(t *testing.T) {
 	}
 }
 
+func TestHashLocationSearchReadsQueryFromHash(t *testing.T) {
+	loc := &router.HashLocation{}
+	t.Cleanup(func() { js.Global().Get("location").Set("hash", "") })
+
+	js.Global().Get("location").Set("hash", "#/dashboard?tab=2")
+	if got := loc.Search(); got != "tab=2" {
+		t.Errorf("Search() = %q, want %q", got, "tab=2")
+	}
+}
+
+func TestHashLocationSearchEmptyWhenNoQuery(t *testing.T) {
+	loc := &router.HashLocation{}
+	t.Cleanup(func() { js.Global().Get("location").Set("hash", "") })
+
+	js.Global().Get("location").Set("hash", "#/dashboard")
+	if got := loc.Search(); got != "" {
+		t.Errorf("Search() = %q, want %q", got, "")
+	}
+}
+
+func TestHashLocationSearchEmptyForNonRouteHash(t *testing.T) {
+	loc := &router.HashLocation{}
+	t.Cleanup(func() { js.Global().Get("location").Set("hash", "") })
+
+	js.Global().Get("location").Set("hash", "#section")
+	if got := loc.Search(); got != "" {
+		t.Errorf("Search() = %q, want %q (not a route hash)", got, "")
+	}
+}
+
 // TestHashLocationNavigateNotifiesOnceNotTwice guards the auth-guard flake
 // fix: Navigate notifies synchronously right after setting location.hash,
 // but the browser still fires a real "hashchange" for that same change a

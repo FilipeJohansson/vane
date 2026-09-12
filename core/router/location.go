@@ -19,6 +19,12 @@ import (
 type Location interface {
 	// Path returns the current application path, derived from the browser's URL.
 	Path() string
+	// Search returns the current URL's raw query string (the part after "?",
+	// not including it), or "" if there is none. Same trust level as the
+	// path params router.Params() extracts: raw, unescaped, untrusted user
+	// input, callers must not assume it's safer than Params() just because
+	// it comes from a different part of the URL.
+	Search() string
 	// Href returns the URL this Location would use to represent path, suitable
 	// for an anchor's href attribute.
 	Href(path string) string
@@ -97,6 +103,11 @@ func (l *PathLocation) Path() string {
 		return "/"
 	}
 	return normalizePath(rest)
+}
+
+// Search reads location.search, stripped of its leading "?".
+func (l *PathLocation) Search() string {
+	return strings.TrimPrefix(js.Global().Get("location").Get("search").String(), "?")
 }
 
 // Href joins the configured BasePath with path, then resolves the result
@@ -232,19 +243,35 @@ type HashLocation struct {
 
 // Path reads location.hash. Only hashes starting with "#/" are router
 // paths — plain anchor hashes like "#section-id" are native browser scroll
-// targets, so those are treated as "/". A "?..." suffix (e.g. "#/dashboard?tab=2")
-// is query data, not part of the path, and is stripped before matching so it
-// doesn't get compared against route patterns.
+// targets, so those are treated as "/".
 func (l *HashLocation) Path() string {
 	hash := js.Global().Get("location").Get("hash").String()
 	if !strings.HasPrefix(hash, "#/") {
 		return "/"
 	}
-	path := hash[1:]
-	if i := strings.IndexByte(path, '?'); i != -1 {
-		path = path[:i]
-	}
+	path, _ := splitHashPathAndQuery(hash)
 	return normalizePath(path)
+}
+
+// Search reads the "?..." suffix of location.hash, e.g. "tab=2" for
+// "#/dashboard?tab=2". Returns "" for a plain anchor hash (see Path()'s
+// quirk) or a route hash with no query string.
+func (l *HashLocation) Search() string {
+	hash := js.Global().Get("location").Get("hash").String()
+	if !strings.HasPrefix(hash, "#/") {
+		return ""
+	}
+	_, query := splitHashPathAndQuery(hash)
+	return query
+}
+
+// splitHashPathAndQuery splits the "/..." remainder of a "#/..." hash
+// fragment into its path and query parts, e.g. "/dashboard?tab=2" ->
+// ("/dashboard", "tab=2"). hash must already be confirmed to start with
+// "#/".
+func splitHashPathAndQuery(hash string) (path, query string) {
+	path, query, _ = strings.Cut(hash[1:], "?")
+	return path, query
 }
 
 // Href returns path as a hash fragment (e.g. "#/docs").
