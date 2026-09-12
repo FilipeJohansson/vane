@@ -349,9 +349,9 @@ func OnWindowKeyDown(fn func(e KeyEvent)) {
 
 // OnWindowMouseMove attaches fn to window-level mousemove, receiving a
 // decoded MouseEvent on every move, removed automatically via OnDispose when
-// the enclosing scope tears down. There's no element-scoped OnMouseMove
-// prop: the only need for it so far (Weathervane's pointer-tilt effect)
-// tracks the pointer across the whole viewport, not one element.
+// the enclosing scope tears down. Use this to track the pointer across the
+// whole viewport rather than one element; there's no element-scoped
+// OnMouseMove prop.
 func OnWindowMouseMove(fn func(e MouseEvent)) {
 	if fn == nil {
 		return

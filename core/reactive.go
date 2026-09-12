@@ -31,17 +31,10 @@ func init() {
 func DynChild(parent Node, fn func() any) {
 	p := Unwrap(parent)
 	// Bracket the managed content with a pair of comment anchors instead of
-	// tracking a single child element reference, for two reasons:
-	//   - Third-party libs (e.g. Lucide) may replace the child element with a
-	//     different node (e.g. <i> → <svg>). Tracking the original reference
-	//     causes replaceWith to no-op on the detached node.
-	//   - fn() may return multi-root content (a Fragment/DocumentFragment
-	//     with several children). A single anchor can only track one
-	//     "nextSibling", so removing the old content on re-run would leave
-	//     every node after the first orphaned in the DOM.
-	// Each re-run removes everything currently between start and end,
-	// whatever is there, regardless of who put it there, then inserts the
-	// new content before end.
+	// tracking a single child element reference: a third-party lib may swap
+	// the element for a different node, and fn() may return multi-root
+	// content a single reference can't track. Each re-run removes everything
+	// between start and end and inserts the new content before end.
 	start := dom.Document.Call(dom.CreateComment, "vane")
 	end := dom.Document.Call(dom.CreateComment, "/vane")
 	p.Call(dom.AppendChild, start)
@@ -176,10 +169,9 @@ func DynList(parent Node, fn func() []Node, keyFns ...func() []string) {
 			case keyedCount == presentCount:
 				newKeys = keys
 			default:
-				// Some nodes have key={...}, others don't. Under the old logic the
-				// unkeyed ones would silently disappear from the DOM (treated as ""
-				// keys and skipped). Fall back to unkeyed rendering instead, so every
-				// node still renders, just without keyed reconciliation this update.
+				// Mixed: some nodes have key={...}, others don't. Fall back to
+				// unkeyed rendering for this update so every node still renders
+				// (an unkeyed node would otherwise be treated as key "" and skipped).
 				Warn("core.DynList: some nodes have key={...} and others don't, falling back to unkeyed rendering for this update")
 			}
 		}

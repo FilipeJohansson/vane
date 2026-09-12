@@ -283,12 +283,10 @@ func (l *HashLocation) Href(path string) string {
 // entry and (usually) fires "hashchange" on its own. Also notifies
 // synchronously right away rather than relying solely on that event:
 // browsers dispatch "hashchange" as an ordinary queued task, and a Go/WASM
-// goroutine that's mid-flush when the assignment happens is not guaranteed
-// to yield back to the event loop in time to pick it up promptly (seen in
-// CI as a route guard's own Navigate, called during a fresh mount from
-// inside an effect flush, never observably completing). notify's dedupe
-// (see its doc comment) makes the eventual native event a no-op once this
-// has already run.
+// goroutine that's mid-flush when the assignment happens isn't guaranteed to
+// yield back to the event loop in time to pick it up promptly. notify's
+// dedupe (see its doc comment) makes the eventual native event a no-op once
+// this has already run.
 func (l *HashLocation) Navigate(path string) {
 	href := l.Href(path)
 	js.Global().Get("location").Set("hash", href)

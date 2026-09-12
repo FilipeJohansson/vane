@@ -20,6 +20,16 @@ const paramsSnippet = `func UserPage() core.Node {
     return (<h1>User {params.Get()["id"]}</h1>)
 }`
 
+const querySnippet = `func SearchResults() core.Node {
+    query := router.Query()
+    return (<p>Showing results for {query.Get().Get("q")}</p>)
+}`
+
+const setQuerySnippet = `router.SetQuery(url.Values{"tab": {"billing"}})
+
+// Clear the query string entirely:
+router.SetQuery(nil)`
+
 const layoutSnippet = `func App() core.Node {
     return router.Router(
         router.Route("/", Home, router.WithTitle("Home")),
@@ -99,7 +109,7 @@ const activeLinkSnippet = `router.ActiveLink(router.ActiveLinkProps{
 func Routing() core.Node {
 	core.Head(func() core.HeadConfig {
 		title := "Routing | Vane Docs"
-		description := "Routing with router.Route, router.Layout, URL params, Link, and ActiveLink - real paths by default, or hash-based via HashLocation."
+		description := "Routing with router.Route, router.Layout, URL and query params, Link, and ActiveLink - real paths by default, or hash-based via HashLocation."
 		url := core.Window().Get("location").Get("origin").String() + "/vane/docs/routing"
 		return core.HeadConfig{
 			Title:         title,
@@ -177,6 +187,24 @@ func Routing() core.Node {
 				</p>
 				{components.CodeBlock("UserPage.vane", paramsSnippet)}
 				{callout("tip", "Tip", "The signal updates in-place when the same route pattern matches with different params - the component is not remounted.")}
+
+				<h2 className="docs-h2" id="query-params">Query params</h2>
+				<p className="docs-p">
+					<code>router.Query()</code> returns the current URL's query string
+					(e.g. <code>{"?tag=a&tag=b"}</code>) as a reactive signal of{" "}
+					<code>url.Values</code>, the same type{" "}
+					<code>net/http.Request.URL.Query()</code> returns. Call it during component
+					setup, then read <code>.Get()</code> inside JSX bindings or effects to
+					subscribe, same as <code>router.Params()</code>.
+				</p>
+				{components.CodeBlock("SearchResults.vane", querySnippet)}
+				{callout("tip", "Tip", "A navigation that only changes the query string (same path) updates this signal without remounting the current route.")}
+				<p className="docs-p">
+					<code>router.SetQuery</code> replaces the current query string, keeping the
+					current path, and pushes a new browser history entry like{" "}
+					<code>router.Navigate</code>.
+				</p>
+				{components.CodeBlock("snippet.go", setQuerySnippet)}
 
 				<h2 className="docs-h2" id="layouts">Layouts</h2>
 				<p className="docs-p">
