@@ -11,6 +11,7 @@ package router_test
 // t.Cleanup so later tests still see the expected initial state.
 
 import (
+	"net/url"
 	"syscall/js"
 	"testing"
 	"time"
@@ -61,6 +62,22 @@ func waitForPath(t *testing.T, want string) {
 		time.Sleep(5 * time.Millisecond)
 	}
 	t.Fatalf("router.Path() did not become %q within timeout (stuck at %q)", want, router.Path().Get())
+}
+
+// waitForQuery polls until router.Query() has key set to want. Needed for a
+// query-only navigation, where router.Path() never changes value, so
+// waitForPath has nothing new to poll for.
+func waitForQuery(t *testing.T, key, want string) {
+	t.Helper()
+	deadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) {
+		if router.Query().Get().Get(key) == want {
+			waitEffects(t)
+			return
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
+	t.Fatalf("router.Query().Get(%q) did not become %q within timeout (stuck at %q)", key, want, router.Query().Get().Get(key))
 }
 
 // waitNextTick blocks until a core.NextTick callback fires. router.go's
@@ -253,6 +270,70 @@ func TestPathReflectsNavigation(t *testing.T) {
 	}
 }
 
+func TestQueryReflectsCurrentURLUnderHashLocation(t *testing.T) {
+	t.Cleanup(func() {
+		router.Navigate("/")
+		waitForPath(t, "/")
+	})
+
+	router.Navigate("/dashboard?tab=2&sort=asc")
+	waitForPath(t, "/dashboard")
+
+	got := router.Query().Get()
+	if got.Get("tab") != "2" {
+		t.Errorf(`Query().Get("tab") = %q, want %q`, got.Get("tab"), "2")
+	}
+	if got.Get("sort") != "asc" {
+		t.Errorf(`Query().Get("sort") = %q, want %q`, got.Get("sort"), "asc")
+	}
+}
+
+func TestQueryEmptyWhenURLHasNoQueryString(t *testing.T) {
+	navigateAndRestore(t, "/reports")
+
+	if got := router.Query().Get(); len(got) != 0 {
+		t.Errorf("Query() = %v, want empty", got)
+	}
+}
+
+func TestSetQueryReplacesQueryPreservingPath(t *testing.T) {
+	navigateAndRestore(t, "/dashboard")
+
+	router.SetQuery(url.Values{"tab": {"3"}})
+	waitForQuery(t, "tab", "3")
+
+	if got := router.Path().Get(); got != "/dashboard" {
+		t.Errorf("Path() after SetQuery = %q, want unchanged %q", got, "/dashboard")
+	}
+}
+
+// TestSetQueryPushesHistoryEntry guards that SetQuery follows Navigate's
+// history semantics (push, not replace) — see TestNavigatePushesReplaceDoesNot.
+func TestSetQueryPushesHistoryEntry(t *testing.T) {
+	navigateAndRestore(t, "/dashboard")
+	before := js.Global().Get("history").Get("length").Int()
+
+	router.SetQuery(url.Values{"tab": {"3"}})
+	waitForQuery(t, "tab", "3")
+
+	if got := js.Global().Get("history").Get("length").Int(); got != before+1 {
+		t.Errorf("history.length after SetQuery = %d, want %d (SetQuery should push a new entry, like Navigate)", got, before+1)
+	}
+}
+
+func TestSetQueryWithNilClearsQueryString(t *testing.T) {
+	navigateAndRestore(t, "/dashboard")
+	router.SetQuery(url.Values{"tab": {"3"}})
+	waitForQuery(t, "tab", "3")
+
+	router.SetQuery(nil)
+	waitForQuery(t, "tab", "")
+
+	if got := js.Global().Get("location").Get("hash").String(); got != "#/dashboard" {
+		t.Errorf("location.hash = %q, want %q (query string fully cleared)", got, "#/dashboard")
+	}
+}
+
 // TestSetLocationPanicsAfterFirstUse guards the ensureInit/SetLocation
 // ordering rule: SetLocation must run before the router is first used
 // (Router, Navigate, Path, Link, ...), and panics otherwise. router.Path()
@@ -335,6 +416,36 @@ func TestHashLocationIgnoresNonRouteHashChange(t *testing.T) {
 	}
 	if scrollCalls != 0 {
 		t.Errorf("window.scrollTo called %d times, want 0", scrollCalls)
+	}
+}
+
+func TestHashLocationSearchReadsQueryFromHash(t *testing.T) {
+	loc := &router.HashLocation{}
+	t.Cleanup(func() { js.Global().Get("location").Set("hash", "") })
+
+	js.Global().Get("location").Set("hash", "#/dashboard?tab=2")
+	if got := loc.Search(); got != "tab=2" {
+		t.Errorf("Search() = %q, want %q", got, "tab=2")
+	}
+}
+
+func TestHashLocationSearchEmptyWhenNoQuery(t *testing.T) {
+	loc := &router.HashLocation{}
+	t.Cleanup(func() { js.Global().Get("location").Set("hash", "") })
+
+	js.Global().Get("location").Set("hash", "#/dashboard")
+	if got := loc.Search(); got != "" {
+		t.Errorf("Search() = %q, want %q", got, "")
+	}
+}
+
+func TestHashLocationSearchEmptyForNonRouteHash(t *testing.T) {
+	loc := &router.HashLocation{}
+	t.Cleanup(func() { js.Global().Get("location").Set("hash", "") })
+
+	js.Global().Get("location").Set("hash", "#section")
+	if got := loc.Search(); got != "" {
+		t.Errorf("Search() = %q, want %q (not a route hash)", got, "")
 	}
 }
 

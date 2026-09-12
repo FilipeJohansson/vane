@@ -177,6 +177,7 @@ var routingTOCItems = []tocItem{
 	{"url-modes", "Hash vs Path routing"},
 	{"server-config", "Server configuration"},
 	{"url-params", "URL params"},
+	{"query-params", "Query params"},
 	{"layouts", "Layouts"},
 	{"navigation", "Navigation"},
 	{"active-link", "ActiveLink"},

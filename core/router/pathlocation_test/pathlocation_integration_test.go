@@ -16,6 +16,7 @@
 package pathlocation_test
 
 import (
+	"net/url"
 	"syscall/js"
 	"testing"
 	"time"
@@ -80,6 +81,22 @@ func waitNextTick(t *testing.T) {
 	case <-time.After(time.Second):
 		t.Fatal("NextTick never ran fn")
 	}
+}
+
+// waitForQuery polls until router.Query() has key set to want. Needed for a
+// query-only navigation, where router.Path() never changes value, so
+// waitForPath has nothing new to poll for.
+func waitForQuery(t *testing.T, key, want string) {
+	t.Helper()
+	deadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) {
+		if router.Query().Get().Get(key) == want {
+			waitEffects(t)
+			return
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
+	t.Fatalf("router.Query().Get(%q) did not become %q within timeout (stuck at %q)", key, want, router.Query().Get().Get(key))
 }
 
 func navigateAndRestore(t *testing.T, to string) {
@@ -160,6 +177,37 @@ func TestRouterAndLayoutWorkUnderPathLocation(t *testing.T) {
 	}
 	if shellMounts != 1 {
 		t.Errorf("shellMounts after sub-navigation = %d, want 1 (shell must persist across sub-routes)", shellMounts)
+	}
+}
+
+// TestQueryReflectsCurrentURLUnderPathLocation guards that Query() works the
+// same way under PathLocation as it does under HashLocation
+// (core/router_dom_test.go's TestQueryReflectsCurrentURLUnderHashLocation).
+func TestQueryReflectsCurrentURLUnderPathLocation(t *testing.T) {
+	t.Cleanup(func() {
+		router.Navigate("/")
+		waitForPath(t, "/")
+	})
+
+	router.Navigate("/settings?tab=billing")
+	waitForPath(t, "/settings")
+
+	if got := router.Query().Get().Get("tab"); got != "billing" {
+		t.Errorf(`Query().Get("tab") = %q, want %q`, got, "billing")
+	}
+}
+
+func TestSetQueryReplacesQueryPreservingPathUnderPathLocation(t *testing.T) {
+	navigateAndRestore(t, "/settings")
+
+	router.SetQuery(url.Values{"tab": {"billing"}})
+	waitForQuery(t, "tab", "billing")
+
+	if got := router.Path().Get(); got != "/settings" {
+		t.Errorf("Path() after SetQuery = %q, want unchanged %q", got, "/settings")
+	}
+	if got := js.Global().Get("location").Get("pathname").String(); got != basePath+"/settings" {
+		t.Errorf("pathname after SetQuery = %q, want %q (path unaffected by query change)", got, basePath+"/settings")
 	}
 }
 

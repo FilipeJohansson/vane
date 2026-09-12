@@ -19,6 +19,12 @@ import (
 type Location interface {
 	// Path returns the current application path, derived from the browser's URL.
 	Path() string
+	// Search returns the current URL's raw query string (the part after "?",
+	// not including it), or "" if there is none. Same trust level as the
+	// path params router.Params() extracts: raw, unescaped, untrusted user
+	// input, callers must not assume it's safer than Params() just because
+	// it comes from a different part of the URL.
+	Search() string
 	// Href returns the URL this Location would use to represent path, suitable
 	// for an anchor's href attribute.
 	Href(path string) string
@@ -97,6 +103,11 @@ func (l *PathLocation) Path() string {
 		return "/"
 	}
 	return normalizePath(rest)
+}
+
+// Search reads location.search, stripped of its leading "?".
+func (l *PathLocation) Search() string {
+	return strings.TrimPrefix(js.Global().Get("location").Get("search").String(), "?")
 }
 
 // Href joins the configured BasePath with path, then resolves the result
@@ -238,7 +249,29 @@ func (l *HashLocation) Path() string {
 	if !strings.HasPrefix(hash, "#/") {
 		return "/"
 	}
-	return normalizePath(hash[1:])
+	path, _ := splitHashPathAndQuery(hash)
+	return normalizePath(path)
+}
+
+// Search reads the "?..." suffix of location.hash, e.g. "tab=2" for
+// "#/dashboard?tab=2". Returns "" for a plain anchor hash (see Path()'s
+// quirk) or a route hash with no query string.
+func (l *HashLocation) Search() string {
+	hash := js.Global().Get("location").Get("hash").String()
+	if !strings.HasPrefix(hash, "#/") {
+		return ""
+	}
+	_, query := splitHashPathAndQuery(hash)
+	return query
+}
+
+// splitHashPathAndQuery splits the "/..." remainder of a "#/..." hash
+// fragment into its path and query parts, e.g. "/dashboard?tab=2" ->
+// ("/dashboard", "tab=2"). hash must already be confirmed to start with
+// "#/".
+func splitHashPathAndQuery(hash string) (path, query string) {
+	path, query, _ = strings.Cut(hash[1:], "?")
+	return path, query
 }
 
 // Href returns path as a hash fragment (e.g. "#/docs").
@@ -250,12 +283,10 @@ func (l *HashLocation) Href(path string) string {
 // entry and (usually) fires "hashchange" on its own. Also notifies
 // synchronously right away rather than relying solely on that event:
 // browsers dispatch "hashchange" as an ordinary queued task, and a Go/WASM
-// goroutine that's mid-flush when the assignment happens is not guaranteed
-// to yield back to the event loop in time to pick it up promptly (seen in
-// CI as a route guard's own Navigate, called during a fresh mount from
-// inside an effect flush, never observably completing). notify's dedupe
-// (see its doc comment) makes the eventual native event a no-op once this
-// has already run.
+// goroutine that's mid-flush when the assignment happens isn't guaranteed to
+// yield back to the event loop in time to pick it up promptly. notify's
+// dedupe (see its doc comment) makes the eventual native event a no-op once
+// this has already run.
 func (l *HashLocation) Navigate(path string) {
 	href := l.Href(path)
 	js.Global().Get("location").Set("hash", href)
