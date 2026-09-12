@@ -124,11 +124,32 @@ func SetLocation(loc Location) {
 	activeLocation = loc
 }
 
-// Path returns the current path as a reactive read-only signal.
-// Use as an escape hatch for manual routing logic.
+// Path returns the current path (e.g. "/dashboard/42") as a reactive
+// read-only signal. Use as an escape hatch for manual routing logic.
 func Path() *signal.ReadOnlySignal[string] {
 	ensureInit()
 	return pathReadOnly
+}
+
+// Query returns the current URL's query string parameters as a reactive
+// read-only signal (e.g. "?tag=a&tag=b&other=c" becomes
+// {"tag": ["a", "b"], "other": ["c"]}). Use as an escape hatch for manual
+// routing logic. Values are raw, unescaped, untrusted input from the URL.
+func Query() *signal.ReadOnlySignal[url.Values] {
+	ensureInit()
+	return queryReadOnly
+}
+
+// SetQuery replaces the current URL's query string with query, keeping the
+// current path, and pushes a new browser history entry (see Navigate). Pass
+// nil or an empty url.Values to clear the query string entirely.
+func SetQuery(query url.Values) {
+	ensureInit()
+	path := pathSignal.Get()
+	if encoded := query.Encode(); encoded != "" {
+		path += "?" + encoded
+	}
+	activeLocation.Navigate(path)
 }
 
 // Params returns the route params for the current component as a reactive signal.

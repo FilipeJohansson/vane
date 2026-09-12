@@ -60,6 +60,50 @@ func TestRouterFallsBackTo404WhenNoRouteMatches(t *testing.T) {
 	}
 }
 
+// TestRouterQueryOnlyNavigationDoesNotRemountRoute guards that a query-only
+// navigation (same path, different query string) updates router.Query()
+// without tearing down and remounting the currently active route - same
+// no-remount guarantee TestRouterSamePatternUpdatesParamsWithoutRemounting
+// proves for path params, now for query changes.
+func TestRouterQueryOnlyNavigationDoesNotRemountRoute(t *testing.T) {
+	mountCount := 0
+	el := router.Router(
+		router.Route("/", func() core.Node { return core.Text("home page") }),
+		router.Route("/dashboard", func() core.Node {
+			mountCount++
+			return core.El("div")
+		}),
+	)
+	_ = el
+
+	navigateAndRestore(t, "/dashboard")
+	if mountCount != 1 {
+		t.Fatalf("mountCount after navigating to /dashboard = %d, want 1", mountCount)
+	}
+
+	router.Navigate("/dashboard?tab=2")
+	waitForQuery(t, "tab", "2")
+
+	if mountCount != 1 {
+		t.Errorf("mountCount after a query-only navigation = %d, want 1 (must not remount)", mountCount)
+	}
+}
+
+// TestRouterQueryOnlyNavigationDoesNotChangePathSignal guards the other half
+// of the same guarantee: router.Path()'s value itself must stay exactly the
+// same across a query-only navigation, since that's what mountEntries relies
+// on internally to recognize "same route, don't remount".
+func TestRouterQueryOnlyNavigationDoesNotChangePathSignal(t *testing.T) {
+	navigateAndRestore(t, "/dashboard")
+
+	router.Navigate("/dashboard?tab=2")
+	waitForQuery(t, "tab", "2")
+
+	if got := router.Path().Get(); got != "/dashboard" {
+		t.Errorf("Path() after a query-only navigation = %q, want unchanged %q", got, "/dashboard")
+	}
+}
+
 // TestRouterMatchesRouteWithQueryStringUnderHashLocation guards that a query
 // string in the URL doesn't stop HashLocation from matching a route.
 func TestRouterMatchesRouteWithQueryStringUnderHashLocation(t *testing.T) {
