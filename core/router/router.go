@@ -3,6 +3,7 @@
 package router
 
 import (
+	"net/url"
 	"strings"
 
 	"github.com/filipejohansson/vane/core"
@@ -41,12 +42,24 @@ var (
 	ctxStack       []routerCtx
 	pathSignal     *signal.Signal[string]
 	pathReadOnly   *signal.ReadOnlySignal[string]
+	querySignal    *signal.Signal[url.Values]
+	queryReadOnly  *signal.ReadOnlySignal[url.Values]
 	activeLocation Location = &PathLocation{}
 	initialized    bool
 )
 
-// ensureInit lazily wires pathSignal to activeLocation on first use, so that
-// SetLocation has a chance to run first (see SetLocation).
+// parseQuery parses a raw query string (as returned by Location.Search())
+// into url.Values, the same way net/http.Request.URL.Query() does. A
+// malformed raw string still yields whatever valid parameters
+// url.ParseQuery could recover before hitting the error, per that
+// function's own convention — never panics, never an empty result.
+func parseQuery(raw string) url.Values {
+	values, _ := url.ParseQuery(raw)
+	return values
+}
+
+// ensureInit lazily wires pathSignal/querySignal to activeLocation on first
+// use, so that SetLocation has a chance to run first (see SetLocation).
 func ensureInit() {
 	if initialized {
 		return
@@ -54,9 +67,12 @@ func ensureInit() {
 	initialized = true
 	pathSignal = signal.New(activeLocation.Path())
 	pathReadOnly = pathSignal.ReadOnly()
+	querySignal = signal.New(parseQuery(activeLocation.Search()))
+	queryReadOnly = querySignal.ReadOnly()
 	activeLocation.OnChange(func() {
 		old := pathSignal.Get()
 		next := activeLocation.Path()
+		nextQuery := parseQuery(activeLocation.Search())
 		// Captured now, at notification time, not re-read inside the
 		// deferred closure below: location.hash is global mutable state, and
 		// a later navigation can change it before this one's deferred
@@ -64,6 +80,12 @@ func ensureInit() {
 		// this decision act on the WRONG (a newer) navigation's anchor.
 		anchorID := activeLocation.AnchorID()
 		pathSignal.Set(next)
+		// A separate signal from pathSignal, set independently: a query-only
+		// change (same path, different search) must notify subscribers of
+		// querySignal without pathSignal.Set ever running, so Router's
+		// mountEntries Effect (which only reads pathSignal) doesn't re-run
+		// and remount the current route just because the query changed.
+		querySignal.Set(nextQuery)
 		// Deferred a tick: pathSignal.Set above only enqueues Router's
 		// mounting Effect (core/signal runs effects on its own goroutine,
 		// see flushEffects), so the destination route's own content - which
@@ -102,11 +124,32 @@ func SetLocation(loc Location) {
 	activeLocation = loc
 }
 
-// Path returns the current path as a reactive read-only signal.
-// Use as an escape hatch for manual routing logic.
+// Path returns the current path (e.g. "/dashboard/42") as a reactive
+// read-only signal. Use as an escape hatch for manual routing logic.
 func Path() *signal.ReadOnlySignal[string] {
 	ensureInit()
 	return pathReadOnly
+}
+
+// Query returns the current URL's query string parameters as a reactive
+// read-only signal (e.g. "?tag=a&tag=b&other=c" becomes
+// {"tag": ["a", "b"], "other": ["c"]}). Use as an escape hatch for manual
+// routing logic. Values are raw, unescaped, untrusted input from the URL.
+func Query() *signal.ReadOnlySignal[url.Values] {
+	ensureInit()
+	return queryReadOnly
+}
+
+// SetQuery replaces the current URL's query string with query, keeping the
+// current path, and pushes a new browser history entry (see Navigate). Pass
+// nil or an empty url.Values to clear the query string entirely.
+func SetQuery(query url.Values) {
+	ensureInit()
+	path := pathSignal.Get()
+	if encoded := query.Encode(); encoded != "" {
+		path += "?" + encoded
+	}
+	activeLocation.Navigate(path)
 }
 
 // Params returns the route params for the current component as a reactive signal.

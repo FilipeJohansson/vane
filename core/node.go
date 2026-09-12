@@ -8,9 +8,7 @@ import (
 	"github.com/filipejohansson/vane/internal/dom"
 )
 
-// Node is vane's runtime-agnostic tree node. Components return Node instead of
-// js.Value so the same component code can eventually target a non-browser
-// renderer (e.g. a future server-side HTML renderer) without touching call sites.
+// Node is vane's abstraction over a mounted DOM node.
 //
 // Node is a sealed interface, so only this package can implement it. Code that
 // needs to reach the underlying browser value (third-party JS interop, direct
@@ -19,9 +17,8 @@ type Node interface {
 	unwrap() js.Value
 }
 
-// domNode is the only Node implementation today: a thin wrapper around a
-// browser js.Value. A future server renderer would add a second implementation
-// that builds an HTML string tree instead.
+// domNode is the only Node implementation: a thin wrapper around a browser
+// js.Value.
 type domNode struct{ v js.Value }
 
 func (n domNode) unwrap() js.Value { return n.v }

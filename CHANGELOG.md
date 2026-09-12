@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Breaking Changes
 - *(router)* Default to PathLocation instead of HashLocation (#27)
+- *(router)* Add reactive query string support (#31)
 
 
 ### Added

@@ -84,6 +84,26 @@ func TestPathLocationPathIgnoresQueryAndHash(t *testing.T) {
 	}
 }
 
+func TestPathLocationSearchReadsQueryWithoutLeadingQuestionMark(t *testing.T) {
+	resetPathname(t)
+	js.Global().Get("history").Call("pushState", js.Null(), "", "/docs?foo=bar")
+
+	loc := &router.PathLocation{}
+	if got := loc.Search(); got != "foo=bar" {
+		t.Errorf("Search() = %q, want %q (no leading \"?\")", got, "foo=bar")
+	}
+}
+
+func TestPathLocationSearchEmptyWhenNoQuery(t *testing.T) {
+	resetPathname(t)
+	js.Global().Get("history").Call("pushState", js.Null(), "", "/docs")
+
+	loc := &router.PathLocation{}
+	if got := loc.Search(); got != "" {
+		t.Errorf("Search() = %q, want %q", got, "")
+	}
+}
+
 func TestPathLocationHref(t *testing.T) {
 	loc := &router.PathLocation{}
 	if got := loc.Href("/docs"); got != "/docs" {

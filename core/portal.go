@@ -64,14 +64,11 @@ func Portal(target any, fn func() Node) Node {
 				node := fn()
 
 				// A nil node (e.g. a closed modal) means there's genuinely
-				// nothing to place yet, so dest isn't even resolved here:
-				// doing so unconditionally used to warn "target not found"
-				// at mount whenever fn() started out nil, before the caller
-				// ever tried to show anything, burning Warn's one-per-message
-				// dedup slot on a false alarm - so the real failure (clicking
-				// a modal's own open button with a missing target) then
-				// logged nothing at all, since that message had already
-				// fired once for no reason.
+				// nothing to place yet, so dest isn't resolved here at all -
+				// resolving it unconditionally would burn Warn's one-per-
+				// message dedup slot on a false "target not found" before
+				// the caller ever tries to show anything, masking a real
+				// failure later.
 				if isNilNode(node) {
 					if current.Truthy() {
 						// A destination was resolved on some earlier run
@@ -94,14 +91,12 @@ func Portal(target any, fn func() Node) Node {
 				}
 
 				// Resolved on every run with real content, not once and
-				// cached: a target missing on the first such run used to
-				// give up for good right here, before the Effect above even
-				// existed, so fn() itself was never called again, no matter
-				// what later triggered a re-render. Re-resolving each run
-				// means a target that shows up later self-heals, and Warn
-				// (already deduped per message in resolvePortalTarget) fires
-				// right when there was real content to place and nowhere to
-				// put it - i.e. exactly when a user action needed it.
+				// cached, so a target missing on an earlier run doesn't stop
+				// fn() from being retried later - a target that shows up
+				// after the fact self-heals. Warn (deduped per message in
+				// resolvePortalTarget) only fires when there's real content
+				// with nowhere to put it, i.e. exactly when a user action
+				// needed it.
 				dest := resolvePortalTarget(target)
 				if !dest.Truthy() {
 					return

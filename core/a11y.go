@@ -17,9 +17,9 @@ func Focus(el Node) {
 	Unwrap(el).Call(dom.Focus)
 }
 
-// focusableSelector matches the standard set of natively-focusable elements,
-// the same list focus-trap libraries use. It excludes disabled controls and
-// anything explicitly removed from the tab order (tabindex="-1").
+// focusableSelector matches the natively-focusable elements focus-trap
+// libraries typically target. It excludes disabled controls and anything
+// explicitly removed from the tab order (tabindex="-1").
 const focusableSelector = `a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])`
 
 // FocusTrap confines Tab/Shift+Tab focus cycling to el's focusable
@@ -32,8 +32,7 @@ const focusableSelector = `a[href], button:not([disabled]), input:not([disabled]
 // register the returned cleanup (via core.OnDispose, or an Effect's own
 // cleanup) to run when the overlay closes. The cleanup removes the trap's
 // listener and restores focus to whatever was focused before the trap
-// engaged (the standard pattern for returning focus to the button that
-// opened the dialog).
+// engaged.
 func FocusTrap(el Node) func() {
 	raw := Unwrap(el)
 	prevFocused := dom.Document.Get(dom.ActiveElement)

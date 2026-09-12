@@ -60,6 +60,73 @@ func TestRouterFallsBackTo404WhenNoRouteMatches(t *testing.T) {
 	}
 }
 
+// TestRouterQueryOnlyNavigationDoesNotRemountRoute guards that a query-only
+// navigation (same path, different query string) updates router.Query()
+// without tearing down and remounting the currently active route - same
+// no-remount guarantee TestRouterSamePatternUpdatesParamsWithoutRemounting
+// proves for path params, now for query changes.
+func TestRouterQueryOnlyNavigationDoesNotRemountRoute(t *testing.T) {
+	mountCount := 0
+	el := router.Router(
+		router.Route("/", func() core.Node { return core.Text("home page") }),
+		router.Route("/dashboard", func() core.Node {
+			mountCount++
+			return core.El("div")
+		}),
+	)
+	_ = el
+
+	navigateAndRestore(t, "/dashboard")
+	if mountCount != 1 {
+		t.Fatalf("mountCount after navigating to /dashboard = %d, want 1", mountCount)
+	}
+
+	router.Navigate("/dashboard?tab=2")
+	waitForQuery(t, "tab", "2")
+
+	if mountCount != 1 {
+		t.Errorf("mountCount after a query-only navigation = %d, want 1 (must not remount)", mountCount)
+	}
+}
+
+// TestRouterQueryOnlyNavigationDoesNotChangePathSignal guards the other half
+// of the same guarantee: router.Path()'s value itself must stay exactly the
+// same across a query-only navigation, since that's what mountEntries relies
+// on internally to recognize "same route, don't remount".
+func TestRouterQueryOnlyNavigationDoesNotChangePathSignal(t *testing.T) {
+	navigateAndRestore(t, "/dashboard")
+
+	router.Navigate("/dashboard?tab=2")
+	waitForQuery(t, "tab", "2")
+
+	if got := router.Path().Get(); got != "/dashboard" {
+		t.Errorf("Path() after a query-only navigation = %q, want unchanged %q", got, "/dashboard")
+	}
+}
+
+// TestRouterMatchesRouteWithQueryStringUnderHashLocation guards that a query
+// string in the URL doesn't stop HashLocation from matching a route.
+func TestRouterMatchesRouteWithQueryStringUnderHashLocation(t *testing.T) {
+	el := router.Router(
+		router.Route("/", func() core.Node { return core.Text("home page") }),
+		router.Route("/dashboard", func() core.Node { return core.Text("dashboard page") }),
+	)
+
+	t.Cleanup(func() {
+		router.Navigate("/")
+		waitForPath(t, "/")
+	})
+	router.Navigate("/dashboard?tab=2")
+	// The query string is stripped from the path (see HashLocation.Path()'s
+	// doc comment), so router.Path() settles at "/dashboard", not the
+	// navigated-to string with "?tab=2" still attached.
+	waitForPath(t, "/dashboard")
+
+	if got := core.Unwrap(el).Get("textContent").String(); got != "dashboard page" {
+		t.Errorf("textContent = %q, want %q (query string must not stop the route from matching)", got, "dashboard page")
+	}
+}
+
 func TestRouterWildcardCatchAllMatchesAnyPath(t *testing.T) {
 	el := router.Router(
 		router.Route("/", func() core.Node { return core.Text("home page") }),
@@ -116,6 +183,71 @@ func TestRouterSamePatternUpdatesParamsWithoutRemounting(t *testing.T) {
 	}
 	if got := core.Unwrap(el).Get("children").Get("length").Int(); got != 1 {
 		t.Errorf("container has %d children, want 1 (no duplicate mount)", got)
+	}
+}
+
+// TestRouterSamePatternUpdatesContentWhenParamsReadReactively is the positive
+// control for the documented idiom (see Routing.vane's "URL params" section):
+// params.Get() called from inside a reactive binding (core.DynText's fn here,
+// same as a compiled JSX {expr}) re-subscribes on every run, so content
+// updates in place when the same pattern matches a new param.
+func TestRouterSamePatternUpdatesContentWhenParamsReadReactively(t *testing.T) {
+	titles := map[string]string{"a": "Title A", "b": "Title B"}
+	el := router.Router(
+		router.Route("/", func() core.Node { return core.Text("home page") }),
+		router.Route("/articles/:slug", func() core.Node {
+			params := router.Params()
+			div := core.El("div")
+			core.DynText(div, func() string { return titles[params.Get()["slug"]] })
+			return div
+		}),
+	)
+
+	navigateAndRestore(t, "/articles/a")
+	if got := core.Unwrap(el).Get("textContent").String(); got != "Title A" {
+		t.Fatalf("textContent after navigating to /articles/a = %q, want %q", got, "Title A")
+	}
+
+	router.Navigate("/articles/b")
+	waitForPath(t, "/articles/b")
+
+	if got := core.Unwrap(el).Get("textContent").String(); got != "Title B" {
+		t.Errorf("textContent after navigating /articles/a -> /articles/b = %q, want %q", got, "Title B")
+	}
+}
+
+// TestRouterSamePatternLeavesContentStaleWhenParamsReadOutsideReactiveScope
+// documents the footgun behind a real bug report: a route component that
+// reads params.Get() once into a plain Go variable (e.g. to branch on a
+// not-found case before returning JSX), then builds its whole node tree from
+// that variable, never subscribes to the params signal - mountEntries calls
+// the route fn only once for a given pattern (see
+// TestRouterSamePatternUpdatesParamsWithoutRemounting) and wraps that single
+// call in signal.Untrack, by design. The URL and the params signal update;
+// the already-built DOM does not. This is the same shape as
+// examples/routing's UserDetail, MINUS the requirement that .Get() itself be
+// called from inside the JSX binding - so it's an easy pattern to fall into
+// starting from that very example.
+func TestRouterSamePatternLeavesContentStaleWhenParamsReadOutsideReactiveScope(t *testing.T) {
+	titles := map[string]string{"a": "Title A", "b": "Title B"}
+	el := router.Router(
+		router.Route("/", func() core.Node { return core.Text("home page") }),
+		router.Route("/articles/:slug", func() core.Node {
+			slug := router.Params().Get()["slug"] // snapshotted once at mount, not read reactively
+			return core.Text(titles[slug])
+		}),
+	)
+
+	navigateAndRestore(t, "/articles/a")
+	if got := core.Unwrap(el).Get("textContent").String(); got != "Title A" {
+		t.Fatalf("textContent after navigating to /articles/a = %q, want %q", got, "Title A")
+	}
+
+	router.Navigate("/articles/b")
+	waitForPath(t, "/articles/b")
+
+	if got := core.Unwrap(el).Get("textContent").String(); got != "Title A" {
+		t.Errorf("textContent after navigating /articles/a -> /articles/b = %q, want still %q (stale - params.Get() was read outside any reactive binding, so nothing re-ran)", got, "Title A")
 	}
 }
 
