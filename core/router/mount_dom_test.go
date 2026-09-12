@@ -119,6 +119,71 @@ func TestRouterSamePatternUpdatesParamsWithoutRemounting(t *testing.T) {
 	}
 }
 
+// TestRouterSamePatternUpdatesContentWhenParamsReadReactively is the positive
+// control for the documented idiom (see Routing.vane's "URL params" section):
+// params.Get() called from inside a reactive binding (core.DynText's fn here,
+// same as a compiled JSX {expr}) re-subscribes on every run, so content
+// updates in place when the same pattern matches a new param.
+func TestRouterSamePatternUpdatesContentWhenParamsReadReactively(t *testing.T) {
+	titles := map[string]string{"a": "Title A", "b": "Title B"}
+	el := router.Router(
+		router.Route("/", func() core.Node { return core.Text("home page") }),
+		router.Route("/articles/:slug", func() core.Node {
+			params := router.Params()
+			div := core.El("div")
+			core.DynText(div, func() string { return titles[params.Get()["slug"]] })
+			return div
+		}),
+	)
+
+	navigateAndRestore(t, "/articles/a")
+	if got := core.Unwrap(el).Get("textContent").String(); got != "Title A" {
+		t.Fatalf("textContent after navigating to /articles/a = %q, want %q", got, "Title A")
+	}
+
+	router.Navigate("/articles/b")
+	waitForPath(t, "/articles/b")
+
+	if got := core.Unwrap(el).Get("textContent").String(); got != "Title B" {
+		t.Errorf("textContent after navigating /articles/a -> /articles/b = %q, want %q", got, "Title B")
+	}
+}
+
+// TestRouterSamePatternLeavesContentStaleWhenParamsReadOutsideReactiveScope
+// documents the footgun behind a real bug report: a route component that
+// reads params.Get() once into a plain Go variable (e.g. to branch on a
+// not-found case before returning JSX), then builds its whole node tree from
+// that variable, never subscribes to the params signal - mountEntries calls
+// the route fn only once for a given pattern (see
+// TestRouterSamePatternUpdatesParamsWithoutRemounting) and wraps that single
+// call in signal.Untrack, by design. The URL and the params signal update;
+// the already-built DOM does not. This is the same shape as
+// examples/routing's UserDetail, MINUS the requirement that .Get() itself be
+// called from inside the JSX binding - so it's an easy pattern to fall into
+// starting from that very example.
+func TestRouterSamePatternLeavesContentStaleWhenParamsReadOutsideReactiveScope(t *testing.T) {
+	titles := map[string]string{"a": "Title A", "b": "Title B"}
+	el := router.Router(
+		router.Route("/", func() core.Node { return core.Text("home page") }),
+		router.Route("/articles/:slug", func() core.Node {
+			slug := router.Params().Get()["slug"] // snapshotted once at mount, not read reactively
+			return core.Text(titles[slug])
+		}),
+	)
+
+	navigateAndRestore(t, "/articles/a")
+	if got := core.Unwrap(el).Get("textContent").String(); got != "Title A" {
+		t.Fatalf("textContent after navigating to /articles/a = %q, want %q", got, "Title A")
+	}
+
+	router.Navigate("/articles/b")
+	waitForPath(t, "/articles/b")
+
+	if got := core.Unwrap(el).Get("textContent").String(); got != "Title A" {
+		t.Errorf("textContent after navigating /articles/a -> /articles/b = %q, want still %q (stale - params.Get() was read outside any reactive binding, so nothing re-ran)", got, "Title A")
+	}
+}
+
 func TestLayoutRendersShellWithOutletPopulated(t *testing.T) {
 	el := router.Router(
 		router.Layout("/dashboard", func() core.Node {
