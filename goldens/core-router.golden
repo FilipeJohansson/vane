@@ -24,21 +24,23 @@ func ActiveLink(props ActiveLinkProps, children ...any) github.com/filipejohanss
 func IsActive(to string) *github.com/filipejohansson/vane/core/signal.ReadOnlySignal[bool]
 func Layout(prefix string, shell func() github.com/filipejohansson/vane/core.Node, children ...Entry) Entry
 func Link(props LinkProps, children ...any) github.com/filipejohansson/vane/core.Node
-func Navigate(to string)
+func Navigate(to string, opts ...NavigateOption)
 func Outlet() github.com/filipejohansson/vane/core.Node
 func Params() *github.com/filipejohansson/vane/core/signal.ReadOnlySignal[map[string]string]
 func Path() *github.com/filipejohansson/vane/core/signal.ReadOnlySignal[string]
 func Query() *github.com/filipejohansson/vane/core/signal.ReadOnlySignal[net/url.Values]
-func Replace(to string)
+func Replace(to string, opts ...NavigateOption)
 func Route(pattern string, fn func() github.com/filipejohansson/vane/core.Node, opts ...RouteOption) Entry
 func Router(entries ...Entry) github.com/filipejohansson/vane/core.Node
 func SetLocation(loc Location)
-func SetQuery(query net/url.Values)
+func SetQuery(query net/url.Values, opts ...NavigateOption)
+func WithScroll(scroll bool) NavigateOption
 func WithTitle(title string) RouteOption
 type type ActiveLinkProps struct{LinkProps; ActiveClass string; Exact bool}
 type type Entry interface{routerEntry()}
 type type HashLocation struct{onChange func(); lastNotified string}
 type type LinkProps struct{github.com/filipejohansson/vane/core.HTMLProps; To string; Target string; Rel string}
 type type Location interface{AnchorID() string; Href(path string) string; Navigate(path string); OnChange(fn func()); Path() string; Replace(path string); Search() string}
+type type NavigateOption func(*navigateConfig)
 type type PathLocation struct{BasePath string; onChange func()}
 type type RouteOption func(*routeConfig)

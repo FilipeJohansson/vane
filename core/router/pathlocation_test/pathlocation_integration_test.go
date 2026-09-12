@@ -92,6 +92,7 @@ func waitForQuery(t *testing.T, key, want string) {
 	for time.Now().Before(deadline) {
 		if router.Query().Get().Get(key) == want {
 			waitEffects(t)
+			waitNextTick(t)
 			return
 		}
 		time.Sleep(5 * time.Millisecond)
@@ -345,5 +346,99 @@ func TestNavigateWithoutAnchorStillScrollsToTop(t *testing.T) {
 
 	if scrollToCalls != 1 {
 		t.Errorf("window.scrollTo called %d times, want 1 (plain navigation with no anchor should scroll to top)", scrollToCalls)
+	}
+}
+
+// TestSetQueryScrollsToTopByDefault guards the default: a query-only
+// navigation scrolls to top just like a path change does.
+func TestSetQueryScrollsToTopByDefault(t *testing.T) {
+	navigateAndRestore(t, "/reports")
+
+	window := js.Global().Get("window")
+	original := window.Get("scrollTo")
+	scrollToCalls := 0
+	window.Set("scrollTo", js.FuncOf(func(_ js.Value, _ []js.Value) interface{} {
+		scrollToCalls++
+		return nil
+	}))
+	t.Cleanup(func() { window.Set("scrollTo", original) })
+
+	router.SetQuery(url.Values{"tab": {"2"}})
+	waitForQuery(t, "tab", "2")
+
+	if scrollToCalls != 1 {
+		t.Errorf("window.scrollTo called %d times, want 1 (query-only navigation should scroll to top by default)", scrollToCalls)
+	}
+}
+
+// TestNavigateWithScrollFalseDoesNotScroll guards the opt-out for a real
+// path change.
+func TestNavigateWithScrollFalseDoesNotScroll(t *testing.T) {
+	navigateAndRestore(t, "/reports")
+
+	window := js.Global().Get("window")
+	original := window.Get("scrollTo")
+	scrollToCalls := 0
+	window.Set("scrollTo", js.FuncOf(func(_ js.Value, _ []js.Value) interface{} {
+		scrollToCalls++
+		return nil
+	}))
+	t.Cleanup(func() { window.Set("scrollTo", original) })
+
+	router.Navigate("/settings", router.WithScroll(false))
+	waitForPath(t, "/settings")
+
+	if scrollToCalls != 0 {
+		t.Errorf("window.scrollTo called %d times, want 0 (WithScroll(false) should suppress the scroll)", scrollToCalls)
+	}
+}
+
+// TestSetQueryWithScrollFalseDoesNotScroll guards the opt-out for a
+// query-only change, the motivating case (a filter/pagination control).
+func TestSetQueryWithScrollFalseDoesNotScroll(t *testing.T) {
+	navigateAndRestore(t, "/reports")
+
+	window := js.Global().Get("window")
+	original := window.Get("scrollTo")
+	scrollToCalls := 0
+	window.Set("scrollTo", js.FuncOf(func(_ js.Value, _ []js.Value) interface{} {
+		scrollToCalls++
+		return nil
+	}))
+	t.Cleanup(func() { window.Set("scrollTo", original) })
+
+	router.SetQuery(url.Values{"tab": {"3"}}, router.WithScroll(false))
+	waitForQuery(t, "tab", "3")
+
+	if scrollToCalls != 0 {
+		t.Errorf("window.scrollTo called %d times, want 0 (WithScroll(false) should suppress the scroll)", scrollToCalls)
+	}
+}
+
+// TestScrollOptionDoesNotLeakToNextNavigation guards pendingScroll's
+// reset-after-consumption: a WithScroll(false) call must not silently
+// suppress the scroll on a later, unrelated navigation.
+func TestScrollOptionDoesNotLeakToNextNavigation(t *testing.T) {
+	navigateAndRestore(t, "/reports")
+
+	window := js.Global().Get("window")
+	original := window.Get("scrollTo")
+	scrollToCalls := 0
+	window.Set("scrollTo", js.FuncOf(func(_ js.Value, _ []js.Value) interface{} {
+		scrollToCalls++
+		return nil
+	}))
+	t.Cleanup(func() { window.Set("scrollTo", original) })
+
+	router.Navigate("/settings", router.WithScroll(false))
+	waitForPath(t, "/settings")
+	if scrollToCalls != 0 {
+		t.Fatalf("window.scrollTo called %d times right after WithScroll(false), want 0", scrollToCalls)
+	}
+
+	router.Navigate("/reports")
+	waitForPath(t, "/reports")
+	if scrollToCalls != 1 {
+		t.Errorf("window.scrollTo called %d times after the following plain Navigate, want 1 (the option must not leak)", scrollToCalls)
 	}
 }
