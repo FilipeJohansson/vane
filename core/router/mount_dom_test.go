@@ -60,6 +60,29 @@ func TestRouterFallsBackTo404WhenNoRouteMatches(t *testing.T) {
 	}
 }
 
+// TestRouterMatchesRouteWithQueryStringUnderHashLocation guards that a query
+// string in the URL doesn't stop HashLocation from matching a route.
+func TestRouterMatchesRouteWithQueryStringUnderHashLocation(t *testing.T) {
+	el := router.Router(
+		router.Route("/", func() core.Node { return core.Text("home page") }),
+		router.Route("/dashboard", func() core.Node { return core.Text("dashboard page") }),
+	)
+
+	t.Cleanup(func() {
+		router.Navigate("/")
+		waitForPath(t, "/")
+	})
+	router.Navigate("/dashboard?tab=2")
+	// The query string is stripped from the path (see HashLocation.Path()'s
+	// doc comment), so router.Path() settles at "/dashboard", not the
+	// navigated-to string with "?tab=2" still attached.
+	waitForPath(t, "/dashboard")
+
+	if got := core.Unwrap(el).Get("textContent").String(); got != "dashboard page" {
+		t.Errorf("textContent = %q, want %q (query string must not stop the route from matching)", got, "dashboard page")
+	}
+}
+
 func TestRouterWildcardCatchAllMatchesAnyPath(t *testing.T) {
 	el := router.Router(
 		router.Route("/", func() core.Node { return core.Text("home page") }),

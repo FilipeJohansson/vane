@@ -232,13 +232,19 @@ type HashLocation struct {
 
 // Path reads location.hash. Only hashes starting with "#/" are router
 // paths — plain anchor hashes like "#section-id" are native browser scroll
-// targets, so those are treated as "/".
+// targets, so those are treated as "/". A "?..." suffix (e.g. "#/dashboard?tab=2")
+// is query data, not part of the path, and is stripped before matching so it
+// doesn't get compared against route patterns.
 func (l *HashLocation) Path() string {
 	hash := js.Global().Get("location").Get("hash").String()
 	if !strings.HasPrefix(hash, "#/") {
 		return "/"
 	}
-	return normalizePath(hash[1:])
+	path := hash[1:]
+	if i := strings.IndexByte(path, '?'); i != -1 {
+		path = path[:i]
+	}
+	return normalizePath(path)
 }
 
 // Href returns path as a hash fragment (e.g. "#/docs").
