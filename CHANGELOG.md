@@ -4,6 +4,11 @@ All notable changes to this project are documented here.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+## [Unreleased]
+
+### Added
+- *(docs)* Add anchor scrolling behavior for initial load and update vane-app docs TOC links (#34)
+
 ## [0.5.0] - 2026-09-12
 
 ### Breaking Changes
@@ -70,6 +75,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Enhance HeadConfig with additional Open Graph properties and update documentation pages (#3)
 
 ## [0.1.0] - 2026-07-18
+[Unreleased]: https://github.com/FilipeJohansson/vane/compare/v0.5.0..HEAD
 [0.5.0]: https://github.com/FilipeJohansson/vane/compare/v0.4.0..v0.5.0
 [0.4.0]: https://github.com/FilipeJohansson/vane/compare/v0.3.0..v0.4.0
 [0.3.0]: https://github.com/FilipeJohansson/vane/compare/v0.2.0..v0.3.0
