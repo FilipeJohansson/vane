@@ -50,6 +50,10 @@ Reload the VS Code window (`Developer: Reload Window` in the command palette) af
 - "Find All References" started from a plain `.go` file lists matching generated `_vane.go` files by their generated-file path, not the originating `.vane` file — clicking through still lands you on the right `.vane` source and line, but the list itself doesn't say so yet.
 - Column-accurate diagnostics/hover/go-to-definition require the [Go extension](https://marketplace.visualstudio.com/items?itemName=golang.go) to be installed; without it, `.vane` files still open and edit fine, but embedded Go syntax won't be colored.
 
+## Versioning
+
+See [VERSIONING.md](VERSIONING.md).
+
 ## License
 
 MIT
