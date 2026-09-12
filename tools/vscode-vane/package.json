@@ -3,7 +3,7 @@
   "displayName": "Vane",
   "description": "Syntax highlighting and language server for .vane files (Go + JSX)",
   "version": "0.1.0",
-  "publisher": "filipejohansson",
+  "publisher": "FilipeJohansson",
   "repository": {
     "type": "git",
     "url": "https://github.com/filipejohansson/vane"

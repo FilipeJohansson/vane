@@ -3,7 +3,7 @@ name: Changelog
 on:
   push:
     branches: [master]
-    tags: ['v*']
+    tags: ['v[0-9]*', 'vscode-vane-v[0-9]*']
 
 permissions:
   contents: write
@@ -18,27 +18,44 @@ jobs:
           ref: master
           fetch-depth: 0
 
-      # Regenerates the whole file from git history every run: already-tagged
+      # Regenerates both files from git history every run: already-tagged
       # releases produce identical output (same tag = same commit range), only
       # [Unreleased] actually changes. A tag push (release cut) re-runs this
       # against the same master tip so [Unreleased] flips to the real version
       # header immediately, instead of waiting for the next unrelated commit.
+      #
+      # The root changelog and the VS Code extension's changelog are separate
+      # release surfaces (independent versioning) split by path, so each is
+      # generated with its own config and commit range.
       - name: Generate CHANGELOG.md
         uses: orhun/git-cliff-action@v4.9.0
         with:
           config: cliff.toml
-          args: --github-repo ${{ github.repository }} -o CHANGELOG.md
+          args: >-
+            --github-repo ${{ github.repository }}
+            --exclude-path 'tools/vscode-vane/**'
+            --tag-pattern '^v[0-9]+\.[0-9]+\.[0-9]+$'
+            -o CHANGELOG.md
+
+      - name: Generate vscode-vane CHANGELOG.md
+        uses: orhun/git-cliff-action@v4.9.0
+        with:
+          config: tools/vscode-vane/cliff.toml
+          args: >-
+            --github-repo ${{ github.repository }}
+            --include-path 'tools/vscode-vane/**'
+            --tag-pattern '^vscode-vane-v[0-9]+\.[0-9]+\.[0-9]+$'
+            -o tools/vscode-vane/CHANGELOG.md
 
       - name: Check for changes
         id: diff
         run: |
-          if git diff --quiet -- CHANGELOG.md; then
-            echo "changed=false" >> "$GITHUB_OUTPUT"
-          else
-            echo "changed=true" >> "$GITHUB_OUTPUT"
-          fi
+          changed=false
+          git diff --quiet -- CHANGELOG.md || changed=true
+          git diff --quiet -- tools/vscode-vane/CHANGELOG.md || changed=true
+          echo "changed=$changed" >> "$GITHUB_OUTPUT"
 
-      - name: Commit updated CHANGELOG.md via GitHub API
+      - name: Commit updated changelogs via GitHub API
         if: steps.diff.outputs.changed == 'true'
         uses: actions/github-script@v9
         with:
@@ -46,21 +63,31 @@ jobs:
             const fs = require('fs');
             const { execSync } = require('child_process');
 
-            const content = fs.readFileSync('CHANGELOG.md', 'utf8');
-            const contents = Buffer.from(content, 'utf8').toString('base64');
+            function additionIfChanged(path) {
+              const changed = execSync(`git diff --name-only -- ${path}`).toString().trim() !== '';
+              if (!changed) return null;
+              const contents = Buffer.from(fs.readFileSync(path, 'utf8'), 'utf8').toString('base64');
+              return { path, contents };
+            }
+
+            const additions = [
+              additionIfChanged('CHANGELOG.md'),
+              additionIfChanged('tools/vscode-vane/CHANGELOG.md'),
+            ].filter(Boolean);
+
             const expectedHeadOid = execSync('git rev-parse HEAD').toString().trim();
             const repositoryNameWithOwner = `${context.repo.owner}/${context.repo.repo}`;
 
             await github.graphql(
-              `mutation($repositoryNameWithOwner: String!, $expectedHeadOid: GitObjectID!, $contents: Base64String!) {
+              `mutation($repositoryNameWithOwner: String!, $expectedHeadOid: GitObjectID!, $additions: [FileAddition!]) {
                 createCommitOnBranch(input: {
                   branch: { repositoryNameWithOwner: $repositoryNameWithOwner, branchName: "master" },
-                  message: { headline: "chore: update CHANGELOG.md" },
+                  message: { headline: "chore: update changelogs" },
                   expectedHeadOid: $expectedHeadOid,
-                  fileChanges: { additions: [{ path: "CHANGELOG.md", contents: $contents }] }
+                  fileChanges: { additions: $additions }
                 }) {
                   commit { oid url }
                 }
               }`,
-              { repositoryNameWithOwner, expectedHeadOid, contents }
+              { repositoryNameWithOwner, expectedHeadOid, additions }
             );
