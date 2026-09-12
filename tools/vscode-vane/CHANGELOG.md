@@ -8,4 +8,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - Add VS Code extension with LSP-backed editor support (#29)
+- *(vscode)* Add versioning policy and release automation for VS Code extension (#32)
+
 
