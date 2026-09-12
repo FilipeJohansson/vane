@@ -103,18 +103,6 @@ func code(s string) core.Node {
 // (3.5rem) plus the reading-progress bar, with a little breathing room.
 const scrollSpyOffset = 90.0
 
-// scrollToHeading backs the TOC's onClick (a <button>, not an <a href="#id">,
-// so it never touches the URL at all - simplest option, works the same
-// regardless of which router.Location is active). scroll-margin-top on
-// .docs-h2 keeps the heading clear of the sticky nav once scrollIntoView lands.
-func scrollToHeading(id string) {
-	el, ok := core.GetElementByID(id)
-	if !ok {
-		return
-	}
-	core.ScrollIntoView(el, true)
-}
-
 // setupScrollSpy watches window scroll and keeps active set to the id of
 // the lowest heading that's scrolled past scrollSpyOffset. Called once from
 // a ref callback (see toc below), not from a reactive {expr}, so it isn't
@@ -162,18 +150,17 @@ func setupScrollSpy(items []tocItem, active *core.Signal[string]) {
 func tocLink(it tocItem, active *core.Signal[string]) core.Node {
 	return (
 		<li>
-			<button
-				type="button"
+			<a
+				href={"#" + it.ID}
 				className={func() string {
 					if active.Get() == it.ID {
 						return "docs-toc-link docs-toc-link--active"
 					}
 					return "docs-toc-link"
 				}()}
-				onClick={func(core.MouseEvent) { scrollToHeading(it.ID) }}
 			>
 				{it.Label}
-			</button>
+			</a>
 		</li>
 	)
 }

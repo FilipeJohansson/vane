@@ -99,17 +99,28 @@ func ensureInit() {
 			// priority order as a plain <a href="#section"> click: the
 			// anchor wins even for a genuine route change to a URL that
 			// also carries a fragment.
-			if anchorID != "" {
-				if el := dom.Document.Call(dom.GetElementById, anchorID); el.Truthy() {
-					el.Call("scrollIntoView")
-					return
-				}
+			if scrollToAnchor(anchorID) {
+				return
 			}
 			if next != old {
 				dom.Window.Call("scrollTo", 0, 0)
 			}
 		})
 	})
+}
+
+// scrollToAnchor scrolls anchorID's element into view and reports true, or
+// reports false if anchorID is empty or no element has that id.
+func scrollToAnchor(anchorID string) bool {
+	if anchorID == "" {
+		return false
+	}
+	el := dom.Document.Call(dom.GetElementById, anchorID)
+	if !el.Truthy() {
+		return false
+	}
+	el.Call("scrollIntoView")
+	return true
 }
 
 // SetLocation configures how the router represents its current route in the
@@ -218,9 +229,22 @@ func Router(entries ...Entry) core.Node {
 	ensureInit()
 	container := core.El("div")
 	state := &routerState{}
+	firstRender := true
 	signal.Effect(func() {
 		path := pathSignal.Get()
 		mountEntries(container, entries, path, "", state)
+		// A page loaded directly at a URL that already carries an anchor
+		// (e.g. a shared link to a doc section) needs the same scroll-to-
+		// anchor behavior a same-page navigation gets via ensureInit's
+		// OnChange - but nothing fires OnChange for the very first render,
+		// so it's handled here instead, once. Deferred the same way (see
+		// OnChange's own comment): the container isn't attached to the
+		// document yet at this exact point in the call stack.
+		if firstRender {
+			firstRender = false
+			anchorID := activeLocation.AnchorID()
+			core.NextTick(func() { scrollToAnchor(anchorID) })
+		}
 	})
 	return container
 }
