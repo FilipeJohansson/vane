@@ -9,5 +9,3 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - Add VS Code extension with LSP-backed editor support (#29)
 
-[Unreleased]: https://github.com/FilipeJohansson/vane/compare/v0.4.0..HEAD
-
