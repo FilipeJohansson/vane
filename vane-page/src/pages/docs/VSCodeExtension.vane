@@ -40,8 +40,11 @@ func VSCodeExtension() core.Node {
 
 				<h2 className="docs-h2" id="install">Install</h2>
 				<p className="docs-p">
-					Not published to the Marketplace yet: build and install the <code>.vsix</code>{" "}
-					from source.
+					Install <a href="https://marketplace.visualstudio.com/items?itemName=FilipeJohansson.vscode-vane" target="_blank" rel="noopener noreferrer">Vane</a>{" "}
+					from the Marketplace, or search "Vane" in the Extensions view (Ctrl/Cmd+Shift+X).
+				</p>
+				<p className="docs-p">
+					To build from source instead (e.g. to try an unreleased change):
 				</p>
 				{components.TerminalBlock("Terminal", vscodeInstallSnippet)}
 				<p className="docs-p">
