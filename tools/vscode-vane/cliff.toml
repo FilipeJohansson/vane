@@ -1,0 +1,83 @@
+# git-cliff configuration for the Vane VS Code extension.
+# Separate release surface from the root Vane module (see cliff.toml at the
+# repo root) — versioned and released independently, so it gets its own
+# changelog instead of being tangled into the root one.
+# https://git-cliff.org/docs/configuration
+
+[changelog]
+header = """
+# Changelog
+
+All notable changes to the Vane VS Code extension are documented here.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+"""
+body = """
+{% if version -%}
+    ## [{{ version | trim_start_matches(pat="v") }}] - {{ timestamp | date(format="%Y-%m-%d") }}
+{% else -%}
+    ## [Unreleased]
+{% endif %}
+{%- set breaking_commits = commits | filter(attribute="breaking", value=true) -%}
+{% if breaking_commits | length > 0 %}
+### Breaking Changes
+{% for commit in breaking_commits -%}
+- {% if commit.scope %}*({{ commit.scope }})* {% endif %}{{ commit.message | split(pat="\n") | first | upper_first }}
+{% endfor %}
+{% endif -%}
+{% for group, group_commits in commits | filter(attribute="breaking", value=false) | group_by(attribute="group") %}
+### {{ group | upper_first }}
+{% for commit in group_commits -%}
+- {% if commit.scope %}*({{ commit.scope }})* {% endif %}{{ commit.message | split(pat="\n") | first | upper_first }}
+{% endfor %}
+{% endfor -%}
+"""
+footer = """
+{% for release in releases -%}
+    {% if release.version and release.previous.version -%}
+        [{{ release.version | trim_start_matches(pat="v") }}]: \
+            https://github.com/{{ remote.github.owner }}/{{ remote.github.repo }}\
+                /compare/{{ release.previous.version }}..{{ release.version }}
+    {% elif release.version -%}
+        [{{ release.version | trim_start_matches(pat="v") }}]: \
+            https://github.com/{{ remote.github.owner }}/{{ remote.github.repo }}\
+                /releases/tag/{{ release.version }}
+    {% elif release.previous.version -%}
+        [Unreleased]: https://github.com/{{ remote.github.owner }}/{{ remote.github.repo }}\
+            /compare/{{ release.previous.version }}..HEAD
+    {% endif -%}
+{% endfor %}
+"""
+trim = true
+render_always = true
+
+[git]
+conventional_commits = true
+filter_unconventional = false
+require_conventional = false
+split_commits = false
+protect_breaking_commits = true
+filter_commits = false
+sort_commits = "oldest"
+topo_order = false
+
+# Ordered top-to-bottom: first match wins. Types not covered by any rule
+# below (e.g. non-conventional commits) fall through to the final catch-all.
+commit_parsers = [
+    { message = "^feat", group = "Added" },
+    { message = "^fix", group = "Fixed" },
+    { footer = "^[Dd]eprecated:", group = "Deprecated" },
+    { footer = "^[Ss]ecurity:", group = "Security" },
+    { message = "^perf", group = "Changed" },
+    { message = "^refactor", group = "Changed" },
+    { message = "^revert", group = "Changed" },
+    { message = "^chore\\(deps", group = "Changed" },
+    { message = "^docs", skip = true },
+    { message = "^test", skip = true },
+    { message = "^style", skip = true },
+    { message = "^ci", skip = true },
+    { message = "^build", skip = true },
+    { message = "^chore", skip = true },
+    { message = ".*", group = "Changed" },
+]
