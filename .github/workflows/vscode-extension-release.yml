@@ -43,4 +43,14 @@ jobs:
         run: pnpm run build
 
       - name: Publish to VS Code Marketplace
-        run: pnpm exec vsce publish --no-dependencies -p "${{ secrets.VSCE_PAT }}"
+        # vsce's /_apis/gallery calls to the Marketplace time out intermittently, a known,
+        # unresolved upstream issue (microsoft/vscode-vsce#1303, #926) with no fix on vsce's
+        # side yet. Retry within this step, not by re-running the job, so a transient failure
+        # doesn't require re-approving the environment's required reviewer each time.
+        run: |
+          for i in 1 2 3 4 5; do
+            pnpm exec vsce publish --no-dependencies -p "${{ secrets.VSCE_PAT }}" && exit 0
+            echo "Attempt $i failed, retrying in 30s..."
+            sleep 30
+          done
+          exit 1

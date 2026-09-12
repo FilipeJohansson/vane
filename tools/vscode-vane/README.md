@@ -15,11 +15,13 @@ Syntax highlighting and a real language server for `.vane` files — [Vane](http
 - [`gopls`](https://pkg.go.dev/golang.org/x/tools/gopls). The extension checks for it on activation and offers to install it (`go install golang.org/x/tools/gopls@latest`) if missing.
 - The [Go extension](https://marketplace.visualstudio.com/items?itemName=golang.go) for VS Code. The extension checks for it too and offers to install it if missing — without it, embedded Go syntax inside `.vane` files won't be highlighted.
 
-## Build and install
+## Install
 
-Not on the Marketplace yet — build and install it locally:
+Install [Vane](https://marketplace.visualstudio.com/items?itemName=FilipeJohansson.vscode-vane) from the Marketplace, or search "Vane" in the Extensions view (`Ctrl+Shift+X`).
 
-### Build
+### Build from source
+
+To try an unreleased change instead of the published version:
 
 ```bash
 cd tools/vscode-vane
@@ -29,15 +31,13 @@ pnpm run package                 # builds and packages -> vscode-vane-<version>.
 
 Or, from the repo root: `make build-vscode-extension`.
 
-### Install
-
-**Command line:**
+Install the result:
 
 ```bash
 code --install-extension vscode-vane-<version>.vsix
 ```
 
-**VS Code UI:** Extensions view (`Ctrl+Shift+X`) → `...` menu (top right) → **Install from VSIX...** → select the generated file.
+Or, in the UI: Extensions view (`Ctrl+Shift+X`) → `...` menu (top right) → **Install from VSIX...** → select the generated file.
 
 Reload the VS Code window (`Developer: Reload Window` in the command palette) after installing or updating. To reinstall after making changes: repeat `pnpm run package`, then reinstall the same way (`--force` on the CLI, or just pick **Install from VSIX...** again in the UI).
 
