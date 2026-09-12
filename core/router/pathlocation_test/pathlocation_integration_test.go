@@ -290,6 +290,43 @@ func TestNavigateToAnchorScrollsToElementInsteadOfTop(t *testing.T) {
 	}
 }
 
+// TestRouterScrollsToAnchorOnInitialLoad guards that a URL already carrying
+// an anchor hash before Router first mounts (e.g. a shared deep link into a
+// doc section) scrolls to that element once - the initial-load counterpart
+// to TestNavigateToAnchorScrollsToElementInsteadOfTop, which covers the same
+// behavior for a subsequent in-app Navigate instead. Nothing fires OnChange
+// for the very first render, so this exercises Router's own firstRender
+// check instead.
+func TestRouterScrollsToAnchorOnInitialLoad(t *testing.T) {
+	router.Navigate("/")
+	waitForPath(t, "/")
+
+	target := core.El("div")
+	core.SetProp(target, "id", "initial-target")
+	js.Global().Get("document").Get("body").Call("appendChild", core.Unwrap(target))
+	t.Cleanup(func() { js.Global().Get("document").Get("body").Call("removeChild", core.Unwrap(target)) })
+
+	scrollIntoViewCalls := 0
+	core.Unwrap(target).Set("scrollIntoView", js.FuncOf(func(_ js.Value, _ []js.Value) interface{} {
+		scrollIntoViewCalls++
+		return nil
+	}))
+
+	js.Global().Get("history").Call("replaceState", js.Null(), "", basePath+"#initial-target")
+	t.Cleanup(func() {
+		js.Global().Get("history").Call("replaceState", js.Null(), "", basePath)
+	})
+
+	router.Router(
+		router.Route("/", func() core.Node { return core.Text("home page") }),
+	)
+	waitNextTick(t)
+
+	if scrollIntoViewCalls != 1 {
+		t.Errorf("target element's scrollIntoView called %d times, want 1", scrollIntoViewCalls)
+	}
+}
+
 // TestNavigateWithoutAnchorStillScrollsToTop is scenario 39: the ordinary
 // case (a plain navigation, no fragment) must keep scrolling to top - the
 // scenario 38 fix must not have swallowed this by, say, always short-
