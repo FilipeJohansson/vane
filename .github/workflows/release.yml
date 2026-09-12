@@ -7,7 +7,7 @@ name: Release
 # prebuilt binaries as a convenience alongside `go install`.
 on:
   push:
-    tags: ['v*']
+    tags: ['v[0-9]*']
 
 permissions:
   contents: read

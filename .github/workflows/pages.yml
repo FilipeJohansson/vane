@@ -2,7 +2,7 @@ name: Deploy vane-page
 
 on:
   push:
-    tags: ['v*']
+    tags: ['v[0-9]*']
   workflow_dispatch:
     inputs:
       vane_version:

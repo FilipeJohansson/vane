@@ -3,7 +3,7 @@ name: Changelog
 on:
   push:
     branches: [master]
-    tags: ['v*']
+    tags: ['v[0-9]*', 'vscode-vane-v[0-9]*']
 
 permissions:
   contents: write
@@ -34,6 +34,7 @@ jobs:
           args: >-
             --github-repo ${{ github.repository }}
             --exclude-path 'tools/vscode-vane/**'
+            --tag-pattern '^v[0-9]+\.[0-9]+\.[0-9]+$'
             -o CHANGELOG.md
 
       - name: Generate vscode-vane CHANGELOG.md
@@ -43,6 +44,7 @@ jobs:
           args: >-
             --github-repo ${{ github.repository }}
             --include-path 'tools/vscode-vane/**'
+            --tag-pattern '^vscode-vane-v[0-9]+\.[0-9]+\.[0-9]+$'
             -o tools/vscode-vane/CHANGELOG.md
 
       - name: Check for changes
