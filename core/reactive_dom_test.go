@@ -50,24 +50,29 @@ func childTexts(t *testing.T, parent core.Node) []string {
 	return out
 }
 
-// TestDynListKeyLengthMismatchFallsBackToUnkeyed verifies that an explicit key
-// function returning a different number of keys than nodes doesn't panic
-// (indexing newNodes[i] out of range). It degrades to unkeyed rendering for
-// that update instead, and every node still renders.
-func TestDynListKeyLengthMismatchFallsBackToUnkeyed(t *testing.T) {
+// TestDynListDuplicateKeysWarnsAndFallsBackToUnkeyed verifies that a keyFn
+// returning the same key for two different items doesn't panic or silently
+// drop/overwrite one of them - it degrades to unkeyed rendering for that
+// update instead, and every item still renders. Replaces the old
+// TestDynListKeyLengthMismatchFallsBackToUnkeyed: that test's own scenario
+// (an explicit key callback returning a different number of keys than
+// nodes) can't happen anymore now that keyFn is called once per item by
+// construction, always 1:1 - this is the closest real equivalent under the
+// new signature, guarding the same "malformed key input can't crash or lose
+// an item" property.
+func TestDynListDuplicateKeysWarnsAndFallsBackToUnkeyed(t *testing.T) {
 	parent := core.El("ul")
 
-	nodes := func() []core.Node {
-		return []core.Node{core.Text("a"), core.Text("b"), core.Text("c")}
-	}
-	badKeys := func() []string { return []string{"only-one-key"} } // 1 key, 3 nodes
+	items := func() []string { return []string{"a", "b", "c"} }
+	dupeKey := func(string) string { return "same-key-for-everyone" }
+	render := func(s string) core.Node { return core.Text(s) }
 
 	defer func() {
 		if r := recover(); r != nil {
-			t.Fatalf("DynList panicked on key/node length mismatch: %v", r)
+			t.Fatalf("DynList panicked on duplicate keys: %v", r)
 		}
 	}()
-	core.DynList(parent, nodes, badKeys)
+	core.DynList(parent, items, dupeKey, render)
 
 	got := childTexts(t, parent)
 	want := []string{"", "a", "b", "c", ""} // start/end marker text nodes are empty
@@ -90,21 +95,16 @@ func TestDynListUnkeyedChurnDisposesOldItemEffects(t *testing.T) {
 
 	var liveItems int // net OnDispose cleanups still pending for rendered items
 
-	render := func() []core.Node {
-		ids := items.Get()
-		nodes := make([]core.Node, len(ids))
-		for i, id := range ids {
-			li := core.El("li")
-			core.AppendText(li, strconv.Itoa(id))
-			signal.Effect(func() {}) // stand-in for a real item's internal reactive binding
-			liveItems++
-			core.OnDispose(func() { liveItems-- })
-			nodes[i] = li
-		}
-		return nodes
+	render := func(id int) core.Node {
+		li := core.El("li")
+		core.AppendText(li, strconv.Itoa(id))
+		signal.Effect(func() {}) // stand-in for a real item's internal reactive binding
+		liveItems++
+		core.OnDispose(func() { liveItems-- })
+		return li
 	}
 
-	core.DynList(parent, render)
+	core.DynList(parent, items.Get, nil, render)
 	if !signal.WaitEffects(200 * time.Millisecond) {
 		t.Fatal("scheduler did not settle after the initial DynList render")
 	}
@@ -140,7 +140,7 @@ func TestDynListKeyedChurnDisposesReplacedItemEffects(t *testing.T) {
 
 	var liveItems int
 
-	render := func() []core.Node {
+	items := func() []core.Node {
 		li := core.El("li")
 		core.Unwrap(li).Set("key", "only-item")
 		core.AppendText(li, label.Get())
@@ -150,7 +150,7 @@ func TestDynListKeyedChurnDisposesReplacedItemEffects(t *testing.T) {
 		return []core.Node{li}
 	}
 
-	core.DynList(parent, render)
+	core.DynList(parent, items, core.NodePropertyKey, core.IdentityNode)
 	if !signal.WaitEffects(200 * time.Millisecond) {
 		t.Fatal("scheduler did not settle after the initial DynList render")
 	}
@@ -187,7 +187,7 @@ func TestDynListKeyedRemovalDisposesRemovedItemEffects(t *testing.T) {
 
 	var liveItems int
 
-	render := func() []core.Node {
+	items := func() []core.Node {
 		current := ids.Get()
 		nodes := make([]core.Node, len(current))
 		for i, id := range current {
@@ -202,7 +202,7 @@ func TestDynListKeyedRemovalDisposesRemovedItemEffects(t *testing.T) {
 		return nodes
 	}
 
-	core.DynList(parent, render)
+	core.DynList(parent, items, core.NodePropertyKey, core.IdentityNode)
 	if !signal.WaitEffects(200 * time.Millisecond) {
 		t.Fatal("scheduler did not settle after the initial render")
 	}
@@ -239,7 +239,7 @@ func TestDynListRemoveAllDisposesEverything(t *testing.T) {
 
 	var liveItems int
 
-	render := func() []core.Node {
+	buildItems := func() []core.Node {
 		current := items.Get()
 		nodes := make([]core.Node, len(current))
 		for i, id := range current {
@@ -254,7 +254,7 @@ func TestDynListRemoveAllDisposesEverything(t *testing.T) {
 		return nodes
 	}
 
-	core.DynList(parent, render)
+	core.DynList(parent, buildItems, nil, core.IdentityNode)
 	if !signal.WaitEffects(500 * time.Millisecond) {
 		t.Fatal("scheduler did not settle after the initial render")
 	}
@@ -291,7 +291,7 @@ func TestDynListReRenderDoesNotAccumulateSubscribers(t *testing.T) {
 	theme := core.NewSignal("light")
 	trigger := core.NewSignal(0)
 
-	render := func() []core.Node {
+	items := func() []core.Node {
 		_ = trigger.Get()
 		li := core.El("li")
 		signal.Effect(func() {
@@ -300,7 +300,7 @@ func TestDynListReRenderDoesNotAccumulateSubscribers(t *testing.T) {
 		return []core.Node{li}
 	}
 
-	core.DynList(parent, render)
+	core.DynList(parent, items, nil, core.IdentityNode)
 	if !signal.WaitEffects(200 * time.Millisecond) {
 		t.Fatal("scheduler did not settle after the initial render")
 	}
@@ -333,7 +333,7 @@ func TestDynListMixedKeyedUnkeyedRendersAll(t *testing.T) {
 	core.AppendText(unkeyed, "unkeyed")
 
 	nodes := func() []core.Node { return []core.Node{keyed, unkeyed} }
-	core.DynList(parent, nodes)
+	core.DynList(parent, nodes, core.NodePropertyKey, core.IdentityNode)
 
 	raw := core.Unwrap(parent)
 	liCount := raw.Call("querySelectorAll", "li").Get("length").Int()
