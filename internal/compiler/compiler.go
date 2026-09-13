@@ -204,7 +204,16 @@ func buildSourceMap(goSrc string) *SourceMap {
 
 // CompileWithMap transforms .vane source to .go source and returns a SourceMap for LSP position translation.
 func CompileWithMap(src, filename string) (string, *SourceMap, error) {
-	s := &scanner{src: src, filename: filename}
+	return CompileWithMapAndHints(src, filename, nil)
+}
+
+// CompileWithMapAndHints is CompileWithMap, but with hints resolved from a
+// prior compile pass (see ForTypeHint) available to keyed {for} codegen.
+// internal/compiler never resolves these itself; main.go's build
+// orchestration produces them via go/types and feeds them back in for a
+// second pass. Passing a nil/empty hints is identical to CompileWithMap.
+func CompileWithMapAndHints(src, filename string, hints []ForTypeHint) (string, *SourceMap, error) {
+	s := &scanner{src: src, filename: filename, hints: hints}
 	out, err := s.scan()
 	if err != nil {
 		return "", nil, err
@@ -235,6 +244,14 @@ func CompileWithMap(src, filename string) (string, *SourceMap, error) {
 // Go compiler errors point back to the original .vane file; pass "" to disable.
 func Compile(src, filename string) (string, error) {
 	out, _, err := CompileWithMap(src, filename)
+	return out, err
+}
+
+// CompileWithHints is Compile, but with hints resolved from a prior compile
+// pass (see ForTypeHint) available to keyed {for} codegen. Passing a
+// nil/empty hints is identical to Compile.
+func CompileWithHints(src, filename string, hints []ForTypeHint) (string, error) {
+	out, _, err := CompileWithMapAndHints(src, filename, hints)
 	return out, err
 }
 
@@ -370,6 +387,18 @@ type scanner struct {
 	src      string
 	pos      int
 	filename string
+	hints    []ForTypeHint
+}
+
+// ForTypeHint carries a go/types-resolved concrete type for one keyed {for}
+// block, keyed by the byte offset of that block's "for" keyword in the
+// original .vane source. internal/compiler never resolves types itself -
+// hints are produced by the build orchestration (main.go), which owns all
+// go/types/go/packages use, and fed back in via CompileWithHints/
+// CompileWithMapAndHints for a second compile pass.
+type ForTypeHint struct {
+	Offset int    // byte offset of the `for` keyword in the .vane source
+	Type   string // resolved concrete type, already qualified for this file
 }
 
 // lineAt counts the 1-based line number of byte offset pos in src.
@@ -1142,7 +1171,7 @@ func (s *scanner) handleReturn(nilSugar string) (string, bool, error) {
 				s.pos++
 			}
 		}
-		em := &emitter{filename: s.filename, src: s.src}
+		em := &emitter{filename: s.filename, src: s.src, hints: s.hints}
 		rootVar := em.emitNode(node, "")
 		if em.err != nil {
 			return "", false, em.err
@@ -1458,6 +1487,20 @@ type emitter struct {
 	filename  string
 	src       string
 	posOffset int // added to node positions when computing //line and error positions
+	hints     []ForTypeHint
+}
+
+// hintForOffset returns the ForTypeHint whose Offset matches the absolute
+// byte offset abs in em.src, if any. abs is the position of the `for`
+// keyword itself (basePos+em.posOffset, matching how main.go computes
+// ForTypeHint.Offset when resolving hints for this file).
+func (em *emitter) hintForOffset(abs int) (ForTypeHint, bool) {
+	for _, h := range em.hints {
+		if h.Offset == abs {
+			return h, true
+		}
+	}
+	return ForTypeHint{}, false
 }
 
 func (em *emitter) errorf(pos int, msg, hint string) error {
@@ -1818,6 +1861,7 @@ func (em *emitter) emitForCtrl(raw, parentVar string, basePos int) {
 		filename:  em.filename,
 		src:       em.src,
 		posOffset: bodyAbsStart(em.src, basePos+em.posOffset, body),
+		hints:     em.hints,
 	}
 
 	var out strings.Builder
@@ -2162,6 +2206,7 @@ func (em *emitter) emitBranchParts(parts []bodyPart, out *strings.Builder, bodyS
 		filename:  em.filename,
 		src:       em.src,
 		posOffset: bodyStart,
+		hints:     em.hints,
 	}
 	for _, p := range parts {
 		if p.goCode != "" {
