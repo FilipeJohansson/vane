@@ -50,8 +50,8 @@ function serveDist(distDir) {
     }
     fs.readFile(filePath, (err, data) => {
       if (err) {
-        res.writeHead(404);
-        res.end("not found: " + reqPath);
+        res.writeHead(404, { "Content-Type": "text/plain; charset=utf-8" });
+        res.end("not found");
         return;
       }
       const ext = path.extname(filePath);
