@@ -1,6 +1,6 @@
 dist/
 *.exe
-vane
+/vane
 *_vane.go
 
 ### Playwright ###
