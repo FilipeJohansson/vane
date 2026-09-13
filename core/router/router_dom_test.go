@@ -73,6 +73,7 @@ func waitForQuery(t *testing.T, key, want string) {
 	for time.Now().Before(deadline) {
 		if router.Query().Get().Get(key) == want {
 			waitEffects(t)
+			waitNextTick(t)
 			return
 		}
 		time.Sleep(5 * time.Millisecond)

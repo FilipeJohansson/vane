@@ -70,15 +70,16 @@ func ensureInit() {
 	querySignal = signal.New(parseQuery(activeLocation.Search()))
 	queryReadOnly = querySignal.ReadOnly()
 	activeLocation.OnChange(func() {
-		old := pathSignal.Get()
 		next := activeLocation.Path()
 		nextQuery := parseQuery(activeLocation.Search())
 		// Captured now, at notification time, not re-read inside the
-		// deferred closure below: location.hash is global mutable state, and
-		// a later navigation can change it before this one's deferred
-		// decision runs (see the next comment), which would otherwise make
-		// this decision act on the WRONG (a newer) navigation's anchor.
+		// deferred closure below: location.hash and pendingScroll are both
+		// mutable package state a later navigation could change before this
+		// one's deferred decision runs, which would otherwise make this
+		// decision act on the WRONG (a newer) navigation's intent.
 		anchorID := activeLocation.AnchorID()
+		scroll := pendingScroll
+		pendingScroll = true // reset: a plain link click or popstate bypasses Navigate/Replace/SetQuery entirely and always wants the default
 		pathSignal.Set(next)
 		// A separate signal from pathSignal, set independently: a query-only
 		// change (same path, different search) must notify subscribers of
@@ -94,19 +95,49 @@ func ensureInit() {
 		// that flush completes (including nested/reentrant effects, e.g. a
 		// Layout's own inner Effect) - see core/nexttick_scheduler_dom_test.go.
 		core.NextTick(func() {
+			if !scroll {
+				return
+			}
 			// A navigation that targets an in-page anchor (see AnchorID)
 			// scrolls to that element instead of the page top - same
-			// priority order as a plain <a href="#section"> click: the
-			// anchor wins even for a genuine route change to a URL that
-			// also carries a fragment.
+			// priority order as a plain <a href="#section"> click.
 			if scrollToAnchor(anchorID) {
 				return
 			}
-			if next != old {
-				dom.Window.Call("scrollTo", 0, 0)
-			}
+			dom.Window.Call("scrollTo", 0, 0)
 		})
 	})
+}
+
+// pendingScroll is consumed once by the next OnChange notification, then
+// reset to true (the default). Navigate/Replace/SetQuery set it just before
+// triggering the actual URL change, which - for both PathLocation and
+// HashLocation - notifies synchronously, so there's no window for a race
+// with an unrelated navigation in between.
+var pendingScroll = true
+
+// NavigateOption configures optional Navigate/Replace/SetQuery behavior.
+type NavigateOption func(*navigateConfig)
+
+type navigateConfig struct {
+	scroll bool
+}
+
+// WithScroll controls whether this navigation scrolls to the top of the
+// page (or to the URL's in-page anchor, if it has one) once it completes.
+// Defaults to true. Pass false for a navigation that shouldn't move the
+// viewport, e.g. changing a filter's query param while the user reads the
+// current page.
+func WithScroll(scroll bool) NavigateOption {
+	return func(c *navigateConfig) { c.scroll = scroll }
+}
+
+func applyNavigateOptions(opts []NavigateOption) {
+	cfg := navigateConfig{scroll: true}
+	for _, opt := range opts {
+		opt(&cfg)
+	}
+	pendingScroll = cfg.scroll
 }
 
 // scrollToAnchor scrolls anchorID's element into view and reports true, or
@@ -153,9 +184,12 @@ func Query() *signal.ReadOnlySignal[url.Values] {
 
 // SetQuery replaces the current URL's query string with query, keeping the
 // current path, and pushes a new browser history entry (see Navigate). Pass
-// nil or an empty url.Values to clear the query string entirely.
-func SetQuery(query url.Values) {
+// nil or an empty url.Values to clear the query string entirely. See
+// WithScroll to opt out of the default scroll-to-top behavior - useful for
+// a filter/pagination control the user shouldn't be scrolled away from.
+func SetQuery(query url.Values, opts ...NavigateOption) {
 	ensureInit()
+	applyNavigateOptions(opts)
 	path := pathSignal.Get()
 	if encoded := query.Encode(); encoded != "" {
 		path += "?" + encoded
@@ -250,17 +284,21 @@ func Router(entries ...Entry) core.Node {
 }
 
 // Navigate programmatically changes the current route, pushing a new browser
-// history entry (back returns to the previous route).
-func Navigate(to string) {
+// history entry (back returns to the previous route). See WithScroll to
+// opt out of the default scroll-to-top/anchor behavior.
+func Navigate(to string, opts ...NavigateOption) {
 	ensureInit()
+	applyNavigateOptions(opts)
 	activeLocation.Navigate(to)
 }
 
 // Replace programmatically changes the current route without pushing a new
 // browser history entry (back skips over it, going straight to whatever
-// route preceded it).
-func Replace(to string) {
+// route preceded it). See WithScroll to opt out of the default
+// scroll-to-top/anchor behavior.
+func Replace(to string, opts ...NavigateOption) {
 	ensureInit()
+	applyNavigateOptions(opts)
 	activeLocation.Replace(to)
 }
 

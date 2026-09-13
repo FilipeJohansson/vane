@@ -28,7 +28,10 @@ const querySnippet = `func SearchResults() core.Node {
 const setQuerySnippet = `router.SetQuery(url.Values{"tab": {"billing"}})
 
 // Clear the query string entirely:
-router.SetQuery(nil)`
+router.SetQuery(nil)
+
+// Filters/pagination often shouldn't scroll the reader away from where they are:
+router.SetQuery(url.Values{"page": {"2"}}, router.WithScroll(false))`
 
 const layoutSnippet = `func App() core.Node {
     return router.Router(
@@ -202,7 +205,10 @@ func Routing() core.Node {
 				<p className="docs-p">
 					<code>router.SetQuery</code> replaces the current query string, keeping the
 					current path, and pushes a new browser history entry like{" "}
-					<code>router.Navigate</code>.
+					<code>router.Navigate</code>. <code>Navigate</code>, <code>Replace</code>, and{" "}
+					<code>SetQuery</code> all scroll to the top of the page (or to the URL's anchor,
+					if it has one) by default; pass <code>router.WithScroll(false)</code> to keep
+					the current scroll position instead.
 				</p>
 				{components.CodeBlock("snippet.go", setQuerySnippet)}
 
