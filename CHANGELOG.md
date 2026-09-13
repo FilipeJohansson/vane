@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 ## [Unreleased]
 
+### Breaking Changes
+- *(router)* Scroll to top on every navigation by default, add an opt-out (#35)
+
+
 ### Added
 - *(docs)* Add anchor scrolling behavior for initial load and update vane-app docs TOC links (#34)
 
