@@ -290,6 +290,98 @@ func TestBuildOverlay_DeduplicatesSameNamedFiles(t *testing.T) {
 	}
 }
 
+func TestOffsetOfForOnLine(t *testing.T) {
+	src := "line one\n\tfor _, t := range todos {\nline three\n"
+	offset, ok := offsetOfForOnLine(src, 2)
+	if !ok {
+		t.Fatal("want ok=true")
+	}
+	if src[offset:offset+3] != "for" {
+		t.Fatalf("offset %d points at %q, not \"for\"", offset, src[offset:offset+3])
+	}
+
+	if _, ok := offsetOfForOnLine(src, 1); ok {
+		t.Error("line 1 has no \"for\", want ok=false")
+	}
+	if _, ok := offsetOfForOnLine(src, 99); ok {
+		t.Error("line 99 doesn't exist, want ok=false")
+	}
+
+	// "for" as part of a longer identifier must not match.
+	notAKeyword := "\tforceUpdate()\n"
+	if _, ok := offsetOfForOnLine(notAKeyword, 1); ok {
+		t.Error("\"forceUpdate\" contains \"for\" but isn't the keyword, want ok=false")
+	}
+}
+
+func TestResolveForTypeHints_NoMaybeKeyedFiles(t *testing.T) {
+	hints, err := resolveForTypeHints(t.TempDir(), []overlayFile{{maybeKeyed: false}})
+	if err != nil {
+		t.Fatalf("resolveForTypeHints: %v", err)
+	}
+	if hints != nil {
+		t.Errorf("want nil hints when nothing is flagged maybeKeyed, got %v", hints)
+	}
+}
+
+func TestResolveForTypeHints_ResolvesKeyedForElementType(t *testing.T) {
+	dir := t.TempDir()
+	os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module fixture\n\ngo 1.25.0\n"), 0o644)
+
+	// No JSX/core.* calls needed here - resolveForTypeHints/typeresolve treat
+	// any `for range` statement the same regardless of what its body does,
+	// so a plain-Go range loop exercises the real mechanism without needing
+	// the real vane core package resolvable from this throwaway module.
+	vaneSrc := `package main
+
+type ToDo struct {
+	ID   string
+	Text string
+}
+
+func F(todos []ToDo) int {
+	total := 0
+	for _, t := range todos {
+		total += len(t.Text)
+	}
+	_ = "key=" // only here to mirror what makes maybeKeyed trip on a real file
+	return total
+}
+`
+	vanePath := filepath.Join(dir, "App.vane")
+	if err := os.WriteFile(vanePath, []byte(vaneSrc), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	goSrc, err := compiler.Compile(vaneSrc, vanePath)
+	if err != nil {
+		t.Fatalf("compiler.Compile: %v", err)
+	}
+
+	of := overlayFile{
+		path:       vanePath,
+		src:        vaneSrc,
+		goPath:     filepath.Join(dir, "App_vane.go"),
+		goSrc:      goSrc,
+		maybeKeyed: true,
+	}
+
+	hints, err := resolveForTypeHints(dir, []overlayFile{of})
+	if err != nil {
+		t.Fatalf("resolveForTypeHints: %v", err)
+	}
+
+	got := hints[of.goPath]
+	if len(got) != 1 {
+		t.Fatalf("got %d hints for %s, want 1: %+v", len(got), of.goPath, got)
+	}
+	if got[0].Type != "ToDo" {
+		t.Fatalf("Type = %q, want ToDo", got[0].Type)
+	}
+	if got[0].Offset < 0 || got[0].Offset+3 > len(vaneSrc) || vaneSrc[got[0].Offset:got[0].Offset+3] != "for" {
+		t.Fatalf("Offset %d does not point at \"for\" in the original .vane source", got[0].Offset)
+	}
+}
+
 func TestMainGoTemplateIsValidGo(t *testing.T) {
 	src := mainGoTemplate()
 	fset := token.NewFileSet()

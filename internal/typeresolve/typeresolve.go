@@ -59,11 +59,25 @@ func FileQualifier(f *ast.File, sameAs *types.Package) types.Qualifier {
 }
 
 // RangeVarType is one resolved `for _, x := range ...` loop value variable's
-// type, at the byte offset - within its own file - of that range
-// statement's `for` keyword.
+// type. Filename/Line locate that range statement's `for` keyword - go/token
+// resolves these through any `//line` directive in effect at that position,
+// so for code compiled with such directives (as Vane's own compiler emits),
+// Filename/Line already name the *original* source file and line the
+// directive points at, not the physical file being parsed. Column is
+// deliberately not exposed: a `//line` directive only pins column 0 of its
+// own line to a specific target column, and go/token then advances the
+// reported column linearly by counting characters on the physical line from
+// there - which only reflects a real source column when the physical and
+// logical lines are character-for-character identical up to that point.
+// Vane's generated `for` lines add their own leading indentation that has
+// no counterpart in the original source, so the reported column would be
+// off by exactly that indentation width. Line-level granularity, plus a
+// caller searching that one line's own text for "for", is what stays
+// reliable.
 type RangeVarType struct {
-	Offset int    // byte offset of the `for` keyword, within its own file
-	Type   string // resolved concrete type, qualified for that file
+	Filename string // resolved filename of the `for` keyword
+	Line     int    // resolved 1-based line number of the `for` keyword
+	Type     string // resolved concrete type, qualified for that file
 }
 
 // RangeVarTypesInFile resolves the type of every `for _, x := range ...`
@@ -99,9 +113,11 @@ func RangeVarTypesInFile(pkg *packages.Package, file *ast.File) []RangeVarType {
 		if !ok {
 			return true
 		}
+		pos := pkg.Fset.Position(rs.For)
 		results = append(results, RangeVarType{
-			Offset: pkg.Fset.Position(rs.For).Offset,
-			Type:   types.TypeString(v.Type(), qualifier),
+			Filename: pos.Filename,
+			Line:     pos.Line,
+			Type:     types.TypeString(v.Type(), qualifier),
 		})
 		return true
 	})
