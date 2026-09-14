@@ -156,7 +156,7 @@ func DangerousInnerHTML(html string) Node
 func Document() syscall/js.Value
 func DocumentHeight() (scrollHeight float64, clientHeight float64)
 func DynChild(parent Node, fn func() any)
-func DynList(parent Node, fn func() []Node, keyFns ...func() []string)
+func DynList[T any](parent Node, items func() []T, keyFn func(T) string, render func(T) Node)
 func DynProp(el Node, key string, fn func() any)
 func DynStyle(el Node, fn func() Style)
 func DynText(parent Node, fn func() string)
@@ -169,12 +169,15 @@ func FocusTrap(el Node) func()
 func Fragment(children ...Node) Node
 func GetElementByID(id string) (Node, bool)
 func Head(fn func() HeadConfig)
+func IdentityNode(n Node) Node
 func IsRelease() bool
 func LocalStorageGet(key string) (string, bool)
 func LocalStorageSet(key string, value string)
 func Mount(id string, fn func() Node)
+func NewList[T any](keyFn func(T) string) *github.com/filipejohansson/vane/core/signal.List[T]
 func NewSignal[T any](initial T) *github.com/filipejohansson/vane/core/signal.Signal[T]
 func NextTick(fn func())
+func NodePropertyKey(n Node) string
 func Nodes(items ...any) []Node
 func OnBlur(el Node, fn func(e Event))
 func OnChange(el Node, fn func(e InputEvent))
@@ -224,6 +227,7 @@ type type HTMLProps struct{Class string; ID string; Style string; Role string; T
 type type HeadConfig struct{Title string; Description string; Canonical string; OGTitle string; OGImage string; OGType string; OGURL string; OGAudio string; OGDescription string; OGDeterminer string; OGLocale string; OGLocaleAlternate string; OGSiteName string; OGVideo string; Meta map[string]string; Link map[string]string}
 type type InputEvent struct{baseEvent; Value string}
 type type KeyEvent struct{baseEvent; Key string; Meta bool; Ctrl bool; Shift bool; Alt bool}
+type type List[T any] = github.com/filipejohansson/vane/core/signal.List[T]
 type type ListenerOpts struct{Passive bool}
 type type MouseEvent struct{baseEvent; ClientX float64; ClientY float64; Button int; Meta bool; Ctrl bool; Shift bool; Alt bool; target syscall/js.Value; currentTarget syscall/js.Value}
 type type Node interface{unwrap() syscall/js.Value}

@@ -482,6 +482,73 @@ func TestForLoopKeyedWithHintIntKeyCompiles(t *testing.T) {
 	}
 }
 
+// TestForLoopKeyedWithHintContinueErrorsWithClearMessage is a regression
+// test for a real limitation found end-to-end (rewriting
+// examples/tutorial-todo to {for}+key): emitForKeyed's body compiles to a
+// per-item callback, not a literal Go for statement, so continue/break
+// inside it is a real "continue is not in a loop" go build error once a
+// type hint resolves - a confusing error pointing at generated code the
+// user never wrote, and one that doesn't reproduce on the exact same
+// source before its hint resolves (the compat fallback shape has a real
+// loop). This asserts the compiler catches it itself, at the .vane
+// source location, with actionable guidance, instead of leaving it to
+// surface as a go build failure later.
+func TestForLoopKeyedWithHintContinueErrorsWithClearMessage(t *testing.T) {
+	src := wrap(`<ul>{for _, t := range items {
+		if t.Done { continue }
+		<li key={t.ID}>{t.Text}</li>
+	}}</ul>`)
+	forOffset := strings.Index(src, "for _, t")
+	hints := []compiler.ForTypeHint{{Offset: forOffset, Type: "ToDo"}}
+	_, err := compiler.CompileWithHints(src, "test.vane", hints)
+	if err == nil {
+		t.Fatal("expected a compile error for continue inside a keyed {for} body, got none")
+	}
+	msg := err.Error()
+	if !strings.Contains(msg, "continue") || !strings.Contains(msg, "no loop to target") {
+		t.Fatalf("error message doesn't explain the real problem: %v", msg)
+	}
+	if !strings.Contains(msg, "Filter the data before ranging") {
+		t.Fatalf("error message is missing the actionable fix: %v", msg)
+	}
+}
+
+// TestForLoopKeyedNoHintContinueCompilesFine confirms the same source as
+// above compiles fine before its hint resolves (the naive first pass of
+// main.go's own two-pass build) - the compat fallback shape has a real
+// for loop, so continue is completely valid there. The bareLoopControl
+// check only applies once emitForKeyed's callback shape is actually used.
+func TestForLoopKeyedNoHintContinueCompilesFine(t *testing.T) {
+	src := wrap(`<ul>{for _, t := range items {
+		if t.Done { continue }
+		<li key={t.ID}>{t.Text}</li>
+	}}</ul>`)
+	out := compile(t, src)
+	has(t, out, `core.NodePropertyKey, core.IdentityNode)`)
+	has(t, out, `continue`)
+}
+
+// TestForLoopKeyedWithHintNestedForContinueDoesNotError confirms a
+// continue that legitimately targets the user's own nested for loop
+// (not the {for}'s own, now-missing outer loop) is never flagged - the
+// conservative bail-out in bareLoopControl (skip the check entirely if
+// the body contains its own nested for/switch/select anywhere) exists
+// specifically to avoid this false positive.
+func TestForLoopKeyedWithHintNestedForContinueDoesNotError(t *testing.T) {
+	src := wrap(`<ul>{for _, t := range items {
+		sum := 0
+		for _, n := range t.Values {
+			if n < 0 { continue }
+			sum += n
+		}
+		<li key={t.ID}>{sum}</li>
+	}}</ul>`)
+	forOffset := strings.Index(src, "for _, t")
+	hints := []compiler.ForTypeHint{{Offset: forOffset, Type: "ToDo"}}
+	out := compileWithHints(t, src, hints)
+	has(t, out, `func(t ToDo) core.Node {`)
+}
+
 func TestForLoopKeyedWithHintAtWrongOffsetUsesCompatShape(t *testing.T) {
 	// A hint that doesn't match this block's own `for` position (e.g. it
 	// belongs to a different {for} in the same file) must not be applied

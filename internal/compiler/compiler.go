@@ -1849,6 +1849,49 @@ func (em *emitter) emitCtrlFlow(n *ctrlFlowNode, parentVar string) string {
 // this {for} block wants the keyed, item-level-skip DynList[T] treatment,
 // mirroring how `key=` already signals keying at runtime today, just
 // consulted at compile time here instead.
+// bareLoopControl finds a bare continue/break in a keyed {for} body - once
+// promoted, the body is a per-item callback, not a real Go loop, so
+// continue/break there fails to build with a confusing error pointing at
+// generated code. Bails out (no flag) if the body has its own nested
+// for/switch/select, to avoid false positives without a real parser.
+func bareLoopControl(body string) (offset int, keyword string, found bool) {
+	sc := &scanner{src: body}
+	var controlOffset int
+	var controlKeyword string
+	for !sc.atEnd() {
+		c := sc.cur()
+		if c == '"' || c == '\'' || c == '`' {
+			sc.readString()
+			continue
+		}
+		if c == '/' && sc.peek(1) == '/' {
+			sc.readLineComment()
+			continue
+		}
+		if c == '/' && sc.peek(1) == '*' {
+			sc.readBlockComment()
+			continue
+		}
+		if c == 'f' && sc.isKeyword("for") {
+			return 0, "", false
+		}
+		if c == 's' && (sc.isKeyword("switch") || sc.isKeyword("select")) {
+			return 0, "", false
+		}
+		if controlKeyword == "" && c == 'c' && sc.isKeyword("continue") {
+			controlOffset, controlKeyword = sc.pos, "continue"
+		}
+		if controlKeyword == "" && c == 'b' && sc.isKeyword("break") {
+			controlOffset, controlKeyword = sc.pos, "break"
+		}
+		sc.pos++
+	}
+	if controlKeyword == "" {
+		return 0, "", false
+	}
+	return controlOffset, controlKeyword, true
+}
+
 func forKeyAttr(parts []bodyPart) (vaneAttr, bool) {
 	for _, p := range parts {
 		if p.vane == nil {
@@ -2023,10 +2066,20 @@ func (em *emitter) emitForCompat(parentVar, header string, basePos int, body str
 // emitForCompat would otherwise loop over, called once per new or changed
 // key rather than once per render.
 func (em *emitter) emitForKeyed(parentVar string, basePos int, body string, parts []bodyPart, keyAttr vaneAttr, valueVar, rangeExpr, elemType string) {
+	bodyStart := bodyAbsStart(em.src, basePos+em.posOffset, body)
+	if off, kw, found := bareLoopControl(body); found {
+		em.err = em.errorf(bodyStart+off-em.posOffset,
+			fmt.Sprintf("%s has no loop to target here", kw),
+			"a keyed {for}'s body compiles to a per-item callback, not a literal loop, once its "+
+				"element type resolves - "+kw+" only works inside a real Go for/switch/select. "+
+				"Filter the data before ranging instead: `for _, t := range filterFn(items()) { ... }`")
+		return
+	}
+
 	subEm := &emitter{
 		filename:  em.filename,
 		src:       em.src,
-		posOffset: bodyAbsStart(em.src, basePos+em.posOffset, body),
+		posOffset: bodyStart,
 		hints:     em.hints,
 	}
 
