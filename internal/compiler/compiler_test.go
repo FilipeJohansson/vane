@@ -628,6 +628,20 @@ func TestForLoopKeyedWithHintElementPlusCallExpr(t *testing.T) {
 	}
 }
 
+// TestForLoopKeyedWithHintCommentInRangeExpr confirms a comment mentioning
+// "for" inside the range expression doesn't confuse the keyed for-keyword
+// search. (A comment *before* the keyword, inside the block's own opening
+// `{`, can't reach this search at all - isControlFlow requires the trimmed
+// block content to literally start with "for ", so that shape is never
+// recognized as a for-loop to begin with, a separate, pre-existing gap.)
+func TestForLoopKeyedWithHintCommentInRangeExpr(t *testing.T) {
+	src := wrap(`<ul>{for _, t := range /* for real */ items { <li key={t.ID}>{t.Text}</li> }}</ul>`)
+	forOffset := strings.Index(src, "for _, t")
+	hints := []compiler.ForTypeHint{{Offset: forOffset, Type: "ToDo"}}
+	out := compileWithHints(t, src, hints)
+	has(t, out, `func(t ToDo) []core.Node {`)
+}
+
 func TestForLoopKeyedNoHiddenIdentifierRewrite(t *testing.T) {
 	// This codegen never rewrites user-written identifiers - t stays plain T
 	// everywhere it's used, no .Get()-insertion or similar. A fixture that

@@ -1888,6 +1888,28 @@ func (em *emitter) emitCtrlFlow(n *ctrlFlowNode, parentVar string) string {
 // this {for} block wants the keyed, item-level-skip DynList[T] treatment,
 // mirroring how `key=` already signals keying at runtime today, just
 // consulted at compile time here instead.
+// indexForKeyword finds the first real "for" keyword in s, skipping
+// comments/strings and identifier substrings like "forceUpdate".
+func indexForKeyword(s string) (int, bool) {
+	sc := &scanner{src: s}
+	for !sc.atEnd() {
+		c := sc.cur()
+		switch {
+		case c == '"' || c == '\'' || c == '`':
+			sc.readString()
+		case c == '/' && sc.peek(1) == '/':
+			sc.readLineComment()
+		case c == '/' && sc.peek(1) == '*':
+			sc.readBlockComment()
+		case c == 'f' && sc.isKeyword("for"):
+			return sc.pos, true
+		default:
+			sc.pos++
+		}
+	}
+	return 0, false
+}
+
 // bareLoopControl finds a bare continue/break in a keyed {for} body - once
 // promoted, the body is a per-item callback, not a real Go loop, so
 // continue/break there fails to build with a confusing error pointing at
@@ -2005,15 +2027,10 @@ func (em *emitter) emitForCtrl(raw, parentVar string, basePos int) {
 	// key={} at all), fall through to the same compatibility shape every
 	// unkeyed {for}/{items()...} spread already uses - see emitForCompat.
 	if keyAttr, hasKey := forKeyAttr(parts); hasKey {
-		// basePos is the '{' that opened this block (ctrlFlowNode.pos's own
-		// documented meaning), not the "for" keyword itself - raw is
-		// trimmed when parsed, so any whitespace between them isn't
-		// preserved in basePos alone. Search forward for the actual "for",
-		// matching how main.go's own offsetOfForOnLine computes
-		// ForTypeHint.Offset - both must agree on the same position or a
-		// real hint would never be found.
+		// basePos is the block's opening '{', not the "for" keyword - search
+		// forward for the real one, must agree with offsetOfForOnLine.
 		forAbsPos := basePos + em.posOffset
-		if idx := strings.Index(em.src[forAbsPos:], "for"); idx > 0 {
+		if idx, ok := indexForKeyword(em.src[forAbsPos:]); ok {
 			forAbsPos += idx
 		}
 		if hint, hasHint := em.hintForOffset(forAbsPos); hasHint {
@@ -2137,12 +2154,8 @@ func (em *emitter) emitForKeyed(parentVar string, basePos int, body string, part
 	// explicit conversion here instead.
 	fmt.Fprintf(&out, "\t\tfunc(%s %s) string { return fmt.Sprint(%s) },\n", valueVar, elemType, keyExpr)
 	out.WriteString(em.lineDirAbs(basePos + em.posOffset))
-	// render returns every top-level node the body produces, not just the
-	// first - a body with more than one sibling element (or an element plus
-	// a trailing call expression) is a real, supported shape, matching
-	// emitForCompat's own append-each-part behavior. Each part's own
-	// var/expression is collected as its statements are emitted, then joined
-	// into one slice literal at the end, once every part has run.
+	// Every part's var/expression is collected as emitted, joined into one
+	// slice literal at the end - render returns all of them, not just one.
 	fmt.Fprintf(&out, "\t\tfunc(%s %s) []core.Node {\n", valueVar, elemType)
 	var resultExprs []string
 	for _, p := range parts {
