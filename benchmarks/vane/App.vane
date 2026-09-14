@@ -47,27 +47,6 @@ func buildData(count int) []Row {
 	return rows
 }
 
-func rowNode(r Row, selected *core.Signal[int], onSelect, onRemove func(int)) core.Node {
-	id := r.ID
-	return (
-		<tr key={id} className={func() string {
-			if selected.Get() == id {
-				return "danger"
-			}
-			return ""
-		}()}>
-			<td className="col-id">{strconv.Itoa(id)}</td>
-			<td className="col-label">
-				<a onClick={func(core.MouseEvent) { onSelect(id) }}>{r.Label}</a>
-			</td>
-			<td className="col-remove">
-				<a onClick={func(core.MouseEvent) { onRemove(id) }}>x</a>
-			</td>
-			<td className="col-spacer"></td>
-		</tr>
-	)
-}
-
 func App() core.Node {
 	data := core.NewSignal([]Row{})
 	selected := core.NewSignal(0)
@@ -117,15 +96,6 @@ func App() core.Node {
 		data.Set(next)
 	}
 
-	rows := func() []core.Node {
-		list := data.Get()
-		nodes := make([]core.Node, len(list))
-		for i, r := range list {
-			nodes[i] = rowNode(r, selected, onSelect, onRemove)
-		}
-		return nodes
-	}
-
 	return (
 		<div id="main">
 			<div id="controls">
@@ -137,7 +107,25 @@ func App() core.Node {
 				<button id="swaprows" onClick={swapRows}>Swap Rows</button>
 			</div>
 			<table>
-				<tbody id="tbody">{rows()...}</tbody>
+				<tbody id="tbody">
+					{for _, r := range data.Get() {
+						<tr key={r.ID} className={func() string {
+							if selected.Get() == r.ID {
+								return "danger"
+							}
+							return ""
+						}()}>
+							<td className="col-id">{strconv.Itoa(r.ID)}</td>
+							<td className="col-label">
+								<a onClick={func(core.MouseEvent) { onSelect(r.ID) }}>{r.Label}</a>
+							</td>
+							<td className="col-remove">
+								<a onClick={func(core.MouseEvent) { onRemove(r.ID) }}>x</a>
+							</td>
+							<td className="col-spacer"></td>
+						</tr>
+					}}
+				</tbody>
 			</table>
 		</div>
 	)
