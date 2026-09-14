@@ -28,7 +28,7 @@ var nouns = []string{
 
 type Row struct {
 	ID    int
-	Label string
+	Label *core.Signal[string]
 }
 
 var nextID = 1
@@ -38,9 +38,9 @@ func buildData(count int) []Row {
 	for i := 0; i < count; i++ {
 		rows[i] = Row{
 			ID: nextID,
-			Label: adjectives[rand.Intn(len(adjectives))] + " " +
+			Label: core.NewSignal(adjectives[rand.Intn(len(adjectives))] + " " +
 				colours[rand.Intn(len(colours))] + " " +
-				nouns[rand.Intn(len(nouns))],
+				nouns[rand.Intn(len(nouns))]),
 		}
 		nextID++
 	}
@@ -48,12 +48,12 @@ func buildData(count int) []Row {
 }
 
 func App() core.Node {
-	data := core.NewSignal([]Row{})
+	data := core.NewList(func(r Row) string { return strconv.Itoa(r.ID) })
 	selected := core.NewSignal(0)
 
 	onSelect := func(id int) { selected.Set(id) }
 	onRemove := func(id int) {
-		cur := data.Get()
+		cur := data.Items()
 		next := make([]Row, 0, len(cur))
 		for _, r := range cur {
 			if r.ID != id {
@@ -72,22 +72,20 @@ func App() core.Node {
 		selected.Set(0)
 	}
 	add := func(core.MouseEvent) {
-		data.Set(append(append([]Row{}, data.Get()...), buildData(1000)...))
+		data.Set(append(append([]Row{}, data.Items()...), buildData(1000)...))
 	}
 	update := func(core.MouseEvent) {
-		cur := data.Get()
-		next := append([]Row{}, cur...)
-		for i := 0; i < len(next); i += 10 {
-			next[i].Label = next[i].Label + " !!!"
+		items := data.Items()
+		for i := 0; i < len(items); i += 10 {
+			items[i].Label.Set(items[i].Label.Get() + " !!!")
 		}
-		data.Set(next)
 	}
 	clear := func(core.MouseEvent) {
-		data.Set([]Row{})
+		data.Set(nil)
 		selected.Set(0)
 	}
 	swapRows := func(core.MouseEvent) {
-		cur := data.Get()
+		cur := data.Items()
 		if len(cur) < 999 {
 			return
 		}
@@ -108,7 +106,7 @@ func App() core.Node {
 			</div>
 			<table>
 				<tbody id="tbody">
-					{for _, r := range data.Get() {
+					{for _, r := range data.Items() {
 						<tr key={r.ID} className={func() string {
 							if selected.Get() == r.ID {
 								return "danger"
@@ -117,7 +115,7 @@ func App() core.Node {
 						}()}>
 							<td className="col-id">{strconv.Itoa(r.ID)}</td>
 							<td className="col-label">
-								<a onClick={func(core.MouseEvent) { onSelect(r.ID) }}>{r.Label}</a>
+								<a onClick={func(core.MouseEvent) { onSelect(r.ID) }}>{r.Label.Get()}</a>
 							</td>
 							<td className="col-remove">
 								<a onClick={func(core.MouseEvent) { onRemove(r.ID) }}>x</a>

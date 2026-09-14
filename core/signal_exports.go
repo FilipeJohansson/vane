@@ -18,6 +18,13 @@ type ReadOnlySignal[T any] = signal.ReadOnlySignal[T]
 // and recomputed whenever they change. Create one with core.ComputedOf.
 type Computed[T any] = signal.Computed[T]
 
+// List is a reactive, keyed collection. Items() is reactive only to
+// structural changes (which keys exist, and their order) - author T's own
+// fields as *core.Signal[F] and mutate them directly for field-level
+// updates that never touch List's own reconciliation. Create one with
+// core.NewList.
+type List[T any] = signal.List[T]
+
 // Scope collects the cleanup registered (via core.OnDispose) while a subtree
 // mounts, so it can all be undone in one call when that subtree unmounts.
 // core.Mount and the router create one per mounted component tree/route.
@@ -56,6 +63,9 @@ func OnDispose(fn func()) { signal.RegisterDispose(fn) }
 // don't need the full source data. Subscribes like any signal when its Get()
 // is called inside an Effect.
 func ComputedOf[T any](fn func(prev T) T) *signal.Computed[T] { return signal.ComputedOf(fn) }
+
+// NewList creates a new reactive keyed collection, keyed by keyFn.
+func NewList[T any](keyFn func(T) string) *signal.List[T] { return signal.NewList(keyFn) }
 
 // Untrack runs fn without subscribing the enclosing Effect to any signal it
 // reads. Use during component setup to read a signal's current value without
