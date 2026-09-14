@@ -812,15 +812,13 @@ func buildOverlay(projectDir, sourceURLBase string) (overlayPath string, files [
 
 	// Resolve concrete element types for keyed {for} blocks, one batched
 	// go/types pass over every file that might have one, then recompile just
-	// those files with the resolved hints. A failure here doesn't fail the
-	// build (yet): nothing downstream consumes a ForTypeHint yet, so falling
-	// back to the naive compile already produced is a real, working answer,
-	// not a silent gap - a real Vane project having zero keyed {for} usage
-	// never even reaches this code path (maybeKeyed stays false for all of
-	// its files), so this only affects projects already exercising it.
+	// those files with the resolved hints. A real Vane project with zero
+	// keyed {for} usage never even reaches this (maybeKeyed stays false for
+	// every file), so a failure here only affects projects already using it.
 	hints, hintErr := resolveForTypeHints(projectDir, overlayFiles)
 	if hintErr != nil {
-		fmt.Fprintf(os.Stderr, "  %swarning:%s resolving list element types: %v\n", clYellow, clReset, hintErr)
+		cleanup()
+		return "", nil, nil, nil, fmt.Errorf("resolving list element types: %w", hintErr)
 	}
 	for i := range overlayFiles {
 		f := &overlayFiles[i]

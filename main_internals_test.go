@@ -195,6 +195,53 @@ func TestBuildOverlay_SingleVaneFile(t *testing.T) {
 	}
 }
 
+// TestBuildOverlay_HintResolutionFailureFailsBuild is a regression test for
+// a real gap found reviewing this branch: resolveForTypeHints failing used
+// to only print a warning, letting the build proceed silently demoted to
+// the compat shape for every keyed {for} in the project - a CI pipeline
+// checking exit code alone would never notice. buildOverlay must now fail
+// the build for real.
+func TestBuildOverlay_HintResolutionFailureFailsBuild(t *testing.T) {
+	tmp := t.TempDir()
+	if err := os.WriteFile(filepath.Join(tmp, "go.mod"), []byte("module fixture\n\ngo 1.25.0\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	// A real for-range loop (tripping maybeKeyed's own "key=" heuristic)
+	// alongside a genuine undefined-symbol error elsewhere in the same
+	// file, so packages.Load's type-checking pass fails for real.
+	src := `package main
+
+import "syscall/js"
+
+type ToDo struct {
+	ID   string
+	Text string
+}
+
+func F(todos []ToDo) js.Value {
+	for _, t := range todos {
+		_ = t
+	}
+	_ = "key="
+	return undefinedSymbolThatDoesNotExist()
+}
+`
+	if err := os.WriteFile(filepath.Join(tmp, "App.vane"), []byte(src), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	_, _, _, cleanup, err := buildOverlay(tmp, "")
+	if cleanup != nil {
+		defer cleanup()
+	}
+	if err == nil {
+		t.Fatal("buildOverlay succeeded despite a real hint-resolution failure - the build must fail, not just warn")
+	}
+	if !strings.Contains(err.Error(), "resolving list element types") {
+		t.Fatalf("error doesn't explain the real cause: %v", err)
+	}
+}
+
 func TestBuildOverlay_SkipsDistAndPublic(t *testing.T) {
 	tmp := t.TempDir()
 	os.WriteFile(filepath.Join(tmp, "App.vane"), []byte(minimalVane), 0644)
