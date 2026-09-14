@@ -957,40 +957,12 @@ func resolveForTypeHints(projectDir string, overlayFiles []overlayFile) (map[str
 	return hints, nil
 }
 
-// offsetOfForOnLine returns the byte offset, within src, of the first "for"
-// keyword found on src's 1-based line n, or false if that line has none.
-// Deliberately line-based rather than trying to derive an exact column from
-// go/token's own reported position - see typeresolve.RangeVarType's doc
-// comment for why that column drifts on generated code.
+// offsetOfForOnLine delegates to compiler.OffsetOfForOnLine - moved there so
+// internal/lsp's own hover-based hint resolution can reuse the exact same
+// logic instead of a second, drifting copy. Kept as a thin wrapper here so
+// this file's own tests didn't need to change call sites.
 func offsetOfForOnLine(src string, n int) (int, bool) {
-	lineStart := 0
-	for line := 1; line < n; line++ {
-		idx := strings.IndexByte(src[lineStart:], '\n')
-		if idx < 0 {
-			return 0, false
-		}
-		lineStart += idx + 1
-	}
-	lineEnd := len(src)
-	if idx := strings.IndexByte(src[lineStart:], '\n'); idx >= 0 {
-		lineEnd = lineStart + idx
-	}
-	lineText := src[lineStart:lineEnd]
-	for i := 0; i+3 <= len(lineText); i++ {
-		if lineText[i:i+3] != "for" {
-			continue
-		}
-		beforeOK := i == 0 || !isForIdentByte(lineText[i-1])
-		afterOK := i+3 == len(lineText) || !isForIdentByte(lineText[i+3])
-		if beforeOK && afterOK {
-			return lineStart + i, true
-		}
-	}
-	return 0, false
-}
-
-func isForIdentByte(b byte) bool {
-	return b == '_' || (b >= 'a' && b <= 'z') || (b >= 'A' && b <= 'Z') || (b >= '0' && b <= '9')
+	return compiler.OffsetOfForOnLine(src, n)
 }
 
 // cmdInit scaffolds a vane project in the current directory, which must be

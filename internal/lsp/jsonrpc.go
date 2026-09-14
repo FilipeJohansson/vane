@@ -46,12 +46,16 @@ func ReadMessage(r *bufio.Reader) (Message, error) {
 	return Message(body), nil
 }
 
-// WriteMessage writes one LSP message to w.
+// WriteMessage writes one LSP message to w, as a single Write call - not
+// header then body separately - so a caller can wrap w with a mutex and get
+// true per-message atomicity even with multiple concurrent writers (see
+// internal/lsp's keyed-for resolution, which writes to gopls's stdin from
+// its own goroutine alongside the main editor-proxy loop).
 func WriteMessage(w io.Writer, msg Message) error {
 	header := fmt.Sprintf("Content-Length: %d\r\n\r\n", len(msg))
-	if _, err := io.WriteString(w, header); err != nil {
-		return err
-	}
-	_, err := w.Write(msg)
+	buf := make([]byte, 0, len(header)+len(msg))
+	buf = append(buf, header...)
+	buf = append(buf, msg...)
+	_, err := w.Write(buf)
 	return err
 }

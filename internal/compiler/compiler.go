@@ -409,6 +409,45 @@ type ForTypeHint struct {
 	Type   string // resolved concrete type, already qualified for this file
 }
 
+// OffsetOfForOnLine returns the byte offset, within src, of the first "for"
+// keyword found on src's 1-based line n, or false if that line has none.
+// Deliberately line-based rather than trying to derive an exact column from
+// go/token's own reported position - see typeresolve.RangeVarType's doc
+// comment for why that column drifts on generated code. Shared by main.go's
+// own go/types-based hint resolution and internal/lsp's gopls-hover-based
+// resolution - both need the same .vane-source offset for the same
+// ForTypeHint.Offset field, so this lives here rather than being duplicated.
+func OffsetOfForOnLine(src string, n int) (int, bool) {
+	lineStart := 0
+	for line := 1; line < n; line++ {
+		idx := strings.IndexByte(src[lineStart:], '\n')
+		if idx < 0 {
+			return 0, false
+		}
+		lineStart += idx + 1
+	}
+	lineEnd := len(src)
+	if idx := strings.IndexByte(src[lineStart:], '\n'); idx >= 0 {
+		lineEnd = lineStart + idx
+	}
+	lineText := src[lineStart:lineEnd]
+	for i := 0; i+3 <= len(lineText); i++ {
+		if lineText[i:i+3] != "for" {
+			continue
+		}
+		beforeOK := i == 0 || !isForIdentByte(lineText[i-1])
+		afterOK := i+3 == len(lineText) || !isForIdentByte(lineText[i+3])
+		if beforeOK && afterOK {
+			return lineStart + i, true
+		}
+	}
+	return 0, false
+}
+
+func isForIdentByte(b byte) bool {
+	return b == '_' || (b >= 'a' && b <= 'z') || (b >= 'A' && b <= 'Z') || (b >= '0' && b <= '9')
+}
+
 // lineAt counts the 1-based line number of byte offset pos in src.
 func lineAt(src string, pos int) int {
 	line := 1
