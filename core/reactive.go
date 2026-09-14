@@ -28,6 +28,7 @@ func init() {
 	signal.LoopWatchdogHandler = func(msg string) {
 		js.Global().Get("console").Call("error", "[vane] "+msg)
 	}
+	signal.WarnHandler = Warn
 }
 
 // DynChild appends a reactive child to parent.

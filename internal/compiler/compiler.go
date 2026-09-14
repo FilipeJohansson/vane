@@ -367,6 +367,31 @@ func isControlFlow(s string) bool {
 		strings.HasPrefix(s, "switch ") || strings.HasPrefix(s, "switch{")
 }
 
+// skipLeadingComments returns s with any leading //.../* */ comments (and
+// surrounding whitespace) removed - used only to detect a comment sitting
+// right before for/if/switch below, not to change how a real control-flow
+// block is parsed.
+func skipLeadingComments(s string) string {
+	sc := &scanner{src: s}
+	for !sc.atEnd() {
+		sc.skipWS()
+		if sc.atEnd() {
+			break
+		}
+		c := sc.cur()
+		if c == '/' && sc.peek(1) == '/' {
+			sc.readLineComment()
+			continue
+		}
+		if c == '/' && sc.peek(1) == '*' {
+			sc.readBlockComment()
+			continue
+		}
+		break
+	}
+	return s[sc.pos:]
+}
+
 // bodyPart is a segment of a control-flow block body.
 // Exactly one of vane (a parsed vane element) or callExpr is set, or neither for pure Go setup code.
 type bodyPart struct {
@@ -1464,6 +1489,10 @@ func (s *scanner) parseChildren(parentTag string, openPos int) ([]node, error) {
 				trimmed := strings.TrimSpace(code)
 				if isControlFlow(trimmed) {
 					children = append(children, &ctrlFlowNode{raw: trimmed, pos: exprPos})
+				} else if isControlFlow(skipLeadingComments(trimmed)) {
+					return nil, s.errorf(exprPos,
+						"a comment can't come before for/if/switch here",
+						"Move the comment inside the block instead: {for _, t := range items { /* ... */ ... }}")
 				} else {
 					if strings.Contains(code, "func") && returnsElement(code) {
 						// Bare uncalled func literal: {func() core.Node { ... }}. It's never called,
@@ -2146,12 +2175,9 @@ func (em *emitter) emitForKeyed(parentVar string, basePos int, body string, part
 
 	var out strings.Builder
 	fmt.Fprintf(&out, "\tcore.DynList(%s, func() []%s { return %s },\n", parentVar, elemType, rangeExpr)
-	// fmt.Sprint, not a bare return: key={} historically accepted any
-	// comparable value (an int ID is common, confirmed for real against
-	// benchmarks/vane's own App.vane), because the old runtime property-set
-	// path coerced it via a type switch (core.NodePropertyKey). keyFn's
-	// return type is a hard string, so the same flexibility needs an
-	// explicit conversion here instead.
+	// fmt.Sprint, not a bare return: key={} accepts any comparable value (an
+	// int ID is a common, real case - benchmarks/vane's own App.vane does
+	// this), but keyFn's return type is a hard string.
 	fmt.Fprintf(&out, "\t\tfunc(%s %s) string { return fmt.Sprint(%s) },\n", valueVar, elemType, keyExpr)
 	out.WriteString(em.lineDirAbs(basePos + em.posOffset))
 	// Every part's var/expression is collected as emitted, joined into one
@@ -2167,10 +2193,8 @@ func (em *emitter) emitForKeyed(parentVar string, basePos int, body string, part
 			}
 		}
 		if p.vane != nil {
-			// key={} was the compile-time signal to get here; stripped from
-			// the emitted element since NodePropertyKey/runtime key reading
-			// no longer applies to this instantiation - keyExpr above is
-			// the only thing that reads it now.
+			// key={} triggered this codegen path; stripped from the emitted
+			// element since only keyFn (built from keyExpr above) reads it.
 			withoutKey := *p.vane
 			withoutKey.attrs = make([]vaneAttr, 0, len(p.vane.attrs))
 			for _, a := range p.vane.attrs {

@@ -1,6 +1,7 @@
 package signal_test
 
 import (
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -53,6 +54,72 @@ func TestListGetFoundAndNotFound(t *testing.T) {
 
 	if _, ok := l.Get("missing"); ok {
 		t.Error(`Get("missing") = found, want not found`)
+	}
+}
+
+// TestListSetDuplicateKeyWarns is a regression test for a real
+// inconsistency: List had no duplicate-key detection at all, unlike
+// DynList's explicit warn contract for the identical bug class. Two items
+// sharing a key must not silently diverge between Items() (still returns
+// both, the raw data) and Get() (can only ever return one) with no warning.
+func TestListSetDuplicateKeyWarns(t *testing.T) {
+	var warnings []string
+	orig := signal.WarnHandler
+	defer func() { signal.WarnHandler = orig }()
+	signal.WarnHandler = func(msg string) { warnings = append(warnings, msg) }
+
+	l := signal.NewList(rowKey)
+	l.Set([]listRow{{"1", "a"}, {"1", "b"}})
+
+	if len(warnings) != 1 {
+		t.Fatalf("warnings = %v, want exactly 1", warnings)
+	}
+	if !strings.Contains(warnings[0], `"1"`) {
+		t.Errorf("warning doesn't mention the duplicate key: %q", warnings[0])
+	}
+
+	if items := l.Items(); len(items) != 2 {
+		t.Fatalf("Items() = %v, want both duplicates present (2 items)", items)
+	}
+	if got, ok := l.Get("1"); !ok || got.Text != "b" {
+		t.Errorf(`Get("1") = %+v, %v, want the last one written ({1 b}), true`, got, ok)
+	}
+}
+
+// TestListSetThreeWayDuplicateWarnsPerExtraOccurrence confirms 3+ items
+// sharing a key still warn (not a special-cased "exactly 2" check).
+func TestListSetThreeWayDuplicateWarnsPerExtraOccurrence(t *testing.T) {
+	var warnings []string
+	orig := signal.WarnHandler
+	defer func() { signal.WarnHandler = orig }()
+	signal.WarnHandler = func(msg string) { warnings = append(warnings, msg) }
+
+	l := signal.NewList(rowKey)
+	l.Set([]listRow{{"1", "a"}, {"1", "b"}, {"1", "c"}})
+
+	if len(warnings) != 2 {
+		t.Fatalf("warnings = %v, want 2 (one per extra occurrence past the first)", warnings)
+	}
+}
+
+// TestListSetDuplicateKeyOnlyOnUpdateWarns confirms detection isn't a
+// construction-time-only check - the first Set has no duplicates, the
+// second does.
+func TestListSetDuplicateKeyOnlyOnUpdateWarns(t *testing.T) {
+	var warnings []string
+	orig := signal.WarnHandler
+	defer func() { signal.WarnHandler = orig }()
+	signal.WarnHandler = func(msg string) { warnings = append(warnings, msg) }
+
+	l := signal.NewList(rowKey)
+	l.Set([]listRow{{"1", "a"}, {"2", "b"}})
+	if len(warnings) != 0 {
+		t.Fatalf("warnings after a clean Set = %v, want none", warnings)
+	}
+
+	l.Set([]listRow{{"1", "a"}, {"1", "b"}})
+	if len(warnings) != 1 {
+		t.Fatalf("warnings after the duplicate-key Set = %v, want exactly 1", warnings)
 	}
 }
 

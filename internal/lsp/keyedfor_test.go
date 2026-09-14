@@ -185,7 +185,7 @@ func TestScheduleKeyedForResolve_PromotesToKeyedShape(t *testing.T) {
 	if !strings.Contains(got, "func() []Todo { return items },") {
 		t.Errorf("doc wasn't promoted to the keyed shape (missing itemsFn):\n%s", got)
 	}
-	if !strings.Contains(got, "func(t Todo) core.Node {") {
+	if !strings.Contains(got, "func(t Todo) []core.Node {") {
 		t.Errorf("doc wasn't promoted to the keyed shape (missing renderFn):\n%s", got)
 	}
 }

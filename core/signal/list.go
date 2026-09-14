@@ -1,5 +1,7 @@
 package signal
 
+import "fmt"
+
 // List is a reactive, keyed collection, a sibling to Signal/Computed. Set
 // reconciles by key: a key present in both the old and new items keeps its
 // position tracked; a new key is added; a missing key is dropped - but
@@ -42,8 +44,14 @@ func NewList[T any](keyFn func(T) string) *List[T] {
 // independently.
 func (l *List[T]) Set(items []T) {
 	newKeys := make([]string, len(items))
+	seen := make(map[string]bool, len(items))
 	for i, t := range items {
-		newKeys[i] = l.keyFn(t)
+		k := l.keyFn(t)
+		newKeys[i] = k
+		if seen[k] && WarnHandler != nil {
+			WarnHandler(fmt.Sprintf("signal.List: key function returned %q for more than one item - Get(%q) will only ever return one of them", k, k))
+		}
+		seen[k] = true
 	}
 
 	changed := len(newKeys) != len(l.keys)

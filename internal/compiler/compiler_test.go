@@ -630,16 +630,49 @@ func TestForLoopKeyedWithHintElementPlusCallExpr(t *testing.T) {
 
 // TestForLoopKeyedWithHintCommentInRangeExpr confirms a comment mentioning
 // "for" inside the range expression doesn't confuse the keyed for-keyword
-// search. (A comment *before* the keyword, inside the block's own opening
-// `{`, can't reach this search at all - isControlFlow requires the trimmed
-// block content to literally start with "for ", so that shape is never
-// recognized as a for-loop to begin with, a separate, pre-existing gap.)
+// search.
 func TestForLoopKeyedWithHintCommentInRangeExpr(t *testing.T) {
 	src := wrap(`<ul>{for _, t := range /* for real */ items { <li key={t.ID}>{t.Text}</li> }}</ul>`)
 	forOffset := strings.Index(src, "for _, t")
 	hints := []compiler.ForTypeHint{{Offset: forOffset, Type: "ToDo"}}
 	out := compileWithHints(t, src, hints)
 	has(t, out, `func(t ToDo) []core.Node {`)
+}
+
+// TestCommentBeforeControlFlowErrorsWithClearMessage is a regression test
+// for a separate, pre-existing bug found while investigating the above:
+// isControlFlow's own prefix check doesn't skip a leading comment, so
+// {/* note */ for ...} (or if/switch) used to be silently misclassified as
+// a plain expression - never recognized as control flow at all, producing
+// broken generated Go with no clear error. Now caught at the .vane source
+// location instead, for all three keywords.
+func TestCommentBeforeControlFlowErrorsWithClearMessage(t *testing.T) {
+	cases := map[string]string{
+		"for":          `<ul>{/* note */ for _, t := range items { <li>{t}</li> }}</ul>`,
+		"if":           `<div>{/* note */ if show { <p>Hi</p> }}</div>`,
+		"switch":       `<div>{/* note */ switch x { case 1: <p>One</p> }}</div>`,
+		"line comment": "<ul>{// note\nfor _, t := range items { <li>{t}</li> }}</ul>",
+	}
+	for name, jsx := range cases {
+		t.Run(name, func(t *testing.T) {
+			_, err := compiler.Compile(wrap(jsx), "test.vane")
+			if err == nil {
+				t.Fatal("expected a compile error for a comment before a control-flow keyword, got none")
+			}
+			if !strings.Contains(err.Error(), "comment can't come before") {
+				t.Fatalf("error message doesn't explain the real problem: %v", err)
+			}
+		})
+	}
+}
+
+// TestCommentInsideControlFlowBodyCompilesFine confirms this fix is narrow:
+// a comment *inside* a for/if/switch body (the normal, already-working
+// case) is never affected.
+func TestCommentInsideControlFlowBodyCompilesFine(t *testing.T) {
+	src := wrap(`<ul>{for _, t := range items { /* note */ <li>{t}</li> }}</ul>`)
+	out := compile(t, src)
+	has(t, out, `core.El("li")`)
 }
 
 func TestForLoopKeyedNoHiddenIdentifierRewrite(t *testing.T) {
