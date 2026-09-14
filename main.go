@@ -877,11 +877,23 @@ func buildOverlay(projectDir, sourceURLBase string) (overlayPath string, files [
 // in the build pipeline allowed to depend on go/types/go/packages besides
 // internal/apisurface's own, unrelated use of it.
 func resolveForTypeHints(projectDir string, overlayFiles []overlayFile) (map[string][]compiler.ForTypeHint, error) {
-	overlay := make(map[string][]byte)
+	anyKeyed := false
+	for i := range overlayFiles {
+		if overlayFiles[i].maybeKeyed {
+			anyKeyed = true
+			break
+		}
+	}
+	if !anyKeyed {
+		return nil, nil
+	}
+
+	overlay := make(map[string][]byte, len(overlayFiles))
 	byAbsPath := make(map[string]*overlayFile)
 	for i := range overlayFiles {
 		f := &overlayFiles[i]
 		if !f.maybeKeyed {
+			overlay[f.goPath] = []byte(f.goSrc)
 			continue
 		}
 		// Compiled with the file's own absolute path as the //line filename -
@@ -901,9 +913,6 @@ func resolveForTypeHints(projectDir string, overlayFiles []overlayFile) (map[str
 		}
 		overlay[f.goPath] = []byte(goSrc)
 		byAbsPath[absPath] = f
-	}
-	if len(overlay) == 0 {
-		return nil, nil
 	}
 
 	cfg := &packages.Config{

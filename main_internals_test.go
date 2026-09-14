@@ -383,6 +383,91 @@ func F(todos []ToDo) int {
 	}
 }
 
+// TestResolveForTypeHints_MultiFileProject is a regression test for a real
+// bug found building vane-page (49 real .vane files) end to end: the
+// overlay handed to packages.Load only contained the maybeKeyed-flagged
+// files, so a helper function declared in any *other* file (never present
+// on disk, since _vane.go companions are gitignored, generated-only)
+// resolved as "undefined" - go/types can't type-check a call into a file
+// that's neither on disk nor in the overlay. A single-file project (every
+// other test in this file) can't exercise this, since its one file is
+// always the one file needed.
+func TestResolveForTypeHints_MultiFileProject(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module fixture\n\ngo 1.25.0\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	// helpers.vane style file: no key= at all, so maybeKeyed stays false -
+	// its content must still reach packages.Load some other way, since
+	// nothing in this test writes it to disk.
+	helperSrc := `package main
+
+func greet() string { return "hi" }
+`
+	helperPath := filepath.Join(dir, "Helper.vane")
+	if err := os.WriteFile(helperPath, []byte(helperSrc), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	helperGoSrc, err := compiler.Compile(helperSrc, helperPath)
+	if err != nil {
+		t.Fatalf("compiler.Compile(helper): %v", err)
+	}
+
+	// App.vane style file: has key=, calls greet() (declared in the OTHER
+	// file) so resolution can only succeed if that file's content is also
+	// visible to packages.Load.
+	appSrc := `package main
+
+type ToDo struct {
+	ID   string
+	Text string
+}
+
+func F(todos []ToDo) string {
+	s := greet()
+	for _, t := range todos {
+		s += t.Text
+	}
+	return s
+}
+`
+	appPath := filepath.Join(dir, "App.vane")
+	if err := os.WriteFile(appPath, []byte(appSrc), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	appGoSrc, err := compiler.Compile(appSrc, appPath)
+	if err != nil {
+		t.Fatalf("compiler.Compile(app): %v", err)
+	}
+
+	files := []overlayFile{
+		{
+			path:       helperPath,
+			src:        helperSrc,
+			goPath:     filepath.Join(dir, "Helper_vane.go"),
+			goSrc:      helperGoSrc,
+			maybeKeyed: false,
+		},
+		{
+			path:       appPath,
+			src:        appSrc,
+			goPath:     filepath.Join(dir, "App_vane.go"),
+			goSrc:      appGoSrc,
+			maybeKeyed: true,
+		},
+	}
+
+	hints, err := resolveForTypeHints(dir, files)
+	if err != nil {
+		t.Fatalf("resolveForTypeHints: %v (the helper file's content must be in the overlay too, not just the maybeKeyed one)", err)
+	}
+	got := hints[files[1].goPath]
+	if len(got) != 1 || got[0].Type != "ToDo" {
+		t.Fatalf("hints for App.vane = %+v, want exactly one ForTypeHint{Type: \"ToDo\"}", got)
+	}
+}
+
 // BenchmarkResolveForTypeHints is the real, repo-committed, regression-
 // tracked version of the go/types verification spike's own "real measured
 // cost" finding: how expensive is one batched packages.Load pass, on a

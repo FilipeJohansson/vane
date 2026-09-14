@@ -86,6 +86,36 @@ func TestDynListDuplicateKeysWarnsAndFallsBackToUnkeyed(t *testing.T) {
 	}
 }
 
+// TestDynListPropertyKeyedDuplicateWarnsAndFallsBack verifies that the
+// property-keyed compatibility instantiation (core.NodePropertyKey,
+// core.IdentityNode - what {items()...}'s single-return spread compiles to)
+// gets the same duplicate-key detection as any other DynList instantiation:
+// the duplicate check lives inside the generic DynList itself, applying
+// uniformly regardless of T, not something the compatibility path opts out
+// of. Two nodes sharing the same key={} value must both still render (via
+// the same warn-and-fall-back-to-unkeyed path), not have the second
+// silently overwrite the first.
+func TestDynListPropertyKeyedDuplicateWarnsAndFallsBack(t *testing.T) {
+	parent := core.El("ul")
+
+	rowA := core.El("li")
+	core.Unwrap(rowA).Set("key", "a")
+	core.AppendText(rowA, "First")
+
+	rowB := core.El("li")
+	core.Unwrap(rowB).Set("key", "a") // same key as rowA
+	core.AppendText(rowB, "Second")
+
+	items := func() []core.Node { return []core.Node{rowA, rowB} }
+	core.DynList(parent, items, core.NodePropertyKey, core.IdentityNode)
+
+	raw := core.Unwrap(parent)
+	liCount := raw.Call("querySelectorAll", "li").Get("length").Int()
+	if liCount != 2 {
+		t.Fatalf("rendered %d <li> elements, want 2 (duplicate key must not drop the second one)", liCount)
+	}
+}
+
 // TestDynListUnkeyedChurnDisposesOldItemEffects verifies that replacing an
 // unkeyed DynList's entire item set disposes every effect and OnDispose
 // cleanup the previous render's items registered, not just the DOM nodes.
