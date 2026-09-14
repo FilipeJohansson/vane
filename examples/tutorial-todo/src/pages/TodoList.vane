@@ -21,10 +21,9 @@ func TodoList() core.Node {
 		text.Set("")
 	}
 
-	visibleTodos := func() []core.Node {
-		path := router.Path().Get()
+	visibleTodos := func(path string) []store.Todo {
 		todos := store.Todos.Get()
-		nodes := make([]core.Node, 0, len(todos))
+		visible := make([]store.Todo, 0, len(todos))
 		for _, t := range todos {
 			if path == "/active" && t.Done {
 				continue
@@ -32,9 +31,9 @@ func TodoList() core.Node {
 			if path == "/completed" && !t.Done {
 				continue
 			}
-			nodes = append(nodes, todoItem(t))
+			visible = append(visible, t)
 		}
-		return nodes
+		return visible
 	}
 
 	return (
@@ -51,26 +50,24 @@ func TodoList() core.Node {
 			{if len(store.Todos.Get()) == 0 {
 				<p className="todo-empty">No todos yet.</p>
 			} else {
-				<ul className="todo-list">{visibleTodos()...}</ul>
+				<ul className="todo-list">
+					{for _, t := range visibleTodos(router.Path().Get()) {
+						className := "todo-item"
+						if t.Done {
+							className = "todo-item todo-item--done"
+						}
+						<li key={t.ID} className={className}>
+							<input
+								type="checkbox"
+								checked={t.Done}
+								onChecked={func(e core.CheckEvent) { store.Toggle(t.ID) }}
+							/>
+							<span className="todo-text">{t.Text}</span>
+							<button className="todo-remove" onClick={func(e core.MouseEvent) { store.Remove(t.ID) }}>×</button>
+						</li>
+					}}
+				</ul>
 			}}
 		</div>
-	)
-}
-
-func todoItem(t store.Todo) core.Node {
-	className := "todo-item"
-	if t.Done {
-		className = "todo-item todo-item--done"
-	}
-	return (
-		<li key={t.ID} className={className}>
-			<input
-				type="checkbox"
-				checked={t.Done}
-				onChecked={func(e core.CheckEvent) { store.Toggle(t.ID) }}
-			/>
-			<span className="todo-text">{t.Text}</span>
-			<button className="todo-remove" onClick={func(e core.MouseEvent) { store.Remove(t.ID) }}>×</button>
-		</li>
 	)
 }
