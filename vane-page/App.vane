@@ -24,6 +24,7 @@ func docPages() []router.Entry {
 		router.Route("installation", docs.Installation, router.WithTitle("Installation | Vane Docs")),
 		router.Route("vscode-extension", docs.VSCodeExtension, router.WithTitle("VS Code Extension | Vane Docs")),
 		router.Route("jsx-syntax", docs.JSXSyntax, router.WithTitle("JSX Syntax | Vane Docs")),
+		router.Route("lists", docs.Lists, router.WithTitle("Lists | Vane Docs")),
 		router.Route("project-structure", docs.ProjectStructure, router.WithTitle("Project Structure | Vane Docs")),
 		router.Route("develop-and-build", docs.DevelopAndBuild, router.WithTitle("Develop & Build | Vane Docs")),
 		router.Route("style", docs.Style, router.WithTitle("Styles and CSS | Vane Docs")),

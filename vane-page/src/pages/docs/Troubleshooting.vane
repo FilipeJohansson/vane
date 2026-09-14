@@ -50,13 +50,11 @@ const troubleshootingPortalSnippet = `core.Portal("#modal-root", func() core.Nod
     return (<div className="modal">...</div>)
 })`
 
-const troubleshootingKeysSnippet = `func rowA() core.Node { return (<li key="a">First</li>) }
-func rowB() core.Node { return (<li key="a">Second</li>) } // same key as rowA
-
-items := func() []core.Node {
-    return []core.Node{rowA(), rowB()}
-}
-return (<ul>{items()...}</ul>)`
+const troubleshootingKeysSnippet = `{for _, r := range rows {
+    <li key={r.ID}>{r.Label}</li>
+}}
+// two rows sharing the same ID: logs a warning, falls back to
+// unkeyed rendering for that update - both still render`
 
 func Troubleshooting() core.Node {
 	core.Head(func() core.HeadConfig {
@@ -140,18 +138,15 @@ func Troubleshooting() core.Node {
 				{components.CodeBlock("Modal.vane", troubleshootingPortalSnippet)}
 				{callout("tip", "Tip", "This usually means the target element isn't in public/index.html yet, or a route change unmounted it before the Portal's own mount ran. See Portals for the full target resolution rules.")}
 
-				<h2 className="docs-h2" id="list-keys">DynList key warnings</h2>
+				<h2 className="docs-h2" id="list-keys">Reactive list key warnings</h2>
 				<p className="docs-p">
-					Passing more than one key function, a key function returning the wrong
-					number of keys, or mixing keyed and unkeyed nodes in the same list all
-					log a <code>console.warn</code> and fall back to unkeyed rendering for
-					that update, nothing crashes. One case logs nothing at all: two nodes in
-					the same render sharing the same <code>key</code>. The second silently
-					overwrites the first in Vane's internal key-to-node map, so only one of
-					them ends up in the DOM:
+					Two items resolving to the same <code>key</code> in the same render, or
+					mixing keyed and unkeyed items in the same list, both log a{" "}
+					<code>console.warn</code> and fall back to fully rebuilding the list for
+					that update - nothing crashes, and no item silently disappears:
 				</p>
 				{components.CodeBlock("List.vane", troubleshootingKeysSnippet)}
-				{callout("important", "Important", "A row missing from a keyed list with no warning anywhere is usually a duplicate key, not a filtering bug. Check that the key expression is actually unique per item, not just per render.")}
+				{callout("important", "Important", "The fallback only lasts for the update that triggered it - fix the key expression so every item resolves a distinct key, and the list goes back to reconciling normally (skipping unchanged items, moving only what actually reordered) on the next update. See Lists for the full explanation of keyed reconciliation.")}
 
 				{pageNav("troubleshooting")}
 			</article>

@@ -24,26 +24,23 @@ state := struct {
 state.name.Get()  // subscribes only to name
 state.email.Get() // subscribes only to email`
 
-const patternsListSnippet = `// ✓ correct: fn re-runs when deps change, DynList reconciles the DOM
-items := func() []core.Node {
-    return lo.Map(todos.Get(), func(t todo, _ int) core.Node {
-        return todoNode(t)
-    })
-}
-return (<ul>{items()...}</ul>)
-
-func todoNode(t todo) core.Node {
-    return (<li key={t.ID}>{t.Text}</li>)
-}`
+const patternsListSnippet = `// ✓ correct: {for}+key, only what actually changed touches the DOM
+return (
+    <ul>
+        {for _, t := range todos.Get() {
+            <li key={t.ID}>{t.Text}</li>
+        }}
+    </ul>
+)`
 
 const patternsListStaticSnippet = `// ✗ static: slice built once at mount, never updates
 nodes := buildNodes(todos.Get())
 return (<ul>{nodes...}</ul>)
 
 // ✗ unkeyed: adding/removing/reordering rebuilds the entire list
-func todoNode(t todo) core.Node {
-    return (<li>{t.Text}</li>)
-}`
+{for _, t := range todos.Get() {
+    <li>{t.Text}</li>
+}}`
 
 const patternsGoroutineSnippet = `// ✓ goroutine stopped on unmount, signal carries the result back to the DOM
 ticker := time.NewTicker(time.Second)
@@ -163,14 +160,13 @@ func Patterns() core.Node {
 				<h2 className="docs-h2" id="reactive-lists">Reactive lists and keys</h2>
 				<p className="docs-p">
 					A slice built once at mount never updates, since the component function
-					doesn't re-run. Wrap the slice-building logic in a function passed to{" "}
-					<code>{"{fn()...}"}</code> so it re-runs when the signals it reads change,
-					and add <code>key</code> so <code>core.DynList</code> can reconcile
-					individual items instead of rebuilding the whole list.
+					doesn't re-run - read it fresh inside a native <code>{"{for}"}</code>{" "}
+					loop instead, and add <code>key</code> so Vane can reconcile individual
+					items instead of rebuilding the whole list on every change:
 				</p>
 				{components.CodeBlock("TodoList.vane", patternsListSnippet)}
 				{components.CodeBlock("anti-patterns.go", patternsListStaticSnippet)}
-				{callout("important", "Important", "Without key, DynList falls back to rebuilding the entire list on every change, adding, removing, or reordering one item touches every DOM node instead of just the one that changed.")}
+				{callout("important", "Important", "A native {for} loop with key skips rebuilding a persisting item entirely when its own data hasn't changed - the recommended default for most lists. See ", apiDocLink("lists", "Lists"), " for how to write lists, every pattern available, and the real difference between them.")}
 
 				<h2 className="docs-h2" id="goroutines">Goroutines and cleanup</h2>
 				<p className="docs-p">

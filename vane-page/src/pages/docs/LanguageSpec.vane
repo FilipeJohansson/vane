@@ -101,8 +101,9 @@ func LanguageSpec() core.Node {
 				</p>
 				<ul className="docs-list">
 					<li>Written as a function call, e.g. <code>{"{items()...}"}</code>, it compiles
-						to <code>core.DynList</code> — a reactive, optionally keyed list binding that
-						only touches the DOM nodes that actually changed.</li>
+						to <code>core.DynList</code> — a reactive, optionally keyed list binding.
+						How much reconciliation work a change actually does depends on whether
+						(and how) the list is keyed.</li>
 					<li>Written as a plain value, e.g. a variadic children parameter or an existing{" "}
 						<code>[]core.Node</code> spread as <code>{"{children...}"}</code>, it compiles
 						to <code>core.Fragment(core.Spread(children)...)</code> instead — a plain
@@ -110,7 +111,9 @@ func LanguageSpec() core.Node {
 				</ul>
 				<p className="docs-p">
 					See {apiDocLink("jsx-syntax", "JSX Syntax")}'s "Reactive lists" section for the
-					full walkthrough, including <code>key</code>.
+					full <code>{"{items()...}"}</code> walkthrough, including <code>key</code>, or{" "}
+					{apiDocLink("lists", "Lists")} for how to write lists, every pattern
+					available, and the real difference between them.
 				</p>
 
 				<h2 className="docs-h2" id="attributes-and-props">Attributes and props</h2>
