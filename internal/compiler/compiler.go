@@ -2137,7 +2137,14 @@ func (em *emitter) emitForKeyed(parentVar string, basePos int, body string, part
 	// explicit conversion here instead.
 	fmt.Fprintf(&out, "\t\tfunc(%s %s) string { return fmt.Sprint(%s) },\n", valueVar, elemType, keyExpr)
 	out.WriteString(em.lineDirAbs(basePos + em.posOffset))
-	fmt.Fprintf(&out, "\t\tfunc(%s %s) core.Node {\n", valueVar, elemType)
+	// render returns every top-level node the body produces, not just the
+	// first - a body with more than one sibling element (or an element plus
+	// a trailing call expression) is a real, supported shape, matching
+	// emitForCompat's own append-each-part behavior. Each part's own
+	// var/expression is collected as its statements are emitted, then joined
+	// into one slice literal at the end, once every part has run.
+	fmt.Fprintf(&out, "\t\tfunc(%s %s) []core.Node {\n", valueVar, elemType)
+	var resultExprs []string
 	for _, p := range parts {
 		if p.goCode != "" {
 			for _, line := range strings.Split(p.goCode, "\n") {
@@ -2175,7 +2182,7 @@ func (em *emitter) emitForKeyed(parentVar string, basePos int, body string, part
 				}
 			}
 			if elemVar != "" {
-				fmt.Fprintf(&out, "\t\t\treturn %s\n", elemVar)
+				resultExprs = append(resultExprs, elemVar)
 			}
 		} else if p.callExpr != "" {
 			if subEm.posOffset > 0 {
@@ -2183,9 +2190,10 @@ func (em *emitter) emitForKeyed(parentVar string, basePos int, body string, part
 					out.WriteString(em.lineDirAbs(subEm.posOffset + exprIdx))
 				}
 			}
-			fmt.Fprintf(&out, "\t\t\treturn %s\n", p.callExpr)
+			resultExprs = append(resultExprs, p.callExpr)
 		}
 	}
+	fmt.Fprintf(&out, "\t\t\treturn []core.Node{%s}\n", strings.Join(resultExprs, ", "))
 	out.WriteString("\t\t},\n\t)\n")
 	em.stmts.WriteString(out.String())
 }

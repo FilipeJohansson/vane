@@ -3,6 +3,7 @@ package compiler_test
 import (
 	"go/parser"
 	"go/token"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -446,7 +447,7 @@ func TestForLoopKeyedWithHintEmitsGenericDynList(t *testing.T) {
 	// runtime property-set path coerced it via a type switch; keyFn's
 	// return type is a hard string, so this preserves that flexibility.
 	has(t, out, `func(t ToDo) string { return fmt.Sprint(t.ID) },`)
-	has(t, out, `func(t ToDo) core.Node {`)
+	has(t, out, `func(t ToDo) []core.Node {`)
 	has(t, out, `core.El("li")`)
 	// key={} is consumed as keyFn's own body above, not re-emitted as a
 	// runtime property set - nothing left needs to read it back that way.
@@ -546,7 +547,7 @@ func TestForLoopKeyedWithHintNestedForContinueDoesNotError(t *testing.T) {
 	forOffset := strings.Index(src, "for _, t")
 	hints := []compiler.ForTypeHint{{Offset: forOffset, Type: "ToDo"}}
 	out := compileWithHints(t, src, hints)
-	has(t, out, `func(t ToDo) core.Node {`)
+	has(t, out, `func(t ToDo) []core.Node {`)
 }
 
 func TestForLoopKeyedWithHintAtWrongOffsetUsesCompatShape(t *testing.T) {
@@ -577,6 +578,56 @@ func TestForLoopKeyedWithHintCallExprBody(t *testing.T) {
 	has(t, out, `renderRow(t)`)
 }
 
+// TestForLoopKeyedWithHintTwoSiblingElements is a regression test for a real
+// bug: a keyed {for} body with more than one top-level rendered part used to
+// emit a `return` for each one inside a single-return closure, silently
+// making every part after the first unreachable dead code - reproduced
+// directly against the compiler before this fix landed. Both elements must
+// now appear in one `[]core.Node{...}` literal, and the whole thing must be
+// real, buildable Go.
+func TestForLoopKeyedWithHintTwoSiblingElements(t *testing.T) {
+	src := wrap(`<dl>{for _, t := range items { <dt key={t.ID}>{t.Term}</dt> <dd>{t.Def}</dd> }}</dl>`)
+	forOffset := strings.Index(src, "for _, t")
+	hints := []compiler.ForTypeHint{{Offset: forOffset, Type: "Entry"}}
+	out := compileWithHints(t, src, hints)
+
+	has(t, out, `func(t Entry) []core.Node {`)
+	has(t, out, `core.El("dt")`)
+	has(t, out, `core.El("dd")`)
+	// Exactly one return, both vars in the same slice literal - not two
+	// separate `return`s where the second is unreachable.
+	if n := strings.Count(out, "\t\t\treturn []core.Node{"); n != 1 {
+		t.Fatalf("want exactly 1 `return []core.Node{...}`, got %d in:\n%s", n, out)
+	}
+	if !regexp.MustCompile(`return \[\]core\.Node\{_vane\d+, _vane\d+\}`).MatchString(out) {
+		t.Fatalf("return statement doesn't hold both element vars in one slice literal:\n%s", out)
+	}
+
+	fset := token.NewFileSet()
+	full := strings.Replace(out, "func F()",
+		"type Entry struct {\n\tID   string\n\tTerm string\n\tDef  string\n}\n\nvar items []Entry\n\nfunc F()", 1)
+	if _, err := parser.ParseFile(fset, "", full, parser.AllErrors); err != nil {
+		t.Fatalf("generated code with 2 sibling elements is not valid Go: %v\n%s", err, full)
+	}
+}
+
+// TestForLoopKeyedWithHintElementPlusCallExpr closes the gap
+// TestForLoopKeyedWithHintCallExprBody's own comment flags: a keyed,
+// hinted {for} body combining a real element and a trailing call expression
+// - both parts must land in the same returned slice.
+func TestForLoopKeyedWithHintElementPlusCallExpr(t *testing.T) {
+	src := wrap(`<ul>{for _, t := range items { <li key={t.ID}>{t.Text}</li> logRow(t) }}</ul>`)
+	forOffset := strings.Index(src, "for _, t")
+	hints := []compiler.ForTypeHint{{Offset: forOffset, Type: "ToDo"}}
+	out := compileWithHints(t, src, hints)
+
+	has(t, out, `func(t ToDo) []core.Node {`)
+	has(t, out, `core.El("li")`)
+	if !regexp.MustCompile(`return \[\]core\.Node\{_vane\d+, logRow\(t\)\}`).MatchString(out) {
+		t.Fatalf("return statement doesn't hold both the element var and the call expression:\n%s", out)
+	}
+}
+
 func TestForLoopKeyedNoHiddenIdentifierRewrite(t *testing.T) {
 	// This codegen never rewrites user-written identifiers - t stays plain T
 	// everywhere it's used, no .Get()-insertion or similar. A fixture that
@@ -591,7 +642,7 @@ func TestForLoopKeyedNoHiddenIdentifierRewrite(t *testing.T) {
 	out := compileWithHints(t, withCopy, []compiler.ForTypeHint{{Offset: forOffset, Type: "ToDo"}})
 
 	has(t, out, `id := t.ID`)
-	has(t, out, `func(t ToDo) core.Node {`)
+	has(t, out, `func(t ToDo) []core.Node {`)
 	hasNot(t, out, `.Get()`)
 }
 

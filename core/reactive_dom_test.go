@@ -65,7 +65,7 @@ func TestDynListDuplicateKeysWarnsAndFallsBackToUnkeyed(t *testing.T) {
 
 	items := func() []string { return []string{"a", "b", "c"} }
 	dupeKey := func(string) string { return "same-key-for-everyone" }
-	render := func(s string) core.Node { return core.Text(s) }
+	render := func(s string) []core.Node { return []core.Node{core.Text(s)} }
 
 	defer func() {
 		if r := recover(); r != nil {
@@ -125,13 +125,13 @@ func TestDynListUnkeyedChurnDisposesOldItemEffects(t *testing.T) {
 
 	var liveItems int // net OnDispose cleanups still pending for rendered items
 
-	render := func(id int) core.Node {
+	render := func(id int) []core.Node {
 		li := core.El("li")
 		core.AppendText(li, strconv.Itoa(id))
 		signal.Effect(func() {}) // stand-in for a real item's internal reactive binding
 		liveItems++
 		core.OnDispose(func() { liveItems-- })
-		return li
+		return []core.Node{li}
 	}
 
 	core.DynList(parent, items.Get, nil, render)
@@ -384,9 +384,9 @@ func TestDynListSkipsRenderForUnchangedKey(t *testing.T) {
 	rows := core.NewSignal([]row{{"1", "a"}, {"2", "b"}, {"3", "c"}})
 
 	renderCounts := map[string]int{}
-	render := func(r row) core.Node {
+	render := func(r row) []core.Node {
 		renderCounts[r.ID]++
-		return core.Text(r.Text)
+		return []core.Node{core.Text(r.Text)}
 	}
 
 	core.DynList(parent, rows.Get, func(r row) string { return r.ID }, render)
@@ -425,10 +425,10 @@ func TestDynListChangedKeyLeavesNeighborNodeUntouched(t *testing.T) {
 	type row struct{ ID, Text string }
 	rows := core.NewSignal([]row{{"1", "a"}, {"2", "b"}})
 
-	core.DynList(parent, rows.Get, func(r row) string { return r.ID }, func(r row) core.Node {
+	core.DynList(parent, rows.Get, func(r row) string { return r.ID }, func(r row) []core.Node {
 		li := core.El("li")
 		core.AppendText(li, r.Text)
-		return li
+		return []core.Node{li}
 	})
 	if !signal.WaitEffects(200 * time.Millisecond) {
 		t.Fatal("scheduler did not settle after the initial render")
@@ -463,8 +463,8 @@ func TestDynListSwapProducesBoundedDOMOps(t *testing.T) {
 	}
 	items := core.NewSignal(ids)
 
-	core.DynList(parent, items.Get, func(id int) string { return strconv.Itoa(id) }, func(id int) core.Node {
-		return core.Text(strconv.Itoa(id))
+	core.DynList(parent, items.Get, func(id int) string { return strconv.Itoa(id) }, func(id int) []core.Node {
+		return []core.Node{core.Text(strconv.Itoa(id))}
 	})
 	if !signal.WaitEffects(500 * time.Millisecond) {
 		t.Fatal("scheduler did not settle after the initial render")
@@ -503,8 +503,8 @@ func TestDynListReorderHandlesHarderCasesThanASwap(t *testing.T) {
 	parent := core.El("ul")
 	ids := core.NewSignal([]int{1, 2, 3, 4, 5, 6, 7, 8})
 
-	core.DynList(parent, ids.Get, func(id int) string { return strconv.Itoa(id) }, func(id int) core.Node {
-		return core.Text(strconv.Itoa(id))
+	core.DynList(parent, ids.Get, func(id int) string { return strconv.Itoa(id) }, func(id int) []core.Node {
+		return []core.Node{core.Text(strconv.Itoa(id))}
 	})
 	if !signal.WaitEffects(200 * time.Millisecond) {
 		t.Fatal("scheduler did not settle after the initial render")
@@ -557,9 +557,9 @@ func TestDynListDeepEqualWithFuncFieldDoesNotPanic(t *testing.T) {
 		}
 	}()
 
-	core.DynList(parent, rows.Get, func(r row) string { return r.ID }, func(r row) core.Node {
+	core.DynList(parent, rows.Get, func(r row) string { return r.ID }, func(r row) []core.Node {
 		renderCount++
-		return core.Text(r.ID)
+		return []core.Node{core.Text(r.ID)}
 	})
 	if !signal.WaitEffects(200 * time.Millisecond) {
 		t.Fatal("scheduler did not settle after the initial render")
