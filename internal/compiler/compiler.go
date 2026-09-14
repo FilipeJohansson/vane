@@ -226,6 +226,14 @@ func CompileWithMapAndHints(src, filename string, hints []ForTypeHint) (string, 
 	if strings.Contains(stripCommentsAndStrings(out), "js.") {
 		out = injectImport(out, `"syscall/js"`)
 	}
+	// Only inject fmt when the generated code actually references it - the
+	// keyed {for} path's synthesized keyFn wraps its key expression in
+	// fmt.Sprint (see emitForKeyed) so a non-string key={} value (an int ID,
+	// for instance - a real, common case) still compiles; most files never
+	// hit that path at all.
+	if strings.Contains(stripCommentsAndStrings(out), "fmt.") {
+		out = injectImport(out, `"fmt"`)
+	}
 	lineAnchor := ""
 	if filename != "" {
 		lineAnchor = "//line " + filename + ":1:1\n"
@@ -2029,7 +2037,13 @@ func (em *emitter) emitForKeyed(parentVar string, basePos int, body string, part
 
 	var out strings.Builder
 	fmt.Fprintf(&out, "\tcore.DynList(%s, func() []%s { return %s },\n", parentVar, elemType, rangeExpr)
-	fmt.Fprintf(&out, "\t\tfunc(%s %s) string { return %s },\n", valueVar, elemType, keyExpr)
+	// fmt.Sprint, not a bare return: key={} historically accepted any
+	// comparable value (an int ID is common, confirmed for real against
+	// benchmarks/vane's own App.vane), because the old runtime property-set
+	// path coerced it via a type switch (core.NodePropertyKey). keyFn's
+	// return type is a hard string, so the same flexibility needs an
+	// explicit conversion here instead.
+	fmt.Fprintf(&out, "\t\tfunc(%s %s) string { return fmt.Sprint(%s) },\n", valueVar, elemType, keyExpr)
 	out.WriteString(em.lineDirAbs(basePos + em.posOffset))
 	fmt.Fprintf(&out, "\t\tfunc(%s %s) core.Node {\n", valueVar, elemType)
 	for _, p := range parts {

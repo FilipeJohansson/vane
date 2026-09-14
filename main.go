@@ -911,7 +911,12 @@ func resolveForTypeHints(projectDir string, overlayFiles []overlayFile) (map[str
 			packages.NeedTypesInfo | packages.NeedDeps | packages.NeedImports,
 		Dir:     projectDir,
 		Overlay: overlay,
-		Env:     append(os.Environ(), "GOOS=js", "GOARCH=wasm"),
+		// GOWORK=off matches buildWasm's own go build invocation - without
+		// it, packages.Load walks up from projectDir and can pick up an
+		// unrelated go.work higher in the tree (e.g. this very repo's own
+		// go.work, when projectDir is a nested app like benchmarks/vane),
+		// which reports the wrong module set for this project entirely.
+		Env: append(os.Environ(), "GOOS=js", "GOARCH=wasm", "GOWORK=off"),
 	}
 	pkgs, err := packages.Load(cfg, "./...")
 	if err != nil {

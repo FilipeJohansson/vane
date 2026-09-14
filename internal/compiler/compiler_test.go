@@ -1,6 +1,8 @@
 package compiler_test
 
 import (
+	"go/parser"
+	"go/token"
 	"strings"
 	"testing"
 
@@ -439,13 +441,45 @@ func TestForLoopKeyedWithHintEmitsGenericDynList(t *testing.T) {
 	out := compileWithHints(t, src, hints)
 
 	has(t, out, `core.DynList(_vane1, func() []ToDo { return items },`)
-	has(t, out, `func(t ToDo) string { return t.ID },`)
+	// keyFn's return is wrapped in fmt.Sprint - key={} historically accepted
+	// any comparable value (an int ID, not just a string), because the old
+	// runtime property-set path coerced it via a type switch; keyFn's
+	// return type is a hard string, so this preserves that flexibility.
+	has(t, out, `func(t ToDo) string { return fmt.Sprint(t.ID) },`)
 	has(t, out, `func(t ToDo) core.Node {`)
 	has(t, out, `core.El("li")`)
 	// key={} is consumed as keyFn's own body above, not re-emitted as a
 	// runtime property set - nothing left needs to read it back that way.
 	hasNot(t, out, `Set("key"`)
 	hasNot(t, out, `core.NodePropertyKey`)
+}
+
+// TestForLoopKeyedWithHintIntKeyCompiles is a regression test for a real
+// bug found running benchmarks/vane through the actual two-pass pipeline
+// end to end: key={r.ID} with an int ID (a common, realistic case - this
+// exact fixture is what App.vane does) produced `func(r Row) string {
+// return r.ID }`, a genuine `go build` error (cannot use int as string).
+// The old runtime property-set path never hit this because core.Unwrap(...)
+// .Set("key", ...) accepts any value and core.NodePropertyKey coerces it
+// back via a type switch; keyFn's hard `string` return type has no such
+// coercion unless the generated body itself provides one (fmt.Sprint).
+func TestForLoopKeyedWithHintIntKeyCompiles(t *testing.T) {
+	src := wrap(`<ul>{for _, r := range rows { <li key={r.ID}>{r.Text}</li> }}</ul>`)
+	forOffset := strings.Index(src, "for _, r")
+	if forOffset < 0 {
+		t.Fatal("fixture setup: \"for _, r\" not found in src")
+	}
+	hints := []compiler.ForTypeHint{{Offset: forOffset, Type: "Row"}}
+	out := compileWithHints(t, src, hints)
+
+	has(t, out, `func(r Row) string { return fmt.Sprint(r.ID) },`)
+
+	fset := token.NewFileSet()
+	full := strings.Replace(out, "func F()",
+		"type Row struct {\n\tID   int\n\tText string\n}\n\nvar rows []Row\n\nfunc F()", 1)
+	if _, err := parser.ParseFile(fset, "", full, parser.AllErrors); err != nil {
+		t.Fatalf("generated code with an int key is not valid Go: %v\n%s", err, full)
+	}
 }
 
 func TestForLoopKeyedWithHintAtWrongOffsetUsesCompatShape(t *testing.T) {
