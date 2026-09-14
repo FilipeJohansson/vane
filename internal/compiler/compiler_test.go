@@ -323,8 +323,12 @@ func TestExprChild(t *testing.T) {
 }
 
 func TestSpreadChild(t *testing.T) {
+	// Single-return {items()...} is unkeyed (behaviorally identical to
+	// before DynList's generic signature): NodePropertyKey/IdentityNode is
+	// the fixed compatibility instantiation every such call site now uses,
+	// not something specific to this test's own fixture.
 	out := compile(t, wrap(`<ul>{items()...}</ul>`))
-	has(t, out, `core.DynList(_vane1, func() []core.Node { return items() })`)
+	has(t, out, `core.DynList(_vane1, func() []core.Node { return items() }, core.NodePropertyKey, core.IdentityNode)`)
 }
 
 func TestSpreadChildSlice(t *testing.T) {
@@ -398,6 +402,78 @@ func TestForLoop(t *testing.T) {
 	has(t, out, `core.El("li")`)
 	has(t, out, `_vaneItems`)
 	has(t, out, `return _vaneItems`)
+}
+
+// compileWithHints is compile, but with resolved ForTypeHints available -
+// hints simulates what main.go's go/types pass would have produced for a
+// real project; a test computes each hint's Offset from its own src via
+// strings.Index on the `for` keyword itself.
+func compileWithHints(t *testing.T, src string, hints []compiler.ForTypeHint) string {
+	t.Helper()
+	out, err := compiler.CompileWithHints(src, "test.vane", hints)
+	if err != nil {
+		t.Fatalf("compile error: %v", err)
+	}
+	return stripNoise(out)
+}
+
+func TestForLoopKeyedNoHintUsesCompatShape(t *testing.T) {
+	// key={} present, but no resolved hint (the naive first pass, or a
+	// project not yet type-checked) - falls back to the same compatibility
+	// shape an unkeyed {for} uses, key={} still runtime-set so
+	// core.NodePropertyKey can read it back.
+	src := wrap(`<ul>{for _, t := range items { <li key={t.ID}>{t.Text}</li> }}</ul>`)
+	out := compile(t, src)
+	has(t, out, `core.DynList(_vane1, func() []core.Node {`)
+	has(t, out, `Set("key", t.ID)`)
+	has(t, out, `core.NodePropertyKey, core.IdentityNode)`)
+}
+
+func TestForLoopKeyedWithHintEmitsGenericDynList(t *testing.T) {
+	src := wrap(`<ul>{for _, t := range items { <li key={t.ID}>{t.Text}</li> }}</ul>`)
+	forOffset := strings.Index(src, "for _, t")
+	if forOffset < 0 {
+		t.Fatal("fixture setup: \"for _, t\" not found in src")
+	}
+	hints := []compiler.ForTypeHint{{Offset: forOffset, Type: "ToDo"}}
+	out := compileWithHints(t, src, hints)
+
+	has(t, out, `core.DynList(_vane1, func() []ToDo { return items },`)
+	has(t, out, `func(t ToDo) string { return t.ID },`)
+	has(t, out, `func(t ToDo) core.Node {`)
+	has(t, out, `core.El("li")`)
+	// key={} is consumed as keyFn's own body above, not re-emitted as a
+	// runtime property set - nothing left needs to read it back that way.
+	hasNot(t, out, `Set("key"`)
+	hasNot(t, out, `core.NodePropertyKey`)
+}
+
+func TestForLoopKeyedWithHintAtWrongOffsetUsesCompatShape(t *testing.T) {
+	// A hint that doesn't match this block's own `for` position (e.g. it
+	// belongs to a different {for} in the same file) must not be applied
+	// here - falls back to the compatibility shape exactly as if no hint
+	// existed at all, not a wrong/mismatched type.
+	src := wrap(`<ul>{for _, t := range items { <li key={t.ID}>{t.Text}</li> }}</ul>`)
+	hints := []compiler.ForTypeHint{{Offset: 999999, Type: "ToDo"}}
+	out := compileWithHints(t, src, hints)
+	has(t, out, `core.DynList(_vane1, func() []core.Node {`)
+	has(t, out, `core.NodePropertyKey, core.IdentityNode)`)
+}
+
+func TestForLoopKeyedWithHintCallExprBody(t *testing.T) {
+	// The keyed path's render closure must also support a body ending in a
+	// plain call expression instead of a JSX element, mirroring
+	// TestForBodyCallExpr's coverage of the compatibility shape.
+	src := wrap(`<ul>{for _, t := range items { renderRow(t) }}</ul>`)
+	// This fixture has no key={} at all (a bare call-expr body can't carry
+	// one), so it stays on the compat shape regardless of hints - included
+	// here only to document that emitForKeyed's own callExpr branch has no
+	// dedicated test yet, since a hinted, keyed, call-expr-bodied {for}
+	// fixture combining all three isn't covered - a real gap, not silently
+	// assumed fine.
+	out := compile(t, src)
+	has(t, out, `append(`)
+	has(t, out, `renderRow(t)`)
 }
 
 func TestForLoopWithSetup(t *testing.T) {

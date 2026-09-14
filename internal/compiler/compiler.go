@@ -1778,9 +1778,11 @@ func (em *emitter) emitExpr(e *exprNode, parentVar string) string {
 		if parentVar != "" {
 			em.stmts.WriteString(ld)
 			if isFuncCall {
-				// func() []core.Node, reactive list
+				// func() []core.Node, reactive list. Single-return form:
+				// unkeyed, same shape emitForCompat uses for {for} - see
+				// core.NodePropertyKey/core.IdentityNode's own doc comments.
 				fmt.Fprintf(&em.stmts,
-					"\tcore.DynList(%s, func() []core.Node { return %s })\n",
+					"\tcore.DynList(%s, func() []core.Node { return %s }, core.NodePropertyKey, core.IdentityNode)\n",
 					parentVar, src)
 			} else {
 				// []core.Node / []any / variadic, static children spread
@@ -1834,6 +1836,57 @@ func (em *emitter) emitCtrlFlow(n *ctrlFlowNode, parentVar string) string {
 	return ""
 }
 
+// forKeyAttr returns the `key={...}` (or `key="..."`) attribute on the
+// single vane element among parts, if any - the compile-time signal that
+// this {for} block wants the keyed, item-level-skip DynList[T] treatment,
+// mirroring how `key=` already signals keying at runtime today, just
+// consulted at compile time here instead.
+func forKeyAttr(parts []bodyPart) (vaneAttr, bool) {
+	for _, p := range parts {
+		if p.vane == nil {
+			continue
+		}
+		for _, a := range p.vane.attrs {
+			if a.name == "key" {
+				return a, true
+			}
+		}
+	}
+	return vaneAttr{}, false
+}
+
+// parseRangeHeader splits a `for` range-clause header (e.g. "_, t := range
+// todos.Get()") into the value variable's name ("t") and the range source
+// expression's own text ("todos.Get()"). ok is false for anything that
+// isn't a recognizable two-variable range clause - an index-only "i := range
+// xs" has no per-item value to key on, so keying isn't meaningful there
+// either.
+func parseRangeHeader(header string) (valueVar, rangeExpr string, ok bool) {
+	idx := strings.Index(header, " range ")
+	if idx < 0 {
+		return "", "", false
+	}
+	rangeExpr = strings.TrimSpace(header[idx+len(" range "):])
+	lhs := strings.TrimRight(header[:idx], " ")
+	switch {
+	case strings.HasSuffix(lhs, ":="):
+		lhs = strings.TrimSuffix(lhs, ":=")
+	case strings.HasSuffix(lhs, "="):
+		lhs = strings.TrimSuffix(lhs, "=")
+	default:
+		return "", "", false
+	}
+	vars := strings.Split(lhs, ",")
+	if len(vars) != 2 {
+		return "", "", false
+	}
+	valueVar = strings.TrimSpace(vars[1])
+	if valueVar == "" || valueVar == "_" {
+		return "", "", false
+	}
+	return valueVar, rangeExpr, true
+}
+
 func (em *emitter) emitForCtrl(raw, parentVar string, basePos int) {
 	after := strings.TrimPrefix(raw, "for ")
 	header, rest, err := ctrlReadHeader(after)
@@ -1855,6 +1908,44 @@ func (em *emitter) emitForCtrl(raw, parentVar string, basePos int) {
 		return
 	}
 
+	// The keyed, item-level-skip path needs T's concrete type, resolved via
+	// go/types in an earlier build step (main.go), before it can be
+	// emitted - see ForTypeHint's own doc comment. Until that hint is
+	// available (a naive first pass, or this block genuinely has no
+	// key={} at all), fall through to the same compatibility shape every
+	// unkeyed {for}/{items()...} spread already uses - see emitForCompat.
+	if keyAttr, hasKey := forKeyAttr(parts); hasKey {
+		// basePos is the '{' that opened this block (ctrlFlowNode.pos's own
+		// documented meaning), not the "for" keyword itself - raw is
+		// trimmed when parsed, so any whitespace between them isn't
+		// preserved in basePos alone. Search forward for the actual "for",
+		// matching how main.go's own offsetOfForOnLine computes
+		// ForTypeHint.Offset - both must agree on the same position or a
+		// real hint would never be found.
+		forAbsPos := basePos + em.posOffset
+		if idx := strings.Index(em.src[forAbsPos:], "for"); idx > 0 {
+			forAbsPos += idx
+		}
+		if hint, hasHint := em.hintForOffset(forAbsPos); hasHint {
+			if valueVar, rangeExpr, ok := parseRangeHeader(header); ok {
+				em.emitForKeyed(parentVar, basePos, body, parts, keyAttr, valueVar, rangeExpr, hint.Type)
+				return
+			}
+		}
+	}
+	em.emitForCompat(parentVar, header, basePos, body, parts)
+}
+
+// emitForCompat emits today's exact codegen shape - a real Go for statement
+// building a []core.Node slice via append - unchanged in every particular
+// except the two extra trailing arguments DynList's new generic signature
+// requires. Used for every unkeyed {for}, and for a keyed one whose element
+// type hasn't been resolved yet (see emitForCtrl): core.NodePropertyKey
+// reads back whatever `key={}` already set on each built Node at runtime
+// (emitAttr's own existing "key" case, untouched), so this shape stays
+// correct - just not item-level-skip-optimized - until a resolved hint
+// promotes it to emitForKeyed.
+func (em *emitter) emitForCompat(parentVar, header string, basePos int, body string, parts []bodyPart) {
 	em.counter++
 	listVar := fmt.Sprintf("_vaneItems%d", em.counter)
 	subEm := &emitter{
@@ -1914,7 +2005,82 @@ func (em *emitter) emitForCtrl(raw, parentVar string, basePos int) {
 	}
 	out.WriteString("\t\t}\n")
 	fmt.Fprintf(&out, "\t\treturn %s\n", listVar)
-	out.WriteString("\t})\n")
+	out.WriteString("\t}, core.NodePropertyKey, core.IdentityNode)\n")
+	em.stmts.WriteString(out.String())
+}
+
+// emitForKeyed emits the real, item-level-skip DynList[elemType] form: a
+// compiler-synthesized keyFn reading keyAttr's own expression, and a render
+// closure built from the same per-iteration setup/element code
+// emitForCompat would otherwise loop over, called once per new or changed
+// key rather than once per render.
+func (em *emitter) emitForKeyed(parentVar string, basePos int, body string, parts []bodyPart, keyAttr vaneAttr, valueVar, rangeExpr, elemType string) {
+	subEm := &emitter{
+		filename:  em.filename,
+		src:       em.src,
+		posOffset: bodyAbsStart(em.src, basePos+em.posOffset, body),
+		hints:     em.hints,
+	}
+
+	keyExpr := keyAttr.value
+	if !keyAttr.isExpr {
+		keyExpr = fmt.Sprintf("%q", keyAttr.value)
+	}
+
+	var out strings.Builder
+	fmt.Fprintf(&out, "\tcore.DynList(%s, func() []%s { return %s },\n", parentVar, elemType, rangeExpr)
+	fmt.Fprintf(&out, "\t\tfunc(%s %s) string { return %s },\n", valueVar, elemType, keyExpr)
+	out.WriteString(em.lineDirAbs(basePos + em.posOffset))
+	fmt.Fprintf(&out, "\t\tfunc(%s %s) core.Node {\n", valueVar, elemType)
+	for _, p := range parts {
+		if p.goCode != "" {
+			for _, line := range strings.Split(p.goCode, "\n") {
+				if t := strings.TrimSpace(line); t != "" {
+					fmt.Fprintf(&out, "\t\t\t%s\n", t)
+				}
+			}
+		}
+		if p.vane != nil {
+			// key={} was the compile-time signal to get here; stripped from
+			// the emitted element since NodePropertyKey/runtime key reading
+			// no longer applies to this instantiation - keyExpr above is
+			// the only thing that reads it now.
+			withoutKey := *p.vane
+			withoutKey.attrs = make([]vaneAttr, 0, len(p.vane.attrs))
+			for _, a := range p.vane.attrs {
+				if a.name != "key" {
+					withoutKey.attrs = append(withoutKey.attrs, a)
+				}
+			}
+			subEm.stmts.Reset()
+			elemVar := subEm.emitElement(&withoutKey, "")
+			if subEm.err != nil {
+				em.err = subEm.err
+				return
+			}
+			for _, line := range strings.Split(subEm.stmts.String(), "\n") {
+				if strings.TrimSpace(line) == "" {
+					continue
+				}
+				if strings.HasPrefix(line, "//line ") {
+					fmt.Fprintf(&out, "%s\n", line)
+				} else {
+					fmt.Fprintf(&out, "\t\t%s\n", line)
+				}
+			}
+			if elemVar != "" {
+				fmt.Fprintf(&out, "\t\t\treturn %s\n", elemVar)
+			}
+		} else if p.callExpr != "" {
+			if subEm.posOffset > 0 {
+				if exprIdx := strings.Index(body, p.callExpr); exprIdx >= 0 {
+					out.WriteString(em.lineDirAbs(subEm.posOffset + exprIdx))
+				}
+			}
+			fmt.Fprintf(&out, "\t\t\treturn %s\n", p.callExpr)
+		}
+	}
+	out.WriteString("\t\t},\n\t)\n")
 	em.stmts.WriteString(out.String())
 }
 
