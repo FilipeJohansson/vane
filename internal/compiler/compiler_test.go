@@ -476,6 +476,24 @@ func TestForLoopKeyedWithHintCallExprBody(t *testing.T) {
 	has(t, out, `renderRow(t)`)
 }
 
+func TestForLoopKeyedNoHiddenIdentifierRewrite(t *testing.T) {
+	// This codegen never rewrites user-written identifiers - t stays plain T
+	// everywhere it's used, no .Get()-insertion or similar. A fixture that
+	// copies the loop variable's field to a new local before use must
+	// compile with that copy passed through untouched, exactly like any
+	// other setup statement - no hidden rewrite pass touching `id`.
+	withCopy := wrap(`<ul>{for _, t := range items { id := t.ID; <li key={t.ID}>{id}</li> }}</ul>`)
+	forOffset := strings.Index(withCopy, "for _, t")
+	if forOffset < 0 {
+		t.Fatal("fixture setup: \"for _, t\" not found in src")
+	}
+	out := compileWithHints(t, withCopy, []compiler.ForTypeHint{{Offset: forOffset, Type: "ToDo"}})
+
+	has(t, out, `id := t.ID`)
+	has(t, out, `func(t ToDo) core.Node {`)
+	hasNot(t, out, `.Get()`)
+}
+
 func TestForLoopWithSetup(t *testing.T) {
 	src := wrap(`<ul>{for i, x := range items { cls := "a"; if x == "" { cls = "b" }; <li className={cls}>{x}</li> }}</ul>`)
 	out := compile(t, src)

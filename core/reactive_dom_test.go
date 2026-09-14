@@ -342,6 +342,212 @@ func TestDynListMixedKeyedUnkeyedRendersAll(t *testing.T) {
 	}
 }
 
+// TestDynListSkipsRenderForUnchangedKey verifies the core claim of the
+// generic DynList's keyed path: render is called once for a new key, and
+// never again for that key once reflect.DeepEqual says its value hasn't
+// changed across a later items() call - the one thing a naive/buggy
+// implementation would most easily get wrong (re-invoking render on every
+// update, the way the old DynList's own fn always did).
+func TestDynListSkipsRenderForUnchangedKey(t *testing.T) {
+	parent := core.El("ul")
+	type row struct{ ID, Text string }
+	rows := core.NewSignal([]row{{"1", "a"}, {"2", "b"}, {"3", "c"}})
+
+	renderCounts := map[string]int{}
+	render := func(r row) core.Node {
+		renderCounts[r.ID]++
+		return core.Text(r.Text)
+	}
+
+	core.DynList(parent, rows.Get, func(r row) string { return r.ID }, render)
+	if !signal.WaitEffects(200 * time.Millisecond) {
+		t.Fatal("scheduler did not settle after the initial render")
+	}
+	for _, id := range []string{"1", "2", "3"} {
+		if renderCounts[id] != 1 {
+			t.Fatalf("initial renderCounts[%q] = %d, want 1", id, renderCounts[id])
+		}
+	}
+
+	// Only row "2" actually changes; "1" and "3" are byte-for-byte identical
+	// to their previous render.
+	rows.Set([]row{{"1", "a"}, {"2", "B-changed"}, {"3", "c"}})
+	if !signal.WaitEffects(200 * time.Millisecond) {
+		t.Fatal("scheduler did not settle after the update")
+	}
+
+	if renderCounts["1"] != 1 {
+		t.Errorf(`renderCounts["1"] = %d after an unrelated update, want 1 (unchanged key must skip render)`, renderCounts["1"])
+	}
+	if renderCounts["3"] != 1 {
+		t.Errorf(`renderCounts["3"] = %d after an unrelated update, want 1`, renderCounts["3"])
+	}
+	if renderCounts["2"] != 2 {
+		t.Errorf(`renderCounts["2"] = %d after its own value changed, want 2`, renderCounts["2"])
+	}
+}
+
+// TestDynListChangedKeyLeavesNeighborNodeUntouched verifies that rebuilding
+// one changed key's own subtree never touches a different, unchanged key's
+// DOM node - item-level, not list-level, rebuilding.
+func TestDynListChangedKeyLeavesNeighborNodeUntouched(t *testing.T) {
+	parent := core.El("ul")
+	type row struct{ ID, Text string }
+	rows := core.NewSignal([]row{{"1", "a"}, {"2", "b"}})
+
+	core.DynList(parent, rows.Get, func(r row) string { return r.ID }, func(r row) core.Node {
+		li := core.El("li")
+		core.AppendText(li, r.Text)
+		return li
+	})
+	if !signal.WaitEffects(200 * time.Millisecond) {
+		t.Fatal("scheduler did not settle after the initial render")
+	}
+
+	raw := core.Unwrap(parent)
+	neighborBefore := raw.Get("children").Index(0) // key "1"'s own <li>, never changes below
+
+	rows.Set([]row{{"1", "a"}, {"2", "changed"}})
+	if !signal.WaitEffects(200 * time.Millisecond) {
+		t.Fatal("scheduler did not settle after the update")
+	}
+
+	neighborAfter := raw.Get("children").Index(0)
+	if !neighborBefore.Equal(neighborAfter) {
+		t.Fatal("key \"1\"'s own DOM node was replaced when only key \"2\" changed - neighbor was touched")
+	}
+}
+
+// TestDynListSwapProducesBoundedDOMOps is the concrete, falsifiable
+// DOM-operation-count claim this whole fix exists to satisfy: a small,
+// targeted change to a large keyed list touches only what actually moved,
+// not the whole list. Uses core.DebugDynListDOMOps (export_test.go) since a
+// JS-side Node.prototype monkey-patch isn't available inside
+// wasm_test_exec.js's jsdom the way it is in a real browser.
+func TestDynListSwapProducesBoundedDOMOps(t *testing.T) {
+	parent := core.El("ul")
+	const n = 200
+	ids := make([]int, n)
+	for i := range ids {
+		ids[i] = i
+	}
+	items := core.NewSignal(ids)
+
+	core.DynList(parent, items.Get, func(id int) string { return strconv.Itoa(id) }, func(id int) core.Node {
+		return core.Text(strconv.Itoa(id))
+	})
+	if !signal.WaitEffects(500 * time.Millisecond) {
+		t.Fatal("scheduler did not settle after the initial render")
+	}
+	before := core.DebugDynListDOMOps()
+
+	swapped := append([]int(nil), ids...)
+	swapped[0], swapped[n-1] = swapped[n-1], swapped[0]
+	items.Set(swapped)
+	if !signal.WaitEffects(500 * time.Millisecond) {
+		t.Fatal("scheduler did not settle after the swap")
+	}
+
+	delta := core.DebugDynListDOMOps() - before
+	if delta == 0 {
+		t.Fatal("swap produced 0 DOM ops - the swap apparently never reached the DOM")
+	}
+	// A 2-item swap should touch only what actually moved - a small
+	// constant, nowhere near proportional to n. The bound is generous (not
+	// tight to exactly 2) to avoid over-fitting to one specific LIS output
+	// shape; the claim being tested is O(moved), not O(n).
+	const maxExpectedOps = 10
+	if delta > maxExpectedOps {
+		t.Fatalf("swap of 2 out of %d items produced %d DOM ops, want <= %d (O(moved items), not O(n))",
+			n, delta, maxExpectedOps)
+	}
+}
+
+// TestDynListReorderHandlesHarderCasesThanASwap exercises the LIS-based
+// reorder against sub-range reversal, moving an item to the opposite end,
+// mid-list insertion, and a full shuffle - the class of case an off-by-one
+// bug in the move logic would most easily get wrong, per real-world
+// reconciler defects elsewhere. Checks final rendered order only; DOM-op
+// bounding is TestDynListSwapProducesBoundedDOMOps's job.
+func TestDynListReorderHandlesHarderCasesThanASwap(t *testing.T) {
+	parent := core.El("ul")
+	ids := core.NewSignal([]int{1, 2, 3, 4, 5, 6, 7, 8})
+
+	core.DynList(parent, ids.Get, func(id int) string { return strconv.Itoa(id) }, func(id int) core.Node {
+		return core.Text(strconv.Itoa(id))
+	})
+	if !signal.WaitEffects(200 * time.Millisecond) {
+		t.Fatal("scheduler did not settle after the initial render")
+	}
+
+	cases := [][]int{
+		{1, 6, 5, 4, 3, 2, 7, 8},    // reverse the sub-range [2..6]
+		{8, 1, 2, 3, 4, 5, 6, 7},    // move the last item to the front
+		{1, 2, 9, 3, 4, 5, 6, 7, 8}, // insert a brand new key in the middle
+		{7, 3, 1, 9, 5, 2, 8, 4, 6}, // full shuffle, including the new key
+	}
+	for _, next := range cases {
+		ids.Set(next)
+		if !signal.WaitEffects(200 * time.Millisecond) {
+			t.Fatalf("scheduler did not settle after Set(%v)", next)
+		}
+		got := childTexts(t, parent)
+		got = got[1 : len(got)-1] // strip the start/end marker text nodes
+		if len(got) != len(next) {
+			t.Fatalf("after Set(%v): got %d children, want %d: %v", next, len(got), len(next), got)
+		}
+		for i, id := range next {
+			want := strconv.Itoa(id)
+			if got[i] != want {
+				t.Errorf("after Set(%v): child[%d] = %q, want %q (full order: %v)", next, i, got[i], want, got)
+			}
+		}
+	}
+}
+
+// TestDynListDeepEqualWithFuncFieldDoesNotPanic confirms the actual failure
+// mode of reflect.DeepEqual on a T containing a function field (the
+// documented uncomparable-in-the-usual-sense case): no panic, and per
+// reflect.DeepEqual's own documented behavior ("func values are deeply
+// equal if both are nil; otherwise they are not deeply equal"), a
+// non-nil func field always reads as "changed" - render runs again every
+// time rather than ever incorrectly skipping.
+func TestDynListDeepEqualWithFuncFieldDoesNotPanic(t *testing.T) {
+	parent := core.El("ul")
+	type row struct {
+		ID      string
+		OnClick func()
+	}
+	rows := core.NewSignal([]row{{ID: "1", OnClick: func() {}}})
+
+	var renderCount int
+	defer func() {
+		if r := recover(); r != nil {
+			t.Fatalf("DynList panicked comparing a func field via reflect.DeepEqual: %v", r)
+		}
+	}()
+
+	core.DynList(parent, rows.Get, func(r row) string { return r.ID }, func(r row) core.Node {
+		renderCount++
+		return core.Text(r.ID)
+	})
+	if !signal.WaitEffects(200 * time.Millisecond) {
+		t.Fatal("scheduler did not settle after the initial render")
+	}
+
+	// Same key, a new (never-equal-to-the-old-one) func value each time.
+	for i := 0; i < 3; i++ {
+		rows.Set([]row{{ID: "1", OnClick: func() {}}})
+		if !signal.WaitEffects(200 * time.Millisecond) {
+			t.Fatalf("scheduler did not settle after update %d", i)
+		}
+	}
+
+	if renderCount != 4 {
+		t.Fatalf("renderCount = %d, want 4 (initial + 3 updates - a func field never compares equal, so every update re-renders)", renderCount)
+	}
+}
+
 // TestPortalNilFnRendersEmptyInsteadOfPanicking verifies core.Portal no
 // longer panics when called with a nil render function.
 func TestPortalNilFnRendersEmptyInsteadOfPanicking(t *testing.T) {

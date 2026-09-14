@@ -6,11 +6,20 @@ import (
 	"fmt"
 	"reflect"
 	"strconv"
+	"sync/atomic"
 	"syscall/js"
 
 	"github.com/filipejohansson/vane/core/signal"
 	"github.com/filipejohansson/vane/internal/dom"
 )
+
+// dynListDOMOps counts DynList's own replaceChild/insertBefore/removeChild
+// calls made by the keyed reconciliation path specifically (never the
+// unkeyed rebuild path, which always touches every node by design - see
+// DynList's own doc comment). Exposed read-only via export_test.go; tests
+// use it to confirm a swap/reorder in a large keyed list touches only what
+// actually moved, not the whole list.
+var dynListDOMOps atomic.Int64
 
 func init() {
 	signal.EffectPanicHandler = func(r any) {
@@ -278,6 +287,7 @@ func DynList[T any](parent Node, items func() []T, keyFn func(T) string, render 
 					}
 				})
 				p.Call("replaceChild", n, existing.node)
+				dynListDOMOps.Add(1)
 				newLive[k] = &dynListEntry[T]{node: n, value: t, scope: scope}
 				newNodes[i] = n
 			} else {
@@ -296,6 +306,7 @@ func DynList[T any](parent Node, items func() []T, keyFn func(T) string, render 
 		// Whatever's left in live had its key removed from the list entirely.
 		for _, e := range live {
 			p.Call(dom.RemoveChild, e.node)
+			dynListDOMOps.Add(1)
 			e.scope.Dispose()
 		}
 
@@ -327,6 +338,7 @@ func DynList[T any](parent Node, items func() []T, keyFn func(T) string, render 
 				continue
 			}
 			p.Call("insertBefore", newNodes[i], ref)
+			dynListDOMOps.Add(1)
 			ref = newNodes[i]
 		}
 

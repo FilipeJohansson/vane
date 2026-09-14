@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"go/parser"
 	"go/token"
 	"net/http"
@@ -379,6 +380,68 @@ func F(todos []ToDo) int {
 	}
 	if got[0].Offset < 0 || got[0].Offset+3 > len(vaneSrc) || vaneSrc[got[0].Offset:got[0].Offset+3] != "for" {
 		t.Fatalf("Offset %d does not point at \"for\" in the original .vane source", got[0].Offset)
+	}
+}
+
+// BenchmarkResolveForTypeHints is the real, repo-committed, regression-
+// tracked version of the go/types verification spike's own "real measured
+// cost" finding: how expensive is one batched packages.Load pass, on a
+// package sized closer to a real small app (30 types/functions) than a
+// single-line fixture. Compared against BenchmarkCompileWithoutTypeResolution
+// below, which measures the same class of file through the plain
+// text-scanning compiler with no type resolution at all - the two numbers
+// together are what justify batching this once per build rather than once
+// per file/per {for} block.
+func BenchmarkResolveForTypeHints(b *testing.B) {
+	dir := b.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module fixture\n\ngo 1.25.0\n"), 0o644); err != nil {
+		b.Fatal(err)
+	}
+	var body strings.Builder
+	body.WriteString("package main\n\n")
+	for i := 0; i < 30; i++ {
+		fmt.Fprintf(&body, "type T%d struct{ A, B, C string; N int }\nfunc F%d(items []T%d) { for _, t := range items { _ = t.A } }\n", i, i, i)
+	}
+	src := body.String()
+	vanePath := filepath.Join(dir, "App.vane")
+	if err := os.WriteFile(vanePath, []byte(src), 0o644); err != nil {
+		b.Fatal(err)
+	}
+	goSrc, err := compiler.Compile(src, vanePath)
+	if err != nil {
+		b.Fatal(err)
+	}
+	of := overlayFile{
+		path:       vanePath,
+		src:        src,
+		goPath:     filepath.Join(dir, "App_vane.go"),
+		goSrc:      goSrc,
+		maybeKeyed: true,
+	}
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		if _, err := resolveForTypeHints(dir, []overlayFile{of}); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+// BenchmarkCompileWithoutTypeResolution measures the same-shaped file
+// through compiler.Compile alone (no go/types at all) - the baseline
+// BenchmarkResolveForTypeHints's own cost is measured against.
+func BenchmarkCompileWithoutTypeResolution(b *testing.B) {
+	var body strings.Builder
+	body.WriteString("package main\nimport \"syscall/js\"\nfunc F() js.Value {\n\treturn (\n")
+	body.WriteString("\t\t<ul>{for i, x := range items { cls := \"a\"; if x == \"\" { cls = \"b\" }; <li key={x} className={cls}>{x}</li> }}</ul>\n")
+	body.WriteString("\t)\n}\n")
+	src := body.String()
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		if _, err := compiler.Compile(src, "bench.vane"); err != nil {
+			b.Fatal(err)
+		}
 	}
 }
 
