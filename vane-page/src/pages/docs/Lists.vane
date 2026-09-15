@@ -246,6 +246,7 @@ func Lists() core.Node {
 					complexity for a list that mostly just grows, shrinks, and reorders.
 				</p>
 				{callout("important", "Important", "core.List[T]'s own Set still reconciles structurally the same way {for}+key does when items are added, removed, or reordered - field-level signals only bypass reconciliation for a value changing inside an item that was already there.")}
+				{callout("important", "Important", "A duplicate key in core.List[T] also logs a warning, but there's no rebuild to fall back to here: Get(key) resolves to whichever duplicate was written last, while Items() still returns every one of them.")}
 
 				<h2 className="docs-h2" id="which-one">Which one should I use?</h2>
 				<ul className="docs-list">
