@@ -5,6 +5,7 @@ package core
 import (
 	"fmt"
 	"reflect"
+	"sort"
 	"strconv"
 	"sync/atomic"
 	"syscall/js"
@@ -398,15 +399,7 @@ func stableIndices(refIndices []int) []int {
 			prev[i] = -1
 			continue
 		}
-		lo, hi := 0, len(tails)
-		for lo < hi {
-			mid := (lo + hi) / 2
-			if refIndices[tails[mid]] < v {
-				lo = mid + 1
-			} else {
-				hi = mid
-			}
-		}
+		lo := sort.Search(len(tails), func(mid int) bool { return refIndices[tails[mid]] >= v })
 		if lo > 0 {
 			prev[i] = tails[lo-1]
 		} else {
