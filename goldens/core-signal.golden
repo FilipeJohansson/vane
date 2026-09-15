@@ -24,3 +24,4 @@ type type Scope struct{mu sync.Mutex; disposes []func()}
 type type Signal[T any] struct{baseSignal; value T}
 var EffectPanicHandler func(recovered any)
 var LoopWatchdogHandler func(message string)
+var WarnHandler func(message string)

@@ -156,7 +156,7 @@ func DangerousInnerHTML(html string) Node
 func Document() syscall/js.Value
 func DocumentHeight() (scrollHeight float64, clientHeight float64)
 func DynChild(parent Node, fn func() any)
-func DynList[T any](parent Node, items func() []T, keyFn func(T) string, render func(T) Node)
+func DynList[T any](parent Node, items func() []T, keyFn func(T) string, render func(T) []Node)
 func DynProp(el Node, key string, fn func() any)
 func DynStyle(el Node, fn func() Style)
 func DynText(parent Node, fn func() string)
@@ -169,7 +169,7 @@ func FocusTrap(el Node) func()
 func Fragment(children ...Node) Node
 func GetElementByID(id string) (Node, bool)
 func Head(fn func() HeadConfig)
-func IdentityNode(n Node) Node
+func IdentityNode(n Node) []Node
 func IsRelease() bool
 func LocalStorageGet(key string) (string, bool)
 func LocalStorageSet(key string, value string)
