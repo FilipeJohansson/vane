@@ -218,20 +218,18 @@ func CompileWithMapAndHints(src, filename string, hints []ForTypeHint) (string, 
 	if err != nil {
 		return "", nil, err
 	}
-	// Only inject syscall/js when the generated code actually references it.
-	// Most vane files now return core.Node and never touch js.* directly, so forcing
-	// the import unconditionally would produce an "imported and not used" error.
-	// Comments and strings are stripped first so a mention of "js." in prose (e.g. a
-	// doc comment) doesn't cause a false positive.
-	if strings.Contains(stripCommentsAndStrings(out), "js.") {
+	// Only inject syscall/js and fmt when the generated code actually
+	// references them - most vane files never touch js.* directly, and few
+	// hit the keyed {for} path's fmt.Sprint-wrapped keyFn (see emitForKeyed),
+	// so forcing either import unconditionally would produce an "imported
+	// and not used" error. Comments and strings are stripped first so a
+	// mention of "js."/"fmt." in prose (e.g. a doc comment) doesn't cause a
+	// false positive - computed once, checked against both.
+	stripped := stripCommentsAndStrings(out)
+	if strings.Contains(stripped, "js.") {
 		out = injectImport(out, `"syscall/js"`)
 	}
-	// Only inject fmt when the generated code actually references it - the
-	// keyed {for} path's synthesized keyFn wraps its key expression in
-	// fmt.Sprint (see emitForKeyed) so a non-string key={} value (an int ID,
-	// for instance - a real, common case) still compiles; most files never
-	// hit that path at all.
-	if strings.Contains(stripCommentsAndStrings(out), "fmt.") {
+	if strings.Contains(stripped, "fmt.") {
 		out = injectImport(out, `"fmt"`)
 	}
 	lineAnchor := ""

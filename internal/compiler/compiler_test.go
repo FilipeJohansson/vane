@@ -912,6 +912,20 @@ func TestSyscallJSNotDuplicated(t *testing.T) {
 	}
 }
 
+// TestBothJSAndFmtInjectedTogether is a regression test for the "js."/"fmt."
+// checks now sharing a single stripCommentsAndStrings(out) call (item 14):
+// a file needing both imports (js.Value return type plus a keyed {for}'s
+// fmt.Sprint-wrapped keyFn) must still get both, not just whichever check ran
+// against the shared stripped copy first.
+func TestBothJSAndFmtInjectedTogether(t *testing.T) {
+	src := wrap(`<ul>{for _, t := range items { <li key={t.ID}>{t.Text}</li> }}</ul>`)
+	forOffset := strings.Index(src, "for _, t")
+	hints := []compiler.ForTypeHint{{Offset: forOffset, Type: "ToDo"}}
+	out := compileWithHints(t, src, hints)
+	has(t, out, `"syscall/js"`)
+	has(t, out, `"fmt"`)
+}
+
 //* Build tag
 
 func TestBuildTagInjected(t *testing.T) {
