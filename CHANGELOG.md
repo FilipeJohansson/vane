@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Breaking Changes
 - *(router)* Scroll to top on every navigation by default, add an opt-out (#35)
+- Add native keyed {for} lists, core.List[T], and DynList reconciliation (#37)
 
 
 ### Added
