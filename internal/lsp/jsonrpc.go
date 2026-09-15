@@ -70,7 +70,8 @@ func WriteMessage(w io.Writer, msg Message) error {
 	if msgLen > math.MaxInt-headerLen {
 		return fmt.Errorf("message too large")
 	}
-	buf := make([]byte, 0, headerLen+msgLen)
+	totalLen := headerLen + msgLen
+	buf := make([]byte, 0, totalLen)
 	buf = append(buf, header...)
 	buf = append(buf, msg...)
 	_, err := w.Write(buf)
