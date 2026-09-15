@@ -1942,8 +1942,12 @@ func indexForKeyword(s string) (int, bool) {
 // bareLoopControl finds a bare continue/break in a keyed {for} body - once
 // promoted, the body is a per-item callback, not a real Go loop, so
 // continue/break there fails to build with a confusing error pointing at
-// generated code. Bails out (no flag) if the body has its own nested
-// for/switch/select, to avoid false positives without a real parser.
+// generated code. A nested for/switch/select found before any continue/break
+// makes the rest of the scan ambiguous (a later continue/break could be
+// correctly scoped to that nested block, not the outer body), so it bails
+// out with no flag rather than false-positive - but a continue/break found
+// *before* any nested block can't possibly be inside one that starts later,
+// so it's still reported even if the body goes on to contain one.
 func bareLoopControl(body string) (offset int, keyword string, found bool) {
 	sc := &scanner{src: body}
 	var controlOffset int
@@ -1962,10 +1966,10 @@ func bareLoopControl(body string) (offset int, keyword string, found bool) {
 			sc.readBlockComment()
 			continue
 		}
-		if c == 'f' && sc.isKeyword("for") {
+		if controlKeyword == "" && c == 'f' && sc.isKeyword("for") {
 			return 0, "", false
 		}
-		if c == 's' && (sc.isKeyword("switch") || sc.isKeyword("select")) {
+		if controlKeyword == "" && c == 's' && (sc.isKeyword("switch") || sc.isKeyword("select")) {
 			return 0, "", false
 		}
 		if controlKeyword == "" && c == 'c' && sc.isKeyword("continue") {

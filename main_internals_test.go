@@ -861,6 +861,127 @@ func TestTinygoBuildArgs_OutputAndPackagePathIncluded(t *testing.T) {
 	}
 }
 
+// TestCompileTinyGoOverlayFiles_PromotesKeyedFor is a regression test for a
+// real gap: buildWasmTinyGo called compiler.Compile directly, never
+// resolveForTypeHints/CompileWithHints, so a --tinygo build never promoted a
+// keyed {for} to the real DynList codegen - always the compat shape, with no
+// warning. compileTinyGoOverlayFiles is the fix: it runs the same batched
+// hint-resolution pass buildOverlay uses before returning each file's
+// goSrc.
+func TestCompileTinyGoOverlayFiles_PromotesKeyedFor(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module fixture\n\ngo 1.25.0\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	vaneSrc := `package main
+
+type ToDo struct {
+	ID   string
+	Text string
+}
+
+func F(todos []ToDo) int {
+	total := 0
+	for _, t := range todos {
+		total += len(t.Text)
+	}
+	_ = "key=" // trips maybeKeyed like a real key={} attribute would
+	return total
+}
+`
+	if err := os.WriteFile(filepath.Join(dir, "App.vane"), []byte(vaneSrc), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	files, err := compileTinyGoOverlayFiles(dir, map[string]bool{"dist": true, "public": true})
+	if err != nil {
+		t.Fatalf("compileTinyGoOverlayFiles: %v", err)
+	}
+	if len(files) != 1 {
+		t.Fatalf("got %d files, want 1", len(files))
+	}
+	if !strings.Contains(files[0].goSrc, "for _, t := range todos") {
+		t.Errorf("expected the hint-resolved output to still contain the real range loop, got:\n%s", files[0].goSrc)
+	}
+}
+
+// TestCompileTinyGoOverlayFiles_MultiFileProject exercises the same
+// undefined-symbol regression TestResolveForTypeHints_MultiFileProject
+// guards for buildOverlay: a helper declared in one file and called from
+// another, generated-only _vane.go companions never on disk, must still
+// type-check across all of a project's files, not just the maybeKeyed ones.
+func TestCompileTinyGoOverlayFiles_MultiFileProject(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module fixture\n\ngo 1.25.0\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	appSrc := `package main
+
+func F(todos []ToDo) int {
+	total := 0
+	for _, t := range todos {
+		total += weight(t)
+	}
+	_ = "key="
+	return total
+}
+`
+	helperSrc := `package main
+
+type ToDo struct {
+	ID   string
+	Text string
+}
+
+func weight(t ToDo) int { return len(t.Text) }
+`
+	if err := os.WriteFile(filepath.Join(dir, "App.vane"), []byte(appSrc), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "Helper.vane"), []byte(helperSrc), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	files, err := compileTinyGoOverlayFiles(dir, map[string]bool{"dist": true, "public": true})
+	if err != nil {
+		t.Fatalf("compileTinyGoOverlayFiles: %v", err)
+	}
+	if len(files) != 2 {
+		t.Fatalf("got %d files, want 2", len(files))
+	}
+}
+
+// TestCompileTinyGoOverlayFiles_NoKeyedForUnaffected confirms a project with
+// no keyed {for} at all (maybeKeyed never trips) round-trips through this
+// path unchanged - resolveForTypeHints itself already short-circuits when
+// nothing is flagged (see TestResolveForTypeHints_NoMaybeKeyedFiles), this
+// just confirms compileTinyGoOverlayFiles's own file-writing/walk logic
+// doesn't require a keyed {for} to work at all.
+func TestCompileTinyGoOverlayFiles_NoKeyedForUnaffected(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module fixture\n\ngo 1.25.0\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	vaneSrc := `package main
+
+func F() int { return 42 }
+`
+	if err := os.WriteFile(filepath.Join(dir, "App.vane"), []byte(vaneSrc), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	files, err := compileTinyGoOverlayFiles(dir, map[string]bool{"dist": true, "public": true})
+	if err != nil {
+		t.Fatalf("compileTinyGoOverlayFiles: %v", err)
+	}
+	if len(files) != 1 {
+		t.Fatalf("got %d files, want 1", len(files))
+	}
+	if !strings.Contains(files[0].goSrc, "func F() int { return 42 }") {
+		t.Errorf("expected naive-compiled output unchanged, got:\n%s", files[0].goSrc)
+	}
+}
+
 func TestRunWasmOpt_MissingToolIsNotAnError(t *testing.T) {
 	// Simulate wasm-opt not being on PATH by pointing PATH somewhere empty.
 	dir := t.TempDir()

@@ -442,10 +442,9 @@ func TestForLoopKeyedWithHintEmitsGenericDynList(t *testing.T) {
 	out := compileWithHints(t, src, hints)
 
 	has(t, out, `core.DynList(_vane1, func() []ToDo { return items },`)
-	// keyFn's return is wrapped in fmt.Sprint - key={} historically accepted
-	// any comparable value (an int ID, not just a string), because the old
-	// runtime property-set path coerced it via a type switch; keyFn's
-	// return type is a hard string, so this preserves that flexibility.
+	// keyFn's return is wrapped in fmt.Sprint: key={} accepts any comparable
+	// value (an int ID, not just a string), but keyFn's return type is a
+	// hard string.
 	has(t, out, `func(t ToDo) string { return fmt.Sprint(t.ID) },`)
 	has(t, out, `func(t ToDo) []core.Node {`)
 	has(t, out, `core.El("li")`)
@@ -531,10 +530,10 @@ func TestForLoopKeyedNoHintContinueCompilesFine(t *testing.T) {
 
 // TestForLoopKeyedWithHintNestedForContinueDoesNotError confirms a
 // continue that legitimately targets the user's own nested for loop
-// (not the {for}'s own, now-missing outer loop) is never flagged - the
-// conservative bail-out in bareLoopControl (skip the check entirely if
-// the body contains its own nested for/switch/select anywhere) exists
-// specifically to avoid this false positive.
+// (not the {for}'s own, now-missing outer loop) is never flagged - a
+// nested for/switch/select found before any bare continue/break makes
+// bareLoopControl bail out entirely, since anything found after it could
+// be correctly scoped to that nested block.
 func TestForLoopKeyedWithHintNestedForContinueDoesNotError(t *testing.T) {
 	src := wrap(`<ul>{for _, t := range items {
 		sum := 0
@@ -548,6 +547,85 @@ func TestForLoopKeyedWithHintNestedForContinueDoesNotError(t *testing.T) {
 	hints := []compiler.ForTypeHint{{Offset: forOffset, Type: "ToDo"}}
 	out := compileWithHints(t, src, hints)
 	has(t, out, `func(t ToDo) []core.Node {`)
+}
+
+// TestForLoopKeyedWithHintContinueBeforeUnrelatedNestedForStillErrors is a
+// regression test for a real false negative: a bare continue targeting the
+// keyed {for}'s own (now-missing) outer loop, followed later in the body by
+// an unrelated nested for loop, used to compile with no error at all -
+// bareLoopControl's old "any nested for/switch/select anywhere" bail-out
+// discarded the already-found continue just because a nested loop existed
+// somewhere after it, even though that continue appears earlier in source
+// and can't possibly be inside a loop that starts later.
+func TestForLoopKeyedWithHintContinueBeforeUnrelatedNestedForStillErrors(t *testing.T) {
+	src := wrap(`<ul>{for _, t := range items {
+		if t.Skip { continue }
+		sum := 0
+		for _, n := range t.Values {
+			sum += n
+		}
+		<li key={t.ID}>{sum}</li>
+	}}</ul>`)
+	forOffset := strings.Index(src, "for _, t")
+	hints := []compiler.ForTypeHint{{Offset: forOffset, Type: "ToDo"}}
+	_, err := compiler.CompileWithHints(src, "test.vane", hints)
+	if err == nil {
+		t.Fatal("expected a compile error for the outer continue, got none")
+	}
+	msg := err.Error()
+	if !strings.Contains(msg, "continue") || !strings.Contains(msg, "no loop to target") {
+		t.Fatalf("error message doesn't explain the real problem: %v", msg)
+	}
+}
+
+// TestForLoopKeyedWithHintBreakBeforeUnrelatedNestedForStillErrors is the
+// break-keyword sibling of the continue case above.
+func TestForLoopKeyedWithHintBreakBeforeUnrelatedNestedForStillErrors(t *testing.T) {
+	src := wrap(`<ul>{for _, t := range items {
+		if t.Skip { break }
+		sum := 0
+		for _, n := range t.Values {
+			sum += n
+		}
+		<li key={t.ID}>{sum}</li>
+	}}</ul>`)
+	forOffset := strings.Index(src, "for _, t")
+	hints := []compiler.ForTypeHint{{Offset: forOffset, Type: "ToDo"}}
+	_, err := compiler.CompileWithHints(src, "test.vane", hints)
+	if err == nil {
+		t.Fatal("expected a compile error for the outer break, got none")
+	}
+	msg := err.Error()
+	if !strings.Contains(msg, "break") || !strings.Contains(msg, "no loop to target") {
+		t.Fatalf("error message doesn't explain the real problem: %v", msg)
+	}
+}
+
+// TestForLoopKeyedWithHintOuterContinueBeforeNestedCorrectlyScopedContinue
+// covers the harder mixed case: a bare outer continue (invalid) followed by
+// a nested for loop that has its own correctly-scoped continue (valid).
+// Only the outer one should be flagged - the nested loop's own continue must
+// not confuse bareLoopControl into re-detecting or discarding anything.
+func TestForLoopKeyedWithHintOuterContinueBeforeNestedCorrectlyScopedContinue(t *testing.T) {
+	src := wrap(`<ul>{for _, t := range items {
+		if t.Skip { continue }
+		sum := 0
+		for _, n := range t.Values {
+			if n < 0 { continue }
+			sum += n
+		}
+		<li key={t.ID}>{sum}</li>
+	}}</ul>`)
+	forOffset := strings.Index(src, "for _, t")
+	hints := []compiler.ForTypeHint{{Offset: forOffset, Type: "ToDo"}}
+	_, err := compiler.CompileWithHints(src, "test.vane", hints)
+	if err == nil {
+		t.Fatal("expected a compile error for the outer continue, got none")
+	}
+	msg := err.Error()
+	if !strings.Contains(msg, "continue") || !strings.Contains(msg, "no loop to target") {
+		t.Fatalf("error message doesn't explain the real problem: %v", msg)
+	}
 }
 
 func TestForLoopKeyedWithHintAtWrongOffsetUsesCompatShape(t *testing.T) {

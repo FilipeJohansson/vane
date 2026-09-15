@@ -77,6 +77,9 @@ func tinygoBuildArgs(wasmOut string, debug, release bool) []string {
 // standard Go builds. Previously these flags were silently ignored for
 // --tinygo builds, `vane build --tinygo --release` produced a binary
 // indistinguishable from a dev build.
+//
+// Like buildOverlay, a keyed {for} promotes to the real DynList codegen only
+// once its element type is resolved - see compileTinyGoOverlayFiles.
 func buildWasmTinyGo(dir string, debug bool, sourceURLBase string, release, skipOptimize bool) error {
 	abs, err := filepath.Abs(dir)
 	if err != nil {
@@ -93,48 +96,20 @@ func buildWasmTinyGo(dir string, debug bool, sourceURLBase string, release, skip
 		}
 	}()
 
+	overlayFiles, err := compileTinyGoOverlayFiles(abs, skipDirs)
+	if err != nil {
+		return err
+	}
+
 	n := 0
-	walkErr := filepath.WalkDir(abs, func(path string, d fs.DirEntry, e error) error { // #nosec G703 -- abs is the developer-selected project directory
-		if e != nil {
-			return e
-		}
-		if d.IsDir() {
-			if skipDirs[d.Name()] {
-				return filepath.SkipDir
-			}
-			return nil
-		}
-		if !strings.HasSuffix(path, ".vane") {
-			return nil
-		}
-
-		src, err := os.ReadFile(path) // #nosec G304 G122 -- path is discovered by walking the developer's own project dir, not attacker input
-		if err != nil {
+	for i := range overlayFiles {
+		f := &overlayFiles[i]
+		if err := os.WriteFile(f.goPath, []byte(f.goSrc), 0o600); err != nil { // #nosec G703 G122 -- goPath is derived from a path found while walking the developer's own project dir, not attacker input
 			return err
 		}
-
-		// Always use the absolute path of the original .vane file.
-		// TinyGo's LLVM backend embeds //line values verbatim in DWARF, it
-		// does not resolve HTTP URLs. Absolute paths let Chrome open the file
-		// directly as file:///..., which works because .vane files are on disk.
-		lineFilename := filepath.ToSlash(path)
-
-		goSrc, err := compiler.Compile(string(src), lineFilename)
-		if err != nil {
-			return fmt.Errorf("%s: %w", path, err)
-		}
-
-		goPath := strings.TrimSuffix(path, ".vane") + "_vane.go"
-		if err := os.WriteFile(goPath, []byte(goSrc), 0o600); err != nil { // #nosec G703 G122 -- goPath is derived from a path found while walking the developer's own project dir, not attacker input
-			return err
-		}
-		written = append(written, goPath)
-		fmt.Printf("compiled: %s\n", filepath.Base(path))
+		written = append(written, f.goPath)
+		fmt.Printf("compiled: %s\n", filepath.Base(f.path))
 		n++
-		return nil
-	})
-	if walkErr != nil {
-		return walkErr
 	}
 	if n > 0 {
 		fmt.Printf("compiled %d .vane file(s)\n", n)
@@ -199,6 +174,77 @@ func buildWasmTinyGo(dir string, debug bool, sourceURLBase string, release, skip
 
 	fmt.Println("done →", distDir)
 	return nil
+}
+
+// compileTinyGoOverlayFiles walks abs for .vane files, naive-compiles each,
+// then runs the same batched resolveForTypeHints pass buildOverlay uses so a
+// keyed {for} promotes to the real DynList codegen under --tinygo too - it
+// previously never did, since this path calls compiler.Compile directly.
+// Returns overlayFile.goSrc already recompiled with hints where resolvable.
+func compileTinyGoOverlayFiles(abs string, skipDirs map[string]bool) ([]overlayFile, error) {
+	var overlayFiles []overlayFile
+	walkErr := filepath.WalkDir(abs, func(path string, d fs.DirEntry, e error) error { // #nosec G703 -- abs is the developer-selected project directory
+		if e != nil {
+			return e
+		}
+		if d.IsDir() {
+			if skipDirs[d.Name()] {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+		if !strings.HasSuffix(path, ".vane") {
+			return nil
+		}
+
+		src, err := os.ReadFile(path) // #nosec G304 G122 -- path is discovered by walking the developer's own project dir, not attacker input
+		if err != nil {
+			return err
+		}
+
+		// Always use the absolute path of the original .vane file.
+		// TinyGo's LLVM backend embeds //line values verbatim in DWARF, it
+		// does not resolve HTTP URLs. Absolute paths let Chrome open the file
+		// directly as file:///..., which works because .vane files are on disk.
+		lineFilename := filepath.ToSlash(path)
+
+		goSrc, err := compiler.Compile(string(src), lineFilename)
+		if err != nil {
+			return fmt.Errorf("%s: %w", path, err)
+		}
+
+		overlayFiles = append(overlayFiles, overlayFile{
+			path:         path,
+			lineFilename: lineFilename,
+			src:          string(src),
+			goPath:       strings.TrimSuffix(path, ".vane") + "_vane.go",
+			goSrc:        goSrc,
+			maybeKeyed:   strings.Contains(string(src), "key="),
+		})
+		return nil
+	})
+	if walkErr != nil {
+		return nil, walkErr
+	}
+
+	hints, hintErr := resolveForTypeHints(abs, overlayFiles)
+	if hintErr != nil {
+		return nil, fmt.Errorf("resolving list element types: %w", hintErr)
+	}
+
+	for i := range overlayFiles {
+		f := &overlayFiles[i]
+		fileHints := hints[f.goPath]
+		if len(fileHints) == 0 {
+			continue
+		}
+		recompiled, err := compiler.CompileWithHints(f.src, f.lineFilename, fileHints)
+		if err != nil {
+			return nil, fmt.Errorf("%s: %w", f.path, err)
+		}
+		f.goSrc = recompiled
+	}
+	return overlayFiles, nil
 }
 
 // tinygoEnv returns os.Environ() with a Windows-specific fix: when GOROOT is on
