@@ -3,11 +3,10 @@
 // benchmarks/{vane-items,vane-for,vane-list}/dist - the three documented
 // list patterns ({items()...}+key, {for}+key, {for}+key over
 // core.List[T]) - added alongside React/Svelte/Solid, so all six can be
-// compared under identical conditions in one run. Run from the repo root:
-// node benchmarks/runner/bench-three-way.mjs
-//
-// See internal_docs/1.0.0/dynlist-three-way-benchmark.md for why this
-// exists as a separate script rather than changing bench.mjs's own APPS.
+// compared under identical conditions in one run. Kept as a separate
+// script rather than changing bench.mjs's own APPS list, since that one
+// compares frameworks, not this project's own internal list patterns.
+// Run from the repo root: node benchmarks/runner/bench-three-way.mjs
 
 import http from "node:http";
 import fs from "node:fs";

@@ -3,8 +3,8 @@
 package core_test
 
 // Tests in this file run against a jsdom-backed DOM via
-// tools/wasmtest/wasm_test_exec.js, no real browser needed. See
-// internal_docs/testing.md for how to run them.
+// tools/wasmtest/wasm_test_exec.js, no real browser needed. Run with
+// GOOS=js GOARCH=wasm go test -exec="node tools/wasmtest/wasm_test_exec.js" ./core/...
 
 import (
 	"fmt"

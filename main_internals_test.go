@@ -1058,7 +1058,7 @@ func TestRunWasmOpt_MissingToolIsNotAnError(t *testing.T) {
 
 func TestRunWasmOpt_InvalidInputReturnsError(t *testing.T) {
 	if _, err := exec.LookPath("wasm-opt"); err != nil {
-		t.Skip("wasm-opt not installed, skipping (optional dependency, see internal_docs/next-steps.md gap #11)")
+		t.Skip("wasm-opt not installed, skipping (optional dependency)")
 	}
 	wasmPath := filepath.Join(t.TempDir(), "app.wasm")
 	if err := os.WriteFile(wasmPath, []byte("not a real wasm file"), 0o600); err != nil {

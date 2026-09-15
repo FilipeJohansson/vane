@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"fmt"
 	"io"
+	"math"
 	"strconv"
 	"strings"
 )
@@ -52,8 +53,13 @@ func ReadMessage(r *bufio.Reader) (Message, error) {
 // internal/lsp's keyed-for resolution, which writes to gopls's stdin from
 // its own goroutine alongside the main editor-proxy loop).
 func WriteMessage(w io.Writer, msg Message) error {
-	header := fmt.Sprintf("Content-Length: %d\r\n\r\n", len(msg))
-	buf := make([]byte, 0, len(header)+len(msg))
+	msgLen := len(msg)
+	header := fmt.Sprintf("Content-Length: %d\r\n\r\n", msgLen)
+	headerLen := len(header)
+	if msgLen > math.MaxInt-headerLen {
+		return fmt.Errorf("message too large")
+	}
+	buf := make([]byte, 0, headerLen+msgLen)
 	buf = append(buf, header...)
 	buf = append(buf, msg...)
 	_, err := w.Write(buf)
