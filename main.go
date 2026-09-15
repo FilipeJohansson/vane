@@ -726,7 +726,6 @@ type overlayFile struct {
 	lineFilename string // //line directive filename for the real, shipped output
 	src          string
 	goPath       string // virtual _vane.go path, the overlay key
-	tfPath       string // real temp file on disk backing goPath
 	goSrc        string // naive-compiled Go source (no hints)
 	maybeKeyed   bool   // cheap heuristic: might contain a keyed {for}
 }
