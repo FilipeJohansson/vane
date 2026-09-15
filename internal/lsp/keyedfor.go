@@ -15,6 +15,7 @@ import (
 	"unicode/utf16"
 
 	"github.com/filipejohansson/vane/internal/compiler"
+	"github.com/filipejohansson/vane/internal/typeresolve"
 )
 
 // This file resolves a keyed {for}'s range value variable's concrete type
@@ -52,16 +53,7 @@ func findKeyedForCandidates(strippedGo, vaneText string, sm *compiler.SourceMap)
 	goLines := strings.Split(strippedGo, "\n")
 
 	var out []keyedForCandidate
-	ast.Inspect(f, func(n ast.Node) bool {
-		rs, ok := n.(*ast.RangeStmt)
-		if !ok {
-			return true
-		}
-		id, ok := rs.Value.(*ast.Ident)
-		if !ok || id.Name == "" || id.Name == "_" {
-			return true
-		}
-
+	typeresolve.WalkNamedRangeValues(f, func(rs *ast.RangeStmt, id *ast.Ident) {
 		// The stripped-go line differs from the .vane line (extra //line
 		// comment lines above it were removed), but the column of id within
 		// its own physical "for ... range ..." line is identical either
@@ -70,11 +62,11 @@ func findKeyedForCandidates(strippedGo, vaneText string, sm *compiler.SourceMap)
 		forPos := fset.Position(rs.For)
 		vaneLine, _, ok := sm.GoToVane(forPos.Line-1, 0)
 		if !ok {
-			return true
+			return
 		}
 		offset, ok := compiler.OffsetOfForOnLine(vaneText, vaneLine+1)
 		if !ok {
-			return true
+			return
 		}
 
 		idPos := fset.Position(id.Pos())
@@ -87,7 +79,6 @@ func findKeyedForCandidates(strippedGo, vaneText string, sm *compiler.SourceMap)
 			hoverCol:  hoverCol,
 			forOffset: offset,
 		})
-		return true
 	})
 	return out
 }

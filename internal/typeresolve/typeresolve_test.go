@@ -2,6 +2,9 @@ package typeresolve_test
 
 import (
 	"fmt"
+	"go/ast"
+	"go/parser"
+	"go/token"
 	"os"
 	"path/filepath"
 	"testing"
@@ -358,5 +361,86 @@ func F(rows []*d.Row) {
 	}
 	if packages.PrintErrors(pkgs) > 0 {
 		t.Fatalf("resolved type %q does not produce compiling Go", got)
+	}
+}
+
+// parseSrc parses src (a full Go source file) for the WalkNamedRangeValues
+// tests below - a plain go/parser.ParseFile, no go/types/go/packages needed,
+// since WalkNamedRangeValues works on syntax alone (see internal/lsp's own
+// hover-based caller, which never has type info either).
+func parseSrc(t *testing.T, src string) *ast.File {
+	t.Helper()
+	f, err := parser.ParseFile(token.NewFileSet(), "", src, 0)
+	if err != nil {
+		t.Fatalf("parser.ParseFile: %v", err)
+	}
+	return f
+}
+
+func walkedNames(t *testing.T, src string) []string {
+	t.Helper()
+	var names []string
+	typeresolve.WalkNamedRangeValues(parseSrc(t, src), func(_ *ast.RangeStmt, id *ast.Ident) {
+		names = append(names, id.Name)
+	})
+	return names
+}
+
+// TestWalkNamedRangeValues_NamedValue is the ordinary case both
+// RangeVarTypesInFile and internal/lsp's findKeyedForCandidates key their
+// resolution off of - the exact shape they used to duplicate their own
+// parallel AST walks to detect.
+func TestWalkNamedRangeValues_NamedValue(t *testing.T) {
+	got := walkedNames(t, "package main\nfunc F(xs []int) {\n\tfor _, x := range xs {\n\t\t_ = x\n\t}\n}\n")
+	if len(got) != 1 || got[0] != "x" {
+		t.Fatalf("got %v, want [x]", got)
+	}
+}
+
+// TestWalkNamedRangeValues_BlankValueSkipped confirms an explicit blank
+// value variable ("for _, _ := range") is excluded - it names nothing worth
+// keying on, and both callers relied on this exact exclusion.
+func TestWalkNamedRangeValues_BlankValueSkipped(t *testing.T) {
+	got := walkedNames(t, "package main\nfunc F(xs []int) {\n\tfor _, _ = range xs {\n\t}\n}\n")
+	if len(got) != 0 {
+		t.Fatalf("got %v, want none (blank value)", got)
+	}
+}
+
+// TestWalkNamedRangeValues_IndexOnlySkipped confirms a range with no value
+// variable at all ("for i := range" or bare "for range") yields nothing -
+// there's no per-item value to key a list on.
+func TestWalkNamedRangeValues_IndexOnlySkipped(t *testing.T) {
+	got := walkedNames(t, "package main\nfunc F(xs []int) {\n\tfor i := range xs {\n\t\t_ = i\n\t}\n\tfor range xs {\n\t}\n}\n")
+	if len(got) != 0 {
+		t.Fatalf("got %v, want none (index-only/bare range)", got)
+	}
+}
+
+// TestWalkNamedRangeValues_MultipleAndNested confirms every named-value
+// range in a file is found, including one nested inside another - a single
+// AST walk must not stop at the first match or miss inner statements.
+func TestWalkNamedRangeValues_MultipleAndNested(t *testing.T) {
+	got := walkedNames(t, `package main
+
+func F(rows [][]int) {
+	for _, r := range rows {
+		for _, n := range r {
+			_ = n
+		}
+	}
+	for _, r := range rows {
+		_ = r
+	}
+}
+`)
+	want := []string{"r", "n", "r"}
+	if len(got) != len(want) {
+		t.Fatalf("got %v, want %v", got, want)
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Fatalf("got %v, want %v", got, want)
+		}
 	}
 }

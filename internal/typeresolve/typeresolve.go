@@ -94,15 +94,7 @@ type RangeVarType struct {
 func RangeVarTypesInFile(pkg *packages.Package, file *ast.File) []RangeVarType {
 	qualifier := FileQualifier(file, pkg.Types)
 	var results []RangeVarType
-	ast.Inspect(file, func(n ast.Node) bool {
-		rs, ok := n.(*ast.RangeStmt)
-		if !ok {
-			return true
-		}
-		id, ok := rs.Value.(*ast.Ident)
-		if !ok {
-			return true
-		}
+	WalkNamedRangeValues(file, func(rs *ast.RangeStmt, id *ast.Ident) {
 		obj := pkg.TypesInfo.Defs[id]
 		if obj == nil {
 			// rs.Value assigns an already-declared variable (range ... = ...
@@ -111,7 +103,7 @@ func RangeVarTypesInFile(pkg *packages.Package, file *ast.File) []RangeVarType {
 		}
 		v, ok := obj.(*types.Var)
 		if !ok {
-			return true
+			return
 		}
 		pos := pkg.Fset.Position(rs.For)
 		results = append(results, RangeVarType{
@@ -119,7 +111,27 @@ func RangeVarTypesInFile(pkg *packages.Package, file *ast.File) []RangeVarType {
 			Line:     pos.Line,
 			Type:     types.TypeString(v.Type(), qualifier),
 		})
-		return true
 	})
 	return results
+}
+
+// WalkNamedRangeValues calls fn for every for-range statement in file whose
+// value variable is a named, non-blank identifier ("for _, x := range" - not
+// "for range", not "for i := range" with no value, not an explicit blank
+// "for _, _ := range"). The shared "is this loop's value worth keying on"
+// test both this package's own type-info-based resolution and
+// internal/lsp's hover-based one start from.
+func WalkNamedRangeValues(file *ast.File, fn func(rs *ast.RangeStmt, id *ast.Ident)) {
+	ast.Inspect(file, func(n ast.Node) bool {
+		rs, ok := n.(*ast.RangeStmt)
+		if !ok {
+			return true
+		}
+		id, ok := rs.Value.(*ast.Ident)
+		if !ok || id.Name == "" || id.Name == "_" {
+			return true
+		}
+		fn(rs, id)
+		return true
+	})
 }
