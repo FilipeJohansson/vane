@@ -10,6 +10,7 @@ import (
 	"strings"
 	"testing"
 	"time"
+	"unicode/utf16"
 
 	"github.com/filipejohansson/vane/internal/compiler"
 )
@@ -84,6 +85,87 @@ func TestFindKeyedForCandidates_KeyedFor(t *testing.T) {
 
 	if c.forOffset < 0 || c.forOffset+3 > len(keyedForFixtureSrc) || keyedForFixtureSrc[c.forOffset:c.forOffset+3] != "for" {
 		t.Fatalf("forOffset %d doesn't point at \"for\" in the .vane source", c.forOffset)
+	}
+}
+
+// TestUTF16Column is a direct unit test of the byte-to-UTF-16 conversion
+// hoverCol now uses (item 18): a hover position sent to gopls over
+// JSON-RPC is a UTF-16 code unit offset, not a byte offset - the two only
+// coincide when everything before the target on that line is ASCII.
+func TestUTF16Column(t *testing.T) {
+	tests := []struct {
+		name    string
+		line    string
+		byteCol int
+		want    int
+	}{
+		{"pure ASCII, matches byte offset", "for _, t := range items {", 7, 7},
+		{"2-byte UTF-8 char before target shifts by 1", "café, t := range items {", 6, 5},
+		{"3-byte UTF-8 char before target shifts by 2", "€uro, t := range items {", 6, 4},
+		// An astral character (outside the BMP, e.g. an emoji) is 4 UTF-8
+		// bytes but a UTF-16 surrogate pair (2 code units) - shifts by 2.
+		{"astral char before target shifts by 2", "\U0001F600x, t := range items {", 7, 5},
+		{"byteCol at start is always 0", "café, t := range items {", 0, 0},
+		{"byteCol past end of line clamps", "abc", 10, 3},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := utf16Column(tc.line, tc.byteCol); got != tc.want {
+				t.Errorf("utf16Column(%q, %d) = %d, want %d", tc.line, tc.byteCol, got, tc.want)
+			}
+		})
+	}
+}
+
+// TestFindKeyedForCandidates_NonASCIIIndexVarShiftsHoverColumn is an
+// end-to-end regression test for item 18: a non-ASCII index variable name
+// (valid Go - unicode letters are legal in identifiers) sitting before the
+// range value variable on the same generated line used to leave hoverCol at
+// the raw byte column, landing gopls's hover one position short of the real
+// variable in UTF-16 terms. Decodes the actual hover line as UTF-16 (what
+// gopls itself does) and confirms hoverCol lands exactly on the value var.
+func TestFindKeyedForCandidates_NonASCIIIndexVarShiftsHoverColumn(t *testing.T) {
+	src := "package main\n" +
+		"import \"syscall/js\"\n" +
+		"func F() js.Value {\n" +
+		"\treturn (\n" +
+		"\t\t<ul>{for í, t := range items {\n" +
+		"\t\t\t<li key={t.ID}>{t.Text}</li>\n" +
+		"\t\t}}</ul>\n" +
+		"\t)\n" +
+		"}\n"
+	goSrc, sm, err := compiler.CompileWithMap(src, "Test.vane")
+	if err != nil {
+		t.Fatalf("compile: %v", err)
+	}
+	strippedGo := stripLineDirectives(goSrc)
+
+	candidates := findKeyedForCandidates(strippedGo, src, sm)
+	if len(candidates) != 1 {
+		t.Fatalf("want 1 candidate, got %d: %+v", len(candidates), candidates)
+	}
+	c := candidates[0]
+
+	goLines := strings.Split(strippedGo, "\n")
+	if c.hoverLine < 0 || c.hoverLine >= len(goLines) {
+		t.Fatalf("hoverLine %d out of range (%d lines)", c.hoverLine, len(goLines))
+	}
+	units := utf16.Encode([]rune(goLines[c.hoverLine]))
+	if c.hoverCol < 0 || c.hoverCol >= len(units) || units[c.hoverCol] != 't' {
+		t.Fatalf("UTF-16-decoded hover position %d doesn't land on the range value variable: line=%q, units=%v",
+			c.hoverCol, goLines[c.hoverLine], units)
+	}
+
+	// The old byte-based column would have been one past this (the index
+	// var "í" is 2 UTF-8 bytes but 1 UTF-16 code unit) - confirm the fix
+	// actually changed something on this fixture, not a no-op.
+	line := goLines[c.hoverLine]
+	byteCol := strings.Index(line, "t := range")
+	if byteCol < 0 {
+		t.Fatalf("fixture setup: %q doesn't contain the expected range header", line)
+	}
+	if c.hoverCol == byteCol {
+		t.Fatal("hoverCol equals the old byte-based column - fixture didn't actually diverge, test proves nothing")
 	}
 }
 

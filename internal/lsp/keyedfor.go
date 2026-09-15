@@ -12,6 +12,7 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"unicode/utf16"
 
 	"github.com/filipejohansson/vane/internal/compiler"
 )
@@ -48,6 +49,7 @@ func findKeyedForCandidates(strippedGo, vaneText string, sm *compiler.SourceMap)
 	if err != nil {
 		return nil
 	}
+	goLines := strings.Split(strippedGo, "\n")
 
 	var out []keyedForCandidate
 	ast.Inspect(f, func(n ast.Node) bool {
@@ -76,14 +78,33 @@ func findKeyedForCandidates(strippedGo, vaneText string, sm *compiler.SourceMap)
 		}
 
 		idPos := fset.Position(id.Pos())
+		hoverCol := idPos.Column - 1
+		if idPos.Line-1 < len(goLines) {
+			hoverCol = utf16Column(goLines[idPos.Line-1], hoverCol)
+		}
 		out = append(out, keyedForCandidate{
 			hoverLine: idPos.Line - 1,
-			hoverCol:  idPos.Column - 1,
+			hoverCol:  hoverCol,
 			forOffset: offset,
 		})
 		return true
 	})
 	return out
+}
+
+// utf16Column converts byteCol, a 0-based byte offset into line (as
+// go/token's Position.Column - 1 gives), to the equivalent 0-based UTF-16
+// code unit offset the LSP protocol's hover position actually needs. Equal
+// to byteCol only when everything before it is ASCII - a non-ASCII
+// identifier or comment earlier on the same line (e.g. a range variable named
+// with an accented letter, or a "//" comment containing one) shifts them
+// apart, since UTF-8 multi-byte sequences and UTF-16 surrogate pairs don't
+// count the same way.
+func utf16Column(line string, byteCol int) int {
+	if byteCol > len(line) {
+		byteCol = len(line)
+	}
+	return len(utf16.Encode([]rune(line[:byteCol])))
 }
 
 // parseHoverVarType parses a gopls hover value for a "var <name> <Type>"
