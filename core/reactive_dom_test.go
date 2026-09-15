@@ -529,11 +529,11 @@ func TestDynListUnkeyedNilRenderHasZeroDOMFootprint(t *testing.T) {
 		Skip bool
 	}
 	rows := core.NewSignal([]row{
-		{"1", true},  // nil at the start
+		{"1", true}, // nil at the start
 		{"2", false},
-		{"3", true},  // nil in the middle
+		{"3", true}, // nil in the middle
 		{"4", false},
-		{"5", true},  // nil at the end
+		{"5", true}, // nil at the end
 	})
 
 	core.DynList(parent, rows.Get, func(row) string { return "" }, func(r row) []core.Node {

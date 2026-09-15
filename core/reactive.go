@@ -412,8 +412,8 @@ func stableIndices(refIndices []int) []int {
 	if n == 0 {
 		return nil
 	}
-	tails := make([]int, 0, n)  // tails[k] = index into refIndices ending the best length-(k+1) run found so far
-	prev := make([]int, n)      // prev[i] = index into refIndices of i's predecessor in its own run, or -1
+	tails := make([]int, 0, n) // tails[k] = index into refIndices ending the best length-(k+1) run found so far
+	prev := make([]int, n)     // prev[i] = index into refIndices of i's predecessor in its own run, or -1
 	for i, v := range refIndices {
 		if v < 0 {
 			prev[i] = -1

@@ -12,6 +12,11 @@ import (
 // Message is a raw LSP/JSONRPC message body (JSON bytes).
 type Message []byte
 
+// maxMessageSize bounds LSP payloads read or written - 64 MiB is comfortably
+// below int overflow range while far above any real LSP message, so a
+// malformed or malicious Content-Length can't drive an unbounded allocation.
+const maxMessageSize = 64 * 1024 * 1024
+
 // ReadMessage reads one LSP message from r.
 // Format: "Content-Length: N\r\n\r\n" followed by N bytes of JSON.
 func ReadMessage(r *bufio.Reader) (Message, error) {
@@ -39,6 +44,9 @@ func ReadMessage(r *bufio.Reader) (Message, error) {
 	if contentLength < 0 {
 		return nil, fmt.Errorf("missing Content-Length header")
 	}
+	if contentLength > maxMessageSize {
+		return nil, fmt.Errorf("Content-Length too large: %d", contentLength)
+	}
 
 	body := make([]byte, contentLength)
 	if _, err := io.ReadFull(r, body); err != nil {
@@ -54,6 +62,9 @@ func ReadMessage(r *bufio.Reader) (Message, error) {
 // its own goroutine alongside the main editor-proxy loop).
 func WriteMessage(w io.Writer, msg Message) error {
 	msgLen := len(msg)
+	if msgLen > maxMessageSize {
+		return fmt.Errorf("message too large: %d", msgLen)
+	}
 	header := fmt.Sprintf("Content-Length: %d\r\n\r\n", msgLen)
 	headerLen := len(header)
 	if msgLen > math.MaxInt-headerLen {
