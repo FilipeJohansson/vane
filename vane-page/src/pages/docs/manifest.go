@@ -29,6 +29,7 @@ var Manifest = []Topic{
 
 	{Slug: "components", Title: "Components", Summary: "Functions, children, the controller pattern.", Category: "Build Your UI"},
 	{Slug: "jsx-syntax", Title: "JSX Syntax", Summary: "Full prop/event table, inline for/if/switch.", Category: "Build Your UI"},
+	{Slug: "lists", Title: "Lists", Summary: "The {for}+key pattern to reach for by default, {items()...} for raw nodes, and core.List[T] for field-level reactive collections.", Category: "Build Your UI"},
 	{Slug: "style", Title: "Styles and CSS", Summary: "The core.Style struct and co-located CSS.", Category: "Build Your UI"},
 
 	{Slug: "routing", Title: "Routing", Summary: "Router, params, layouts, ActiveLink.", Category: "Data & Navigation"},

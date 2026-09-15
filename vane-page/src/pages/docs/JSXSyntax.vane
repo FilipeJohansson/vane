@@ -262,7 +262,9 @@ func JSXSyntax() core.Node {
 				{components.CodeBlock("TodoList.vane", jsxForSnippet)}
 				<p className="docs-p">
 					Go code before the JSX element runs per-iteration as setup. Add <code>key={"{t.id}"}</code> for
-					keyed reconciliation.
+					keyed reconciliation - the recommended default for most reactive lists.
+					See {apiDocLink("lists", "Lists")} for how to write lists, every pattern
+					available, and the real difference between them.
 				</p>
 
 				<p className="docs-p"><strong>if</strong></p>
@@ -283,19 +285,22 @@ func JSXSyntax() core.Node {
 
 				<h2 className="docs-h2" id="reactive-lists">Reactive lists</h2>
 				<p className="docs-p">
-					Use <code>{"{items()...}"}</code> (spread) to render a reactive list. Build the
-					nodes in a separate function, JSX must be inside a <code>return</code>:
+					<code>{"{items()...}"}</code> (spread) is the other reactive list
+					construct, alongside the <code>{"{for}"}</code> loop above - reach for
+					it when the node-building function needs to return raw{" "}
+					<code>[]core.Node</code> directly. Build the nodes in a separate
+					function, JSX must be inside a <code>return</code>:
 				</p>
 				{components.CodeBlock("TodoList.vane", jsxListSnippet)}
 
 				<p className="docs-p">
-					Add <code>key={"{expr}"}</code> to the root element of each list item to switch{" "}
-					<code>{"{items()...}"}</code> to keyed reconciliation. A single-item change (add,
-					remove, reorder) then touches exactly one DOM node instead of rebuilding the
-					whole list:
+					Add <code>key={"{expr}"}</code> to the root element of each list item to
+					switch <code>{"{items()...}"}</code> to keyed reconciliation: adding,
+					removing, or reordering items then only touches what actually moved,
+					instead of rebuilding the whole list:
 				</p>
 				{components.CodeBlock("TodoList.vane", jsxKeyedListSnippet)}
-				{callout("tip", "Tip", "Without key, {items()...} rebuilds the entire list on every change.")}
+				{callout("tip", "Tip", "Without key, {items()...} rebuilds the entire list on every change. See ", apiDocLink("lists", "Lists"), " for how to write lists, every pattern available, and the real difference between them.")}
 
 				{pageNav("jsx-syntax")}
 			</article>

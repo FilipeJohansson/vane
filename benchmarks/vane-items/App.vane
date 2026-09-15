@@ -1,0 +1,144 @@
+package main
+
+import (
+	"math/rand"
+	"strconv"
+
+	"github.com/filipejohansson/vane/core"
+)
+
+// Row data generation, matching js-framework-benchmark's own word lists and
+// random-pick formula (frameworks/keyed/vanillajs/src/Main.js in
+// krausest/js-framework-benchmark), duplicated per framework app the same
+// way that reference repo itself does.
+var adjectives = []string{
+	"pretty", "large", "big", "small", "tall", "short", "long", "handsome",
+	"plain", "quaint", "clean", "elegant", "easy", "angry", "crazy", "helpful",
+	"mushy", "odd", "unsightly", "adorable", "important", "inexpensive",
+	"cheap", "expensive", "fancy",
+}
+var colours = []string{
+	"red", "yellow", "blue", "green", "pink", "brown", "purple", "brown",
+	"white", "black", "orange",
+}
+var nouns = []string{
+	"table", "chair", "house", "bbq", "desk", "car", "pony", "cookie",
+	"sandwich", "burger", "pizza", "mouse", "keyboard",
+}
+
+type Row struct {
+	ID    int
+	Label string
+}
+
+var nextID = 1
+
+func buildData(count int) []Row {
+	rows := make([]Row, count)
+	for i := 0; i < count; i++ {
+		rows[i] = Row{
+			ID: nextID,
+			Label: adjectives[rand.Intn(len(adjectives))] + " " +
+				colours[rand.Intn(len(colours))] + " " +
+				nouns[rand.Intn(len(nouns))],
+		}
+		nextID++
+	}
+	return rows
+}
+
+func rowNode(r Row, selected *core.Signal[int], onSelect, onRemove func(int)) core.Node {
+	return (
+		<tr key={r.ID} className={func() string {
+			if selected.Get() == r.ID {
+				return "danger"
+			}
+			return ""
+		}()}>
+			<td className="col-id">{strconv.Itoa(r.ID)}</td>
+			<td className="col-label">
+				<a onClick={func(core.MouseEvent) { onSelect(r.ID) }}>{r.Label}</a>
+			</td>
+			<td className="col-remove">
+				<a onClick={func(core.MouseEvent) { onRemove(r.ID) }}>x</a>
+			</td>
+			<td className="col-spacer"></td>
+		</tr>
+	)
+}
+
+func App() core.Node {
+	data := core.NewSignal([]Row{})
+	selected := core.NewSignal(0)
+
+	onSelect := func(id int) { selected.Set(id) }
+	onRemove := func(id int) {
+		cur := data.Get()
+		next := make([]Row, 0, len(cur))
+		for _, r := range cur {
+			if r.ID != id {
+				next = append(next, r)
+			}
+		}
+		data.Set(next)
+	}
+
+	run := func(core.MouseEvent) {
+		data.Set(buildData(1000))
+		selected.Set(0)
+	}
+	runLots := func(core.MouseEvent) {
+		data.Set(buildData(10000))
+		selected.Set(0)
+	}
+	add := func(core.MouseEvent) {
+		data.Set(append(append([]Row{}, data.Get()...), buildData(1000)...))
+	}
+	update := func(core.MouseEvent) {
+		cur := data.Get()
+		next := make([]Row, len(cur))
+		copy(next, cur)
+		for i := 0; i < len(next); i += 10 {
+			next[i].Label += " !!!"
+		}
+		data.Set(next)
+	}
+	clear := func(core.MouseEvent) {
+		data.Set(nil)
+		selected.Set(0)
+	}
+	swapRows := func(core.MouseEvent) {
+		cur := data.Get()
+		if len(cur) < 999 {
+			return
+		}
+		next := append([]Row{}, cur...)
+		next[1], next[998] = next[998], next[1]
+		data.Set(next)
+	}
+
+	items := func() []core.Node {
+		cur := data.Get()
+		nodes := make([]core.Node, len(cur))
+		for i, r := range cur {
+			nodes[i] = rowNode(r, selected, onSelect, onRemove)
+		}
+		return nodes
+	}
+
+	return (
+		<div id="main">
+			<div id="controls">
+				<button id="run" onClick={run}>Create 1,000 rows</button>
+				<button id="runlots" onClick={runLots}>Create 10,000 rows</button>
+				<button id="add" onClick={add}>Append 1,000 rows</button>
+				<button id="update" onClick={update}>Update every 10th row</button>
+				<button id="clear" onClick={clear}>Clear</button>
+				<button id="swaprows" onClick={swapRows}>Swap Rows</button>
+			</div>
+			<table>
+				<tbody id="tbody">{items()...}</tbody>
+			</table>
+		</div>
+	)
+}

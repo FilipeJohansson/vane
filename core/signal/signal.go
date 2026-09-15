@@ -19,6 +19,12 @@ var EffectPanicHandler func(recovered any)
 // hook still get a diagnostic instead of a silent freeze.
 var LoopWatchdogHandler func(message string)
 
+// WarnHandler, if set, is called for a developer-facing misuse warning (e.g.
+// List's own duplicate-key detection) that isn't fatal enough to panic over.
+// Set by the core package to core.Warn, so this package stays free of a
+// syscall/js dependency of its own.
+var WarnHandler func(message string)
+
 //* Scope
 
 // Scope collects the disposers registered (via RegisterDispose) while fn runs

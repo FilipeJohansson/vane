@@ -42,6 +42,14 @@ func Serve(editorIn io.Reader, editorOut io.Writer) error {
 
 	store := newDocStore()
 
+	// goplsIn gets a real writer (gopls.StdinPipe()) and, from here on, two
+	// concurrent writers: the editor-proxy loop below, and the async
+	// keyed-{for} resolution goroutines it can spawn (see keyedfor.go).
+	// syncWriter is what makes that safe - see its own doc comment.
+	safeGoplsIn := &syncWriter{w: goplsIn}
+	store.hover = newHoverClient(safeGoplsIn)
+	store.goplsIn = safeGoplsIn
+
 	// pendingMethods tracks outgoing request ID → {method, vaneURI} for response translation.
 	var pendingMu sync.Mutex
 	pendingMethods := make(map[string]pendingInfo)
@@ -52,7 +60,7 @@ func Serve(editorIn io.Reader, editorOut io.Writer) error {
 	// editor → gopls (with interception)
 	go func() {
 		defer wg.Done()
-		proxyEditorToGopls(bufio.NewReader(editorIn), goplsIn, editorOut, store, &pendingMu, pendingMethods)
+		proxyEditorToGopls(bufio.NewReader(editorIn), safeGoplsIn, editorOut, store, &pendingMu, pendingMethods)
 		_ = goplsIn.Close()
 	}()
 
@@ -60,6 +68,24 @@ func Serve(editorIn io.Reader, editorOut io.Writer) error {
 	go func() {
 		defer wg.Done()
 		proxy(bufio.NewReader(goplsOut), editorOut, func(msg Message) Message {
+			// Consume a response to our own server-initiated hover request
+			// (keyed-{for} type resolution - see keyedfor.go) before any of
+			// the editor-response handling below: the editor never asked
+			// for this one, so it must never be forwarded.
+			{
+				var resp struct {
+					ID     json.RawMessage `json:"id"`
+					Result json.RawMessage `json:"result"`
+				}
+				if json.Unmarshal(msg, &resp) == nil && resp.ID != nil {
+					var idStr string
+					if json.Unmarshal(resp.ID, &idStr) == nil && strings.HasPrefix(idStr, hoverIDPrefix) {
+						if store.hover.take(idStr, resp.Result) {
+							return nil
+						}
+					}
+				}
+			}
 			// Translate hover range from go-coordinates to vane-coordinates.
 			{
 				var resp struct {
@@ -622,10 +648,18 @@ func handleDidOpen(msg Message, goplsIn io.Writer, store *docStore) bool {
 	// so gopls already knows about it via packages.Load. Send overlay so gopls uses
 	// the editor's current content for type-checking (which may differ if user edited
 	// the .vane file outside the editor since last session).
-	synthetic := buildDidOpen(virtualURI(uri), stripLineDirectives(goContent), p.Version)
+	//
+	// Version number: store.nextGoVersion, not p.Version - the virtual _vane.go
+	// document is never edited directly by the user, so it has its own,
+	// entirely separate version sequence from the real .vane document's own
+	// editor-assigned numbers; see nextGoVersion's own doc comment for why
+	// mixing the two schemes is unsafe once an async follow-up (the keyed-for
+	// resolution pass) can also send its own synthetic message for this URI.
+	synthetic := buildDidOpen(virtualURI(uri), stripLineDirectives(goContent), store.nextGoVersion(uri))
 	if err := WriteMessage(goplsIn, synthetic); err != nil {
 		fmt.Fprintf(os.Stderr, "[vane lsp] send virtual didOpen error: %v\n", err)
 	}
+	store.scheduleKeyedForResolve(uri, p.Text, stripLineDirectives(goContent), sm)
 	return true
 }
 
@@ -652,10 +686,11 @@ func handleDidChange(msg Message, goplsIn io.Writer, store *docStore) bool {
 	store.set(uri, text, goContent, sm)
 	writeToDisk(uri, goContent)
 
-	synthetic := buildDidChange(virtualURI(uri), stripLineDirectives(goContent), m.Params.TextDocument.Version)
+	synthetic := buildDidChange(virtualURI(uri), stripLineDirectives(goContent), store.nextGoVersion(uri))
 	if err := WriteMessage(goplsIn, synthetic); err != nil {
 		fmt.Fprintf(os.Stderr, "[vane lsp] send virtual didChange error: %v\n", err)
 	}
+	store.scheduleKeyedForResolve(uri, text, stripLineDirectives(goContent), sm)
 	return true
 }
 
@@ -2316,6 +2351,20 @@ func handleWatchedFilesChange(msg Message, goplsIn io.Writer, store *docStore) {
 		}
 		store.set(uri, string(src), goContent, sm)
 		writeToDisk(uri, goContent)
+
+		// Notify gopls of this compile too - this path (an on-disk .vane
+		// change the file watcher noticed, not a live editor edit) previously
+		// never sent anything, leaving gopls's view of the virtual document
+		// stale until some other event refreshed it. Also schedule keyed-for
+		// resolution: without this, a save landing after (and clobbering) an
+		// in-flight promotion from handleDidChange left the document stuck on
+		// the compat shape indefinitely, since nothing else re-triggers it -
+		// this makes that self-heal instead.
+		synthetic := buildDidChange(virtualURI(uri), stripLineDirectives(goContent), store.nextGoVersion(uri))
+		if err := WriteMessage(goplsIn, synthetic); err != nil {
+			fmt.Fprintf(os.Stderr, "[vane lsp] watchedFiles: send virtual didChange error: %v\n", err)
+		}
+		store.scheduleKeyedForResolve(uri, string(src), stripLineDirectives(goContent), sm)
 	}
 
 	for _, ch := range notif.Params.Changes {

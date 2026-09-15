@@ -126,6 +126,16 @@ var jsxSyntaxTOCItems = []tocItem{
 	{"reactive-lists", "Reactive lists"},
 }
 
+var listsTOCItems = []tocItem{
+	{"the-basics", "The basics"},
+	{"why-keys", "Why keys matter"},
+	{"comparing", "Comparing the options"},
+	{"for-keyed", "Default: {for} + key"},
+	{"items-spread", "{items()...}: raw nodes"},
+	{"field-level", "Field-level: core.List[T]"},
+	{"which-one", "Which one should I use?"},
+}
+
 var lifecycleTOCItems = []tocItem{
 	{"mount", "Mount and setup"},
 	{"effects", "Effects and reruns"},

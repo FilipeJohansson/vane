@@ -25,6 +25,8 @@ import (
 	"github.com/filipejohansson/vane/internal/compiler"
 	"github.com/filipejohansson/vane/internal/hotreload"
 	"github.com/filipejohansson/vane/internal/lsp"
+	"github.com/filipejohansson/vane/internal/typeresolve"
+	"golang.org/x/tools/go/packages"
 )
 
 // ANSI color codes, disabled when NO_COLOR is set or terminal doesn't support them.
@@ -714,6 +716,20 @@ func adler32Path(path string) uint32 {
 //
 // sourceURLBase: when non-empty, //line directives use this URL + relative path
 // instead of the absolute file path (e.g. "http://localhost:8080/__vane_src/").
+// overlayFile is one .vane file's naive-compile result, kept around after
+// the directory walk so a second, batched pass can resolve keyed {for}
+// element types (see resolveForTypeHints) and recompile just the files that
+// need it before the real overlay is written out.
+type overlayFile struct {
+	path         string // original .vane file path, as found by the walk
+	relKey       string // path relative to projectDir, slash-separated
+	lineFilename string // //line directive filename for the real, shipped output
+	src          string
+	goPath       string // virtual _vane.go path, the overlay key
+	goSrc        string // naive-compiled Go source (no hints)
+	maybeKeyed   bool   // cheap heuristic: might contain a keyed {for}
+}
+
 func buildOverlay(projectDir, sourceURLBase string) (overlayPath string, files []string, srcMap *vaneSourceMap, cleanup func(), err error) {
 	type overlayJSON struct {
 		Replace map[string]string `json:"Replace"`
@@ -730,6 +746,8 @@ func buildOverlay(projectDir, sourceURLBase string) (overlayPath string, files [
 	cwd, _ := os.Getwd()
 
 	skipDirs := map[string]bool{"dist": true, "public": true}
+
+	var overlayFiles []overlayFile
 
 	walkErr := filepath.WalkDir(projectDir, func(path string, d fs.DirEntry, e error) error { // #nosec G703 -- projectDir is the developer-selected project directory
 		if e != nil {
@@ -764,22 +782,20 @@ func buildOverlay(projectDir, sourceURLBase string) (overlayPath string, files [
 			return fmt.Errorf("%s: %w", path, err)
 		}
 
-		srcMap.Files[relKey] = extractLineMappings(goSrc)
-
-		// Write generated Go source into the shared temp dir.
-		// Use a hash of the original path to avoid collisions between same-named
-		// files in different subdirectories (e.g. a/Modal.vane and b/Modal.vane).
-		baseName := fmt.Sprintf("%x_%s", adler32Path(path), strings.TrimSuffix(filepath.Base(path), ".vane")+"_vane.go")
-		tfPath := filepath.Join(tmpDir, baseName)
-		if err := os.WriteFile(tfPath, []byte(goSrc), 0o600); err != nil { // #nosec G703 -- tfPath is os.MkdirTemp's own dir + a hashed name, not attacker input
-			return err
-		}
-
 		// Overlay key uses _vane.go, the same file the LSP writes to disk.
 		// The overlay wins over whatever is on disk, so go build always uses
 		// the compiled-with-//line version regardless of LSP concurrent writes.
 		goPath := strings.TrimSuffix(path, ".vane") + "_vane.go"
-		ol.Replace[goPath] = tfPath
+
+		overlayFiles = append(overlayFiles, overlayFile{
+			path:         path,
+			relKey:       relKey,
+			lineFilename: lineFilename,
+			src:          string(src),
+			goPath:       goPath,
+			goSrc:        goSrc,
+			maybeKeyed:   strings.Contains(string(src), "key="),
+		})
 
 		files = append(files, filepath.Base(path))
 		return nil
@@ -791,6 +807,45 @@ func buildOverlay(projectDir, sourceURLBase string) (overlayPath string, files [
 
 	if len(files) == 0 {
 		return "", files, srcMap, cleanup, nil
+	}
+
+	// Resolve concrete element types for keyed {for} blocks, one batched
+	// go/types pass over every file that might have one, then recompile just
+	// those files with the resolved hints. A real Vane project with zero
+	// keyed {for} usage never even reaches this (maybeKeyed stays false for
+	// every file), so a failure here only affects projects already using it.
+	hints, hintErr := resolveForTypeHints(projectDir, overlayFiles)
+	if hintErr != nil {
+		cleanup()
+		return "", nil, nil, nil, fmt.Errorf("resolving list element types: %w", hintErr)
+	}
+	for i := range overlayFiles {
+		f := &overlayFiles[i]
+		fileHints := hints[f.goPath]
+		if len(fileHints) == 0 {
+			continue
+		}
+		recompiled, err := compiler.CompileWithHints(f.src, f.lineFilename, fileHints)
+		if err != nil {
+			cleanup()
+			return "", nil, nil, nil, fmt.Errorf("%s: %w", f.path, err)
+		}
+		f.goSrc = recompiled
+	}
+
+	for _, f := range overlayFiles {
+		srcMap.Files[f.relKey] = extractLineMappings(f.goSrc)
+
+		// Write generated Go source into the shared temp dir.
+		// Use a hash of the original path to avoid collisions between same-named
+		// files in different subdirectories (e.g. a/Modal.vane and b/Modal.vane).
+		baseName := fmt.Sprintf("%x_%s", adler32Path(f.path), strings.TrimSuffix(filepath.Base(f.path), ".vane")+"_vane.go")
+		tfPath := filepath.Join(tmpDir, baseName)
+		if err := os.WriteFile(tfPath, []byte(f.goSrc), 0o600); err != nil { // #nosec G703 -- tfPath is os.MkdirTemp's own dir + a hashed name, not attacker input
+			cleanup()
+			return "", nil, nil, nil, err
+		}
+		ol.Replace[f.goPath] = tfPath
 	}
 
 	// Write overlay JSON into the same temp dir.
@@ -805,6 +860,106 @@ func buildOverlay(projectDir, sourceURLBase string) (overlayPath string, files [
 		return "", nil, nil, nil, err
 	}
 	return ofPath, files, srcMap, cleanup, nil
+}
+
+// resolveForTypeHints resolves the concrete element type of every
+// `for _, x := range ...` loop across every file in files flagged
+// maybeKeyed, via a single batched go/types pass over the whole project.
+// Returns hints keyed by each file's own goPath, for files with at least
+// one resolvable range loop - a file with no range loops at all (a
+// false-positive from the cheap maybeKeyed heuristic) simply gets no entry.
+//
+// internal/compiler never resolves types itself (see ForTypeHint's doc
+// comment) - this is where that resolution actually happens, the one place
+// in the build pipeline allowed to depend on go/types/go/packages besides
+// internal/apisurface's own, unrelated use of it.
+func resolveForTypeHints(projectDir string, overlayFiles []overlayFile) (map[string][]compiler.ForTypeHint, error) {
+	anyKeyed := false
+	for i := range overlayFiles {
+		if overlayFiles[i].maybeKeyed {
+			anyKeyed = true
+			break
+		}
+	}
+	if !anyKeyed {
+		return nil, nil
+	}
+
+	overlay := make(map[string][]byte, len(overlayFiles))
+	byAbsPath := make(map[string]*overlayFile)
+	for i := range overlayFiles {
+		f := &overlayFiles[i]
+		if !f.maybeKeyed {
+			overlay[f.goPath] = []byte(f.goSrc)
+			continue
+		}
+		// Compiled with the file's own absolute path as the //line filename -
+		// not f.lineFilename, which may be cwd-relative or a URL. A relative
+		// //line directive resolves against the directory of the *generated*
+		// file containing it (a temp dir here), not the original source's
+		// own directory, so it can't be relied on to round-trip back to the
+		// right file below; an absolute path resolves to itself exactly,
+		// confirmed empirically, not assumed.
+		absPath, err := filepath.Abs(f.path)
+		if err != nil {
+			return nil, fmt.Errorf("resolving %s: %w", f.path, err)
+		}
+		goSrc, err := compiler.Compile(f.src, absPath)
+		if err != nil {
+			return nil, fmt.Errorf("%s: %w", f.path, err)
+		}
+		overlay[f.goPath] = []byte(goSrc)
+		byAbsPath[absPath] = f
+	}
+
+	cfg := &packages.Config{
+		Mode: packages.NeedName | packages.NeedTypes | packages.NeedSyntax |
+			packages.NeedTypesInfo | packages.NeedDeps | packages.NeedImports,
+		Dir:     projectDir,
+		Overlay: overlay,
+		// GOWORK=off matches buildWasm's own go build invocation - without
+		// it, packages.Load walks up from projectDir and can pick up an
+		// unrelated go.work higher in the tree (e.g. this very repo's own
+		// go.work, when projectDir is a nested app like benchmarks/vane),
+		// which reports the wrong module set for this project entirely.
+		Env: append(os.Environ(), "GOOS=js", "GOARCH=wasm", "GOWORK=off"),
+	}
+	pkgs, err := packages.Load(cfg, "./...")
+	if err != nil {
+		return nil, fmt.Errorf("loading packages: %w", err)
+	}
+	if n := packages.PrintErrors(pkgs); n > 0 {
+		return nil, fmt.Errorf("%d package error(s), see above", n)
+	}
+
+	hints := make(map[string][]compiler.ForTypeHint)
+	for _, pkg := range pkgs {
+		for _, file := range pkg.Syntax {
+			for _, rv := range typeresolve.RangeVarTypesInFile(pkg, file) {
+				of, ok := byAbsPath[rv.Filename]
+				if !ok {
+					continue // a range loop in a dependency, not one of ours
+				}
+				offset, ok := offsetOfForOnLine(of.src, rv.Line)
+				if !ok {
+					continue // shouldn't happen; skip rather than emit a bad hint
+				}
+				hints[of.goPath] = append(hints[of.goPath], compiler.ForTypeHint{
+					Offset: offset,
+					Type:   rv.Type,
+				})
+			}
+		}
+	}
+	return hints, nil
+}
+
+// offsetOfForOnLine delegates to compiler.OffsetOfForOnLine - moved there so
+// internal/lsp's own hover-based hint resolution can reuse the exact same
+// logic instead of a second, drifting copy. Kept as a thin wrapper here so
+// this file's own tests didn't need to change call sites.
+func offsetOfForOnLine(src string, n int) (int, bool) {
+	return compiler.OffsetOfForOnLine(src, n)
 }
 
 // cmdInit scaffolds a vane project in the current directory, which must be

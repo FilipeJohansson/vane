@@ -1,6 +1,9 @@
 package compiler_test
 
 import (
+	"go/parser"
+	"go/token"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -323,8 +326,12 @@ func TestExprChild(t *testing.T) {
 }
 
 func TestSpreadChild(t *testing.T) {
+	// Single-return {items()...} is unkeyed (behaviorally identical to
+	// before DynList's generic signature): NodePropertyKey/IdentityNode is
+	// the fixed compatibility instantiation every such call site now uses,
+	// not something specific to this test's own fixture.
 	out := compile(t, wrap(`<ul>{items()...}</ul>`))
-	has(t, out, `core.DynList(_vane1, func() []core.Node { return items() })`)
+	has(t, out, `core.DynList(_vane1, func() []core.Node { return items() }, core.NodePropertyKey, core.IdentityNode)`)
 }
 
 func TestSpreadChildSlice(t *testing.T) {
@@ -398,6 +405,428 @@ func TestForLoop(t *testing.T) {
 	has(t, out, `core.El("li")`)
 	has(t, out, `_vaneItems`)
 	has(t, out, `return _vaneItems`)
+}
+
+// compileWithHints is compile, but with resolved ForTypeHints available -
+// hints simulates what main.go's go/types pass would have produced for a
+// real project; a test computes each hint's Offset from its own src via
+// strings.Index on the `for` keyword itself.
+func compileWithHints(t *testing.T, src string, hints []compiler.ForTypeHint) string {
+	t.Helper()
+	out, err := compiler.CompileWithHints(src, "test.vane", hints)
+	if err != nil {
+		t.Fatalf("compile error: %v", err)
+	}
+	return stripNoise(out)
+}
+
+func TestForLoopKeyedNoHintUsesCompatShape(t *testing.T) {
+	// key={} present, but no resolved hint (the naive first pass, or a
+	// project not yet type-checked) - falls back to the same compatibility
+	// shape an unkeyed {for} uses, key={} still runtime-set so
+	// core.NodePropertyKey can read it back.
+	src := wrap(`<ul>{for _, t := range items { <li key={t.ID}>{t.Text}</li> }}</ul>`)
+	out := compile(t, src)
+	has(t, out, `core.DynList(_vane1, func() []core.Node {`)
+	has(t, out, `Set("key", t.ID)`)
+	has(t, out, `core.NodePropertyKey, core.IdentityNode)`)
+}
+
+func TestForLoopKeyedWithHintEmitsGenericDynList(t *testing.T) {
+	src := wrap(`<ul>{for _, t := range items { <li key={t.ID}>{t.Text}</li> }}</ul>`)
+	forOffset := strings.Index(src, "for _, t")
+	if forOffset < 0 {
+		t.Fatal("fixture setup: \"for _, t\" not found in src")
+	}
+	hints := []compiler.ForTypeHint{{Offset: forOffset, Type: "ToDo"}}
+	out := compileWithHints(t, src, hints)
+
+	has(t, out, `core.DynList(_vane1, func() []ToDo { return items },`)
+	// keyFn's return is wrapped in fmt.Sprint: key={} accepts any comparable
+	// value (an int ID, not just a string), but keyFn's return type is a
+	// hard string.
+	has(t, out, `func(t ToDo) string { return fmt.Sprint(t.ID) },`)
+	has(t, out, `func(t ToDo) []core.Node {`)
+	has(t, out, `core.El("li")`)
+	// key={} is consumed as keyFn's own body above, not re-emitted as a
+	// runtime property set - nothing left needs to read it back that way.
+	hasNot(t, out, `Set("key"`)
+	hasNot(t, out, `core.NodePropertyKey`)
+}
+
+// TestForLoopKeyedWithHintIntKeyCompiles is a regression test for a real
+// bug found running benchmarks/vane through the actual two-pass pipeline
+// end to end: key={r.ID} with an int ID (a common, realistic case - this
+// exact fixture is what App.vane does) produced `func(r Row) string {
+// return r.ID }`, a genuine `go build` error (cannot use int as string).
+// The old runtime property-set path never hit this because core.Unwrap(...)
+// .Set("key", ...) accepts any value and core.NodePropertyKey coerces it
+// back via a type switch; keyFn's hard `string` return type has no such
+// coercion unless the generated body itself provides one (fmt.Sprint).
+func TestForLoopKeyedWithHintIntKeyCompiles(t *testing.T) {
+	src := wrap(`<ul>{for _, r := range rows { <li key={r.ID}>{r.Text}</li> }}</ul>`)
+	forOffset := strings.Index(src, "for _, r")
+	if forOffset < 0 {
+		t.Fatal("fixture setup: \"for _, r\" not found in src")
+	}
+	hints := []compiler.ForTypeHint{{Offset: forOffset, Type: "Row"}}
+	out := compileWithHints(t, src, hints)
+
+	has(t, out, `func(r Row) string { return fmt.Sprint(r.ID) },`)
+
+	fset := token.NewFileSet()
+	full := strings.Replace(out, "func F()",
+		"type Row struct {\n\tID   int\n\tText string\n}\n\nvar rows []Row\n\nfunc F()", 1)
+	if _, err := parser.ParseFile(fset, "", full, parser.AllErrors); err != nil {
+		t.Fatalf("generated code with an int key is not valid Go: %v\n%s", err, full)
+	}
+}
+
+// TestForLoopKeyedWithHintContinueErrorsWithClearMessage is a regression
+// test for a real limitation found end-to-end (rewriting
+// examples/tutorial-todo to {for}+key): emitForKeyed's body compiles to a
+// per-item callback, not a literal Go for statement, so continue/break
+// inside it is a real "continue is not in a loop" go build error once a
+// type hint resolves - a confusing error pointing at generated code the
+// user never wrote, and one that doesn't reproduce on the exact same
+// source before its hint resolves (the compat fallback shape has a real
+// loop). This asserts the compiler catches it itself, at the .vane
+// source location, with actionable guidance, instead of leaving it to
+// surface as a go build failure later.
+func TestForLoopKeyedWithHintContinueErrorsWithClearMessage(t *testing.T) {
+	src := wrap(`<ul>{for _, t := range items {
+		if t.Done { continue }
+		<li key={t.ID}>{t.Text}</li>
+	}}</ul>`)
+	forOffset := strings.Index(src, "for _, t")
+	hints := []compiler.ForTypeHint{{Offset: forOffset, Type: "ToDo"}}
+	_, err := compiler.CompileWithHints(src, "test.vane", hints)
+	if err == nil {
+		t.Fatal("expected a compile error for continue inside a keyed {for} body, got none")
+	}
+	msg := err.Error()
+	if !strings.Contains(msg, "continue") || !strings.Contains(msg, "no loop to target") {
+		t.Fatalf("error message doesn't explain the real problem: %v", msg)
+	}
+	if !strings.Contains(msg, "Filter the data before ranging") {
+		t.Fatalf("error message is missing the actionable fix: %v", msg)
+	}
+}
+
+// TestForLoopKeyedNoHintContinueCompilesFine confirms the same source as
+// above compiles fine before its hint resolves (the naive first pass of
+// main.go's own two-pass build) - the compat fallback shape has a real
+// for loop, so continue is completely valid there. The bareLoopControl
+// check only applies once emitForKeyed's callback shape is actually used.
+func TestForLoopKeyedNoHintContinueCompilesFine(t *testing.T) {
+	src := wrap(`<ul>{for _, t := range items {
+		if t.Done { continue }
+		<li key={t.ID}>{t.Text}</li>
+	}}</ul>`)
+	out := compile(t, src)
+	has(t, out, `core.NodePropertyKey, core.IdentityNode)`)
+	has(t, out, `continue`)
+}
+
+// TestForLoopKeyedWithHintNestedForContinueDoesNotError confirms a
+// continue that legitimately targets the user's own nested for loop
+// (not the {for}'s own, now-missing outer loop) is never flagged - a
+// nested for/switch/select found before any bare continue/break makes
+// bareLoopControl bail out entirely, since anything found after it could
+// be correctly scoped to that nested block.
+func TestForLoopKeyedWithHintNestedForContinueDoesNotError(t *testing.T) {
+	src := wrap(`<ul>{for _, t := range items {
+		sum := 0
+		for _, n := range t.Values {
+			if n < 0 { continue }
+			sum += n
+		}
+		<li key={t.ID}>{sum}</li>
+	}}</ul>`)
+	forOffset := strings.Index(src, "for _, t")
+	hints := []compiler.ForTypeHint{{Offset: forOffset, Type: "ToDo"}}
+	out := compileWithHints(t, src, hints)
+	has(t, out, `func(t ToDo) []core.Node {`)
+}
+
+// TestForLoopKeyedWithHintContinueBeforeUnrelatedNestedForStillErrors is a
+// regression test for a real false negative: a bare continue targeting the
+// keyed {for}'s own (now-missing) outer loop, followed later in the body by
+// an unrelated nested for loop, used to compile with no error at all -
+// bareLoopControl's old "any nested for/switch/select anywhere" bail-out
+// discarded the already-found continue just because a nested loop existed
+// somewhere after it, even though that continue appears earlier in source
+// and can't possibly be inside a loop that starts later.
+func TestForLoopKeyedWithHintContinueBeforeUnrelatedNestedForStillErrors(t *testing.T) {
+	src := wrap(`<ul>{for _, t := range items {
+		if t.Skip { continue }
+		sum := 0
+		for _, n := range t.Values {
+			sum += n
+		}
+		<li key={t.ID}>{sum}</li>
+	}}</ul>`)
+	forOffset := strings.Index(src, "for _, t")
+	hints := []compiler.ForTypeHint{{Offset: forOffset, Type: "ToDo"}}
+	_, err := compiler.CompileWithHints(src, "test.vane", hints)
+	if err == nil {
+		t.Fatal("expected a compile error for the outer continue, got none")
+	}
+	msg := err.Error()
+	if !strings.Contains(msg, "continue") || !strings.Contains(msg, "no loop to target") {
+		t.Fatalf("error message doesn't explain the real problem: %v", msg)
+	}
+}
+
+// TestForLoopKeyedWithHintBreakBeforeUnrelatedNestedForStillErrors is the
+// break-keyword sibling of the continue case above.
+func TestForLoopKeyedWithHintBreakBeforeUnrelatedNestedForStillErrors(t *testing.T) {
+	src := wrap(`<ul>{for _, t := range items {
+		if t.Skip { break }
+		sum := 0
+		for _, n := range t.Values {
+			sum += n
+		}
+		<li key={t.ID}>{sum}</li>
+	}}</ul>`)
+	forOffset := strings.Index(src, "for _, t")
+	hints := []compiler.ForTypeHint{{Offset: forOffset, Type: "ToDo"}}
+	_, err := compiler.CompileWithHints(src, "test.vane", hints)
+	if err == nil {
+		t.Fatal("expected a compile error for the outer break, got none")
+	}
+	msg := err.Error()
+	if !strings.Contains(msg, "break") || !strings.Contains(msg, "no loop to target") {
+		t.Fatalf("error message doesn't explain the real problem: %v", msg)
+	}
+}
+
+// TestForLoopKeyedWithHintOuterContinueBeforeNestedCorrectlyScopedContinue
+// covers the harder mixed case: a bare outer continue (invalid) followed by
+// a nested for loop that has its own correctly-scoped continue (valid).
+// Only the outer one should be flagged - the nested loop's own continue must
+// not confuse bareLoopControl into re-detecting or discarding anything.
+func TestForLoopKeyedWithHintOuterContinueBeforeNestedCorrectlyScopedContinue(t *testing.T) {
+	src := wrap(`<ul>{for _, t := range items {
+		if t.Skip { continue }
+		sum := 0
+		for _, n := range t.Values {
+			if n < 0 { continue }
+			sum += n
+		}
+		<li key={t.ID}>{sum}</li>
+	}}</ul>`)
+	forOffset := strings.Index(src, "for _, t")
+	hints := []compiler.ForTypeHint{{Offset: forOffset, Type: "ToDo"}}
+	_, err := compiler.CompileWithHints(src, "test.vane", hints)
+	if err == nil {
+		t.Fatal("expected a compile error for the outer continue, got none")
+	}
+	msg := err.Error()
+	if !strings.Contains(msg, "continue") || !strings.Contains(msg, "no loop to target") {
+		t.Fatalf("error message doesn't explain the real problem: %v", msg)
+	}
+}
+
+func TestForLoopKeyedWithHintAtWrongOffsetUsesCompatShape(t *testing.T) {
+	// A hint that doesn't match this block's own `for` position (e.g. it
+	// belongs to a different {for} in the same file) must not be applied
+	// here - falls back to the compatibility shape exactly as if no hint
+	// existed at all, not a wrong/mismatched type.
+	src := wrap(`<ul>{for _, t := range items { <li key={t.ID}>{t.Text}</li> }}</ul>`)
+	hints := []compiler.ForTypeHint{{Offset: 999999, Type: "ToDo"}}
+	out := compileWithHints(t, src, hints)
+	has(t, out, `core.DynList(_vane1, func() []core.Node {`)
+	has(t, out, `core.NodePropertyKey, core.IdentityNode)`)
+}
+
+func TestForLoopKeyedWithHintCallExprBody(t *testing.T) {
+	// The keyed path's render closure must also support a body ending in a
+	// plain call expression instead of a JSX element, mirroring
+	// TestForBodyCallExpr's coverage of the compatibility shape.
+	src := wrap(`<ul>{for _, t := range items { renderRow(t) }}</ul>`)
+	// This fixture has no key={} at all (a bare call-expr body can't carry
+	// one), so it stays on the compat shape regardless of hints - included
+	// here only to document that emitForKeyed's own callExpr branch has no
+	// dedicated test yet, since a hinted, keyed, call-expr-bodied {for}
+	// fixture combining all three isn't covered - a real gap, not silently
+	// assumed fine.
+	out := compile(t, src)
+	has(t, out, `append(`)
+	has(t, out, `renderRow(t)`)
+}
+
+// TestForLoopKeyedWithHintTwoSiblingElements is a regression test for a real
+// bug: a keyed {for} body with more than one top-level rendered part used to
+// emit a `return` for each one inside a single-return closure, silently
+// making every part after the first unreachable dead code - reproduced
+// directly against the compiler before this fix landed. Both elements must
+// now appear in one `[]core.Node{...}` literal, and the whole thing must be
+// real, buildable Go.
+func TestForLoopKeyedWithHintTwoSiblingElements(t *testing.T) {
+	src := wrap(`<dl>{for _, t := range items { <dt key={t.ID}>{t.Term}</dt> <dd>{t.Def}</dd> }}</dl>`)
+	forOffset := strings.Index(src, "for _, t")
+	hints := []compiler.ForTypeHint{{Offset: forOffset, Type: "Entry"}}
+	out := compileWithHints(t, src, hints)
+
+	has(t, out, `func(t Entry) []core.Node {`)
+	has(t, out, `core.El("dt")`)
+	has(t, out, `core.El("dd")`)
+	// Exactly one return, both vars in the same slice literal - not two
+	// separate `return`s where the second is unreachable.
+	if n := strings.Count(out, "\t\t\treturn []core.Node{"); n != 1 {
+		t.Fatalf("want exactly 1 `return []core.Node{...}`, got %d in:\n%s", n, out)
+	}
+	if !regexp.MustCompile(`return \[\]core\.Node\{_vane\d+, _vane\d+\}`).MatchString(out) {
+		t.Fatalf("return statement doesn't hold both element vars in one slice literal:\n%s", out)
+	}
+
+	fset := token.NewFileSet()
+	full := strings.Replace(out, "func F()",
+		"type Entry struct {\n\tID   string\n\tTerm string\n\tDef  string\n}\n\nvar items []Entry\n\nfunc F()", 1)
+	if _, err := parser.ParseFile(fset, "", full, parser.AllErrors); err != nil {
+		t.Fatalf("generated code with 2 sibling elements is not valid Go: %v\n%s", err, full)
+	}
+}
+
+// TestForLoopKeyedWithHintElementPlusCallExpr closes the gap
+// TestForLoopKeyedWithHintCallExprBody's own comment flags: a keyed,
+// hinted {for} body combining a real element and a trailing call expression
+// - both parts must land in the same returned slice.
+func TestForLoopKeyedWithHintElementPlusCallExpr(t *testing.T) {
+	src := wrap(`<ul>{for _, t := range items { <li key={t.ID}>{t.Text}</li> logRow(t) }}</ul>`)
+	forOffset := strings.Index(src, "for _, t")
+	hints := []compiler.ForTypeHint{{Offset: forOffset, Type: "ToDo"}}
+	out := compileWithHints(t, src, hints)
+
+	has(t, out, `func(t ToDo) []core.Node {`)
+	has(t, out, `core.El("li")`)
+	if !regexp.MustCompile(`return \[\]core\.Node\{_vane\d+, logRow\(t\)\}`).MatchString(out) {
+		t.Fatalf("return statement doesn't hold both the element var and the call expression:\n%s", out)
+	}
+}
+
+// TestForLoopKeyedWithHintThreeSiblingElements extends
+// TestForLoopKeyedWithHintTwoSiblingElements to 3 parts - the 2-sibling case
+// alone wouldn't catch a fix that only handles exactly 2 parts as a special
+// case instead of the general N-part join.
+func TestForLoopKeyedWithHintThreeSiblingElements(t *testing.T) {
+	src := wrap(`<dl>{for _, t := range items { <dt key={t.ID}>{t.Term}</dt> <dd>{t.Def}</dd> <dd>{t.Extra}</dd> }}</dl>`)
+	forOffset := strings.Index(src, "for _, t")
+	hints := []compiler.ForTypeHint{{Offset: forOffset, Type: "Entry"}}
+	out := compileWithHints(t, src, hints)
+
+	has(t, out, `func(t Entry) []core.Node {`)
+	if n := strings.Count(out, "\t\t\treturn []core.Node{"); n != 1 {
+		t.Fatalf("want exactly 1 `return []core.Node{...}`, got %d in:\n%s", n, out)
+	}
+	if !regexp.MustCompile(`return \[\]core\.Node\{_vane\d+, _vane\d+, _vane\d+\}`).MatchString(out) {
+		t.Fatalf("return statement doesn't hold all 3 element vars in one slice literal:\n%s", out)
+	}
+
+	fset := token.NewFileSet()
+	full := strings.Replace(out, "func F()",
+		"type Entry struct {\n\tID    string\n\tTerm  string\n\tDef   string\n\tExtra string\n}\n\nvar items []Entry\n\nfunc F()", 1)
+	if _, err := parser.ParseFile(fset, "", full, parser.AllErrors); err != nil {
+		t.Fatalf("generated code with 3 sibling elements is not valid Go: %v\n%s", err, full)
+	}
+}
+
+// TestForLoopKeyedWithHintGoCodePlusElementPlusCallExpr confirms a body
+// mixing all three part shapes emitForKeyed can see - a plain Go statement,
+// a keyed element, and a trailing call expression - compiles with the
+// element and call expression both in the returned slice, and the Go
+// statement executed before it, in source order.
+func TestForLoopKeyedWithHintGoCodePlusElementPlusCallExpr(t *testing.T) {
+	src := wrap(`<ul>{for _, t := range items {
+		label := t.Text + "!"
+		<li key={t.ID}>{label}</li>
+		logRow(t)
+	}}</ul>`)
+	forOffset := strings.Index(src, "for _, t")
+	hints := []compiler.ForTypeHint{{Offset: forOffset, Type: "ToDo"}}
+	out := compileWithHints(t, src, hints)
+
+	has(t, out, `func(t ToDo) []core.Node {`)
+	has(t, out, `label := t.Text + "!"`)
+	if !regexp.MustCompile(`return \[\]core\.Node\{_vane\d+, logRow\(t\)\}`).MatchString(out) {
+		t.Fatalf("return statement doesn't hold both the element var and the call expression:\n%s", out)
+	}
+	if strings.Index(out, "label := t.Text") > strings.Index(out, "return []core.Node{") {
+		t.Fatalf("the goCode statement must execute before the return, not after:\n%s", out)
+	}
+
+	fset := token.NewFileSet()
+	full := strings.Replace(out, "func F()",
+		"type ToDo struct {\n\tID   string\n\tText string\n}\n\nvar items []ToDo\n\nfunc logRow(t ToDo) core.Node { return nil }\n\nfunc F()", 1)
+	if _, err := parser.ParseFile(fset, "", full, parser.AllErrors); err != nil {
+		t.Fatalf("generated code mixing goCode+element+call-expr is not valid Go: %v\n%s", err, full)
+	}
+}
+
+// TestForLoopKeyedWithHintCommentInRangeExpr confirms a comment mentioning
+// "for" inside the range expression doesn't confuse the keyed for-keyword
+// search.
+func TestForLoopKeyedWithHintCommentInRangeExpr(t *testing.T) {
+	src := wrap(`<ul>{for _, t := range /* for real */ items { <li key={t.ID}>{t.Text}</li> }}</ul>`)
+	forOffset := strings.Index(src, "for _, t")
+	hints := []compiler.ForTypeHint{{Offset: forOffset, Type: "ToDo"}}
+	out := compileWithHints(t, src, hints)
+	has(t, out, `func(t ToDo) []core.Node {`)
+}
+
+// TestCommentBeforeControlFlowErrorsWithClearMessage is a regression test
+// for a separate, pre-existing bug found while investigating the above:
+// isControlFlow's own prefix check doesn't skip a leading comment, so
+// {/* note */ for ...} (or if/switch) used to be silently misclassified as
+// a plain expression - never recognized as control flow at all, producing
+// broken generated Go with no clear error. Now caught at the .vane source
+// location instead, for all three keywords.
+func TestCommentBeforeControlFlowErrorsWithClearMessage(t *testing.T) {
+	cases := map[string]string{
+		"for":          `<ul>{/* note */ for _, t := range items { <li>{t}</li> }}</ul>`,
+		"if":           `<div>{/* note */ if show { <p>Hi</p> }}</div>`,
+		"switch":       `<div>{/* note */ switch x { case 1: <p>One</p> }}</div>`,
+		"line comment": "<ul>{// note\nfor _, t := range items { <li>{t}</li> }}</ul>",
+	}
+	for name, jsx := range cases {
+		t.Run(name, func(t *testing.T) {
+			_, err := compiler.Compile(wrap(jsx), "test.vane")
+			if err == nil {
+				t.Fatal("expected a compile error for a comment before a control-flow keyword, got none")
+			}
+			if !strings.Contains(err.Error(), "comment can't come before") {
+				t.Fatalf("error message doesn't explain the real problem: %v", err)
+			}
+		})
+	}
+}
+
+// TestCommentInsideControlFlowBodyCompilesFine confirms this fix is narrow:
+// a comment *inside* a for/if/switch body (the normal, already-working
+// case) is never affected.
+func TestCommentInsideControlFlowBodyCompilesFine(t *testing.T) {
+	src := wrap(`<ul>{for _, t := range items { /* note */ <li>{t}</li> }}</ul>`)
+	out := compile(t, src)
+	has(t, out, `core.El("li")`)
+}
+
+func TestForLoopKeyedNoHiddenIdentifierRewrite(t *testing.T) {
+	// This codegen never rewrites user-written identifiers - t stays plain T
+	// everywhere it's used, no .Get()-insertion or similar. A fixture that
+	// copies the loop variable's field to a new local before use must
+	// compile with that copy passed through untouched, exactly like any
+	// other setup statement - no hidden rewrite pass touching `id`.
+	withCopy := wrap(`<ul>{for _, t := range items { id := t.ID; <li key={t.ID}>{id}</li> }}</ul>`)
+	forOffset := strings.Index(withCopy, "for _, t")
+	if forOffset < 0 {
+		t.Fatal("fixture setup: \"for _, t\" not found in src")
+	}
+	out := compileWithHints(t, withCopy, []compiler.ForTypeHint{{Offset: forOffset, Type: "ToDo"}})
+
+	has(t, out, `id := t.ID`)
+	has(t, out, `func(t ToDo) []core.Node {`)
+	hasNot(t, out, `.Get()`)
 }
 
 func TestForLoopWithSetup(t *testing.T) {
@@ -539,6 +968,20 @@ func TestSyscallJSNotDuplicated(t *testing.T) {
 	if count := strings.Count(out, `"syscall/js"`); count != 1 {
 		t.Errorf(`"syscall/js" appears %d times, want 1`, count)
 	}
+}
+
+// TestBothJSAndFmtInjectedTogether is a regression test for the "js."/"fmt."
+// checks now sharing a single stripCommentsAndStrings(out) call: a file
+// needing both imports (js.Value return type plus a keyed {for}'s
+// fmt.Sprint-wrapped keyFn) must still get both, not just whichever check ran
+// against the shared stripped copy first.
+func TestBothJSAndFmtInjectedTogether(t *testing.T) {
+	src := wrap(`<ul>{for _, t := range items { <li key={t.ID}>{t.Text}</li> }}</ul>`)
+	forOffset := strings.Index(src, "for _, t")
+	hints := []compiler.ForTypeHint{{Offset: forOffset, Type: "ToDo"}}
+	out := compileWithHints(t, src, hints)
+	has(t, out, `"syscall/js"`)
+	has(t, out, `"fmt"`)
 }
 
 //* Build tag

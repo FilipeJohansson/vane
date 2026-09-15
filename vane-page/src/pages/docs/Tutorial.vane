@@ -103,31 +103,20 @@ import (
 )
 
 func TodoList() core.Node {
-    items := func() []core.Node {
-        todos := store.Todos.Get()
-        nodes := make([]core.Node, len(todos))
-        for i, t := range todos {
-            nodes[i] = todoItem(t)
-        }
-        return nodes
-    }
-
     return (
         <div className="page">
             {if len(store.Todos.Get()) == 0 {
                 <p className="todo-empty">No todos yet.</p>
             } else {
-                <ul className="todo-list">{items()...}</ul>
+                <ul className="todo-list">
+                    {for _, t := range store.Todos.Get() {
+                        <li key={t.ID} className="todo-item">
+                            <span className="todo-text">{t.Text}</span>
+                        </li>
+                    }}
+                </ul>
             }}
         </div>
-    )
-}
-
-func todoItem(t store.Todo) core.Node {
-    return (
-        <li key={t.ID} className="todo-item">
-            <span className="todo-text">{t.Text}</span>
-        </li>
     )
 }`
 
@@ -192,15 +181,6 @@ func TodoList() core.Node {
         text.Set("")
     }
 
-    items := func() []core.Node {
-        todos := store.Todos.Get()
-        nodes := make([]core.Node, len(todos))
-        for i, t := range todos {
-            nodes[i] = todoItem(t)
-        }
-        return nodes
-    }
-
     return (
         <div className="page">
             <form className="todo-form" onSubmit={func(e core.SubmitEvent) { addTodo() }}>
@@ -215,17 +195,15 @@ func TodoList() core.Node {
             {if len(store.Todos.Get()) == 0 {
                 <p className="todo-empty">No todos yet.</p>
             } else {
-                <ul className="todo-list">{items()...}</ul>
+                <ul className="todo-list">
+                    {for _, t := range store.Todos.Get() {
+                        <li key={t.ID} className="todo-item">
+                            <span className="todo-text">{t.Text}</span>
+                        </li>
+                    }}
+                </ul>
             }}
         </div>
-    )
-}
-
-func todoItem(t store.Todo) core.Node {
-    return (
-        <li key={t.ID} className="todo-item">
-            <span className="todo-text">{t.Text}</span>
-        </li>
     )
 }`
 
@@ -254,23 +232,21 @@ func Remove(id int) {
     Todos.Set(next)
 }`
 
-const tutorialStep4ItemSnippet = `func todoItem(t store.Todo) core.Node {
+const tutorialStep4ItemSnippet = `{for _, t := range store.Todos.Get() {
     className := "todo-item"
     if t.Done {
         className = "todo-item todo-item--done"
     }
-    return (
-        <li key={t.ID} className={className}>
-            <input
-                type="checkbox"
-                checked={t.Done}
-                onChecked={func(e core.CheckEvent) { store.Toggle(t.ID) }}
-            />
-            <span className="todo-text">{t.Text}</span>
-            <button className="todo-remove" onClick={func(e core.MouseEvent) { store.Remove(t.ID) }}>×</button>
-        </li>
-    )
-}`
+    <li key={t.ID} className={className}>
+        <input
+            type="checkbox"
+            checked={t.Done}
+            onChecked={func(e core.CheckEvent) { store.Toggle(t.ID) }}
+        />
+        <span className="todo-text">{t.Text}</span>
+        <button className="todo-remove" onClick={func(e core.MouseEvent) { store.Remove(t.ID) }}>×</button>
+    </li>
+}}`
 
 const tutorialStep5FilterLinkSnippet = `package components
 
@@ -316,10 +292,9 @@ const tutorialStep5AppSnippet = `func App() core.Node {
     )
 }`
 
-const tutorialStep5FilterSnippet = `items := func() []core.Node {
-    path := router.Path().Get()
+const tutorialStep5FilterFuncSnippet = `visibleTodos := func(path string) []store.Todo {
     todos := store.Todos.Get()
-    nodes := make([]core.Node, 0, len(todos))
+    visible := make([]store.Todo, 0, len(todos))
     for _, t := range todos {
         if path == "/active" && t.Done {
             continue
@@ -327,10 +302,12 @@ const tutorialStep5FilterSnippet = `items := func() []core.Node {
         if path == "/completed" && !t.Done {
             continue
         }
-        nodes = append(nodes, todoItem(t))
+        visible = append(visible, t)
     }
-    return nodes
+    return visible
 }`
+
+const tutorialStep5ForHeaderSnippet = `{for _, t := range visibleTodos(router.Path().Get()) {`
 
 // tutorialDocLink is a same-site cross-reference from tutorial prose to
 // another docs page, styled like the inline links other guides use (e.g.
@@ -427,11 +404,12 @@ func Tutorial() core.Node {
 				<p className="docs-p">
 					The inline <code>{"{if ... } else { ... }"}</code> picks between the
 					empty message and the list — see {tutorialDocLink("jsx-syntax", "JSX Syntax")}{" "}
-					for the full inline control-flow syntax. <code>{"{items()...}"}</code>{" "}
-					is a keyed reactive list: it re-runs <code>items()</code> whenever a
-					signal it reads changes (here, <code>Todos</code>), and{" "}
-					<code>key={"{t.ID}"}</code> lets Vane move/reuse existing DOM nodes
-					instead of tearing the whole list down on every change. Wire it into{" "}
+					for the full inline control-flow syntax. <code>{"{for}"}</code> is a
+					reactive loop: it re-runs whenever a signal it reads changes (here,{" "}
+					<code>Todos</code>), and <code>key={"{t.ID}"}</code> lets Vane move
+					existing DOM nodes instead of tearing the whole list down on every
+					change - see {tutorialDocLink("lists", "Lists")} for the full picture on
+					list performance once the basics here feel comfortable. Wire it into{" "}
 					<code>App.vane</code>, trimmed to one route for now:
 				</p>
 				{components.CodeBlock("App.vane (excerpt)", tutorialStep2AppSnippet)}
@@ -468,9 +446,10 @@ func Tutorial() core.Node {
 				</p>
 				{components.CodeBlock("src/store/todos.go (add these)", tutorialStep4StoreSnippet)}
 				<p className="docs-p">
-					Then give <code>todoItem</code> a checkbox and a remove button:
+					Then replace the <code>{"{for}"}</code> loop in <code>TodoList</code>{" "}
+					with this, adding a checkbox and a remove button:
 				</p>
-				{components.CodeBlock("src/pages/TodoList.vane (replace todoItem)", tutorialStep4ItemSnippet)}
+				{components.CodeBlock("src/pages/TodoList.vane (replace the {for} loop)", tutorialStep4ItemSnippet)}
 				<p className="docs-p">
 					<code>checked={"{t.Done}"}</code> sets the checkbox's live DOM
 					property directly (Vane has no attribute/property translation — see{" "}
@@ -498,27 +477,33 @@ func Tutorial() core.Node {
 				</p>
 				{components.CodeBlock("App.vane (excerpt)", tutorialStep5AppSnippet)}
 				<p className="docs-p">
-					Then read the current path inside <code>TodoList</code>'s list
-					function, alongside <code>Todos</code> — this replaces the existing{" "}
-					<code>items</code> function only; add{" "}
+					Then add a <code>visibleTodos</code> closure inside{" "}
+					<code>TodoList</code>, right before the <code>return</code> — filter the
+					data first, then range over the result, rather than skipping items
+					inside the <code>{"{for}"}</code> loop itself:
+				</p>
+				{components.CodeBlock("src/pages/TodoList.vane (add before return)", tutorialStep5FilterFuncSnippet)}
+				<p className="docs-p">
+					And change the <code>{"{for}"}</code>'s range expression to call it. Add{" "}
 					<code>"github.com/filipejohansson/vane/core/router"</code> to{" "}
 					<code>TodoList.vane</code>'s imports too, it isn't there yet:
 				</p>
-				{components.CodeBlock("src/pages/TodoList.vane (replace items)", tutorialStep5FilterSnippet)}
+				{components.CodeBlock("src/pages/TodoList.vane (change the {for} header)", tutorialStep5ForHeaderSnippet)}
 				<p className="docs-p">
 					<code>router.Path()</code> is itself a signal (see{" "}
-					{tutorialDocLink("routing", "Routing")}), so this function now has two
-					dependencies instead of one: it re-runs when <code>Todos</code>{" "}
-					changes <em>or</em> when the route changes, whichever happens first.
-					No separate "sync filter state to URL" code needed.
+					{tutorialDocLink("routing", "Routing")}), so the <code>{"{for}"}</code>{" "}
+					now has two dependencies instead of one: it re-runs when{" "}
+					<code>Todos</code> changes <em>or</em> when the route changes, whichever
+					happens first. No separate "sync filter state to URL" code needed.
 				</p>
+				{callout("important", "Important", "A keyed {for} loop's body compiles to a per-item callback, not a literal for statement, so continue inside it won't compile. Filter the slice before the {for} instead, like visibleTodos above.")}
 				{callout("tip", "Checkpoint", "Add a few todos, check some of them, then click All / Active / Completed: the list should filter correctly, the active link should highlight, and browser back/forward should move between filters too — it's real routing, not local state.")}
 
 				<h2 className="docs-h2" id="next-steps">What's next</h2>
 				<p className="docs-p">You've now used every core building block:</p>
 				<ul className="docs-list">
 					<li>A <code>Signal</code> holding structured data, read and replaced wholesale on every change.</li>
-					<li>A reactive, keyed list (<code>{"{slice...}"}</code>) that re-runs on any signal it reads.</li>
+					<li>A reactive, keyed list (<code>{"{for}"}</code> + <code>key</code>) that re-runs on any signal it reads.</li>
 					<li>Form events (<code>onInput</code>, <code>onSubmit</code>, <code>onChecked</code>, <code>onClick</code>) driving those signals.</li>
 					<li>A router where the URL is just another signal your rendering logic reads.</li>
 				</ul>

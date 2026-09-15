@@ -204,18 +204,33 @@ func buildSourceMap(goSrc string) *SourceMap {
 
 // CompileWithMap transforms .vane source to .go source and returns a SourceMap for LSP position translation.
 func CompileWithMap(src, filename string) (string, *SourceMap, error) {
-	s := &scanner{src: src, filename: filename}
+	return CompileWithMapAndHints(src, filename, nil)
+}
+
+// CompileWithMapAndHints is CompileWithMap, but with hints resolved from a
+// prior compile pass (see ForTypeHint) available to keyed {for} codegen.
+// internal/compiler never resolves these itself; main.go's build
+// orchestration produces them via go/types and feeds them back in for a
+// second pass. Passing a nil/empty hints is identical to CompileWithMap.
+func CompileWithMapAndHints(src, filename string, hints []ForTypeHint) (string, *SourceMap, error) {
+	s := &scanner{src: src, filename: filename, hints: hints}
 	out, err := s.scan()
 	if err != nil {
 		return "", nil, err
 	}
-	// Only inject syscall/js when the generated code actually references it.
-	// Most vane files now return core.Node and never touch js.* directly, so forcing
-	// the import unconditionally would produce an "imported and not used" error.
-	// Comments and strings are stripped first so a mention of "js." in prose (e.g. a
-	// doc comment) doesn't cause a false positive.
-	if strings.Contains(stripCommentsAndStrings(out), "js.") {
+	// Only inject syscall/js and fmt when the generated code actually
+	// references them - most vane files never touch js.* directly, and few
+	// hit the keyed {for} path's fmt.Sprint-wrapped keyFn (see emitForKeyed),
+	// so forcing either import unconditionally would produce an "imported
+	// and not used" error. Comments and strings are stripped first so a
+	// mention of "js."/"fmt." in prose (e.g. a doc comment) doesn't cause a
+	// false positive - computed once, checked against both.
+	stripped := stripCommentsAndStrings(out)
+	if strings.Contains(stripped, "js.") {
 		out = injectImport(out, `"syscall/js"`)
+	}
+	if strings.Contains(stripped, "fmt.") {
+		out = injectImport(out, `"fmt"`)
 	}
 	lineAnchor := ""
 	if filename != "" {
@@ -235,6 +250,14 @@ func CompileWithMap(src, filename string) (string, *SourceMap, error) {
 // Go compiler errors point back to the original .vane file; pass "" to disable.
 func Compile(src, filename string) (string, error) {
 	out, _, err := CompileWithMap(src, filename)
+	return out, err
+}
+
+// CompileWithHints is Compile, but with hints resolved from a prior compile
+// pass (see ForTypeHint) available to keyed {for} codegen. Passing a
+// nil/empty hints is identical to Compile.
+func CompileWithHints(src, filename string, hints []ForTypeHint) (string, error) {
+	out, _, err := CompileWithMapAndHints(src, filename, hints)
 	return out, err
 }
 
@@ -342,6 +365,31 @@ func isControlFlow(s string) bool {
 		strings.HasPrefix(s, "switch ") || strings.HasPrefix(s, "switch{")
 }
 
+// skipLeadingComments returns s with any leading //.../* */ comments (and
+// surrounding whitespace) removed - used only to detect a comment sitting
+// right before for/if/switch below, not to change how a real control-flow
+// block is parsed.
+func skipLeadingComments(s string) string {
+	sc := &scanner{src: s}
+	for !sc.atEnd() {
+		sc.skipWS()
+		if sc.atEnd() {
+			break
+		}
+		c := sc.cur()
+		if c == '/' && sc.peek(1) == '/' {
+			sc.readLineComment()
+			continue
+		}
+		if c == '/' && sc.peek(1) == '*' {
+			sc.readBlockComment()
+			continue
+		}
+		break
+	}
+	return s[sc.pos:]
+}
+
 // bodyPart is a segment of a control-flow block body.
 // Exactly one of vane (a parsed vane element) or callExpr is set, or neither for pure Go setup code.
 type bodyPart struct {
@@ -370,6 +418,57 @@ type scanner struct {
 	src      string
 	pos      int
 	filename string
+	hints    []ForTypeHint
+}
+
+// ForTypeHint carries a go/types-resolved concrete type for one keyed {for}
+// block, keyed by the byte offset of that block's "for" keyword in the
+// original .vane source. internal/compiler never resolves types itself -
+// hints are produced by the build orchestration (main.go), which owns all
+// go/types/go/packages use, and fed back in via CompileWithHints/
+// CompileWithMapAndHints for a second compile pass.
+type ForTypeHint struct {
+	Offset int    // byte offset of the `for` keyword in the .vane source
+	Type   string // resolved concrete type, already qualified for this file
+}
+
+// OffsetOfForOnLine returns the byte offset, within src, of the first "for"
+// keyword found on src's 1-based line n, or false if that line has none.
+// Deliberately line-based rather than trying to derive an exact column from
+// go/token's own reported position - see typeresolve.RangeVarType's doc
+// comment for why that column drifts on generated code. Shared by main.go's
+// own go/types-based hint resolution and internal/lsp's gopls-hover-based
+// resolution - both need the same .vane-source offset for the same
+// ForTypeHint.Offset field, so this lives here rather than being duplicated.
+func OffsetOfForOnLine(src string, n int) (int, bool) {
+	lineStart := 0
+	for line := 1; line < n; line++ {
+		idx := strings.IndexByte(src[lineStart:], '\n')
+		if idx < 0 {
+			return 0, false
+		}
+		lineStart += idx + 1
+	}
+	lineEnd := len(src)
+	if idx := strings.IndexByte(src[lineStart:], '\n'); idx >= 0 {
+		lineEnd = lineStart + idx
+	}
+	lineText := src[lineStart:lineEnd]
+	for i := 0; i+3 <= len(lineText); i++ {
+		if lineText[i:i+3] != "for" {
+			continue
+		}
+		beforeOK := i == 0 || !isForIdentByte(lineText[i-1])
+		afterOK := i+3 == len(lineText) || !isForIdentByte(lineText[i+3])
+		if beforeOK && afterOK {
+			return lineStart + i, true
+		}
+	}
+	return 0, false
+}
+
+func isForIdentByte(b byte) bool {
+	return b == '_' || (b >= 'a' && b <= 'z') || (b >= 'A' && b <= 'Z') || (b >= '0' && b <= '9')
 }
 
 // lineAt counts the 1-based line number of byte offset pos in src.
@@ -1142,7 +1241,7 @@ func (s *scanner) handleReturn(nilSugar string) (string, bool, error) {
 				s.pos++
 			}
 		}
-		em := &emitter{filename: s.filename, src: s.src}
+		em := &emitter{filename: s.filename, src: s.src, hints: s.hints}
 		rootVar := em.emitNode(node, "")
 		if em.err != nil {
 			return "", false, em.err
@@ -1388,6 +1487,10 @@ func (s *scanner) parseChildren(parentTag string, openPos int) ([]node, error) {
 				trimmed := strings.TrimSpace(code)
 				if isControlFlow(trimmed) {
 					children = append(children, &ctrlFlowNode{raw: trimmed, pos: exprPos})
+				} else if isControlFlow(skipLeadingComments(trimmed)) {
+					return nil, s.errorf(exprPos,
+						"a comment can't come before for/if/switch here",
+						"Move the comment inside the block instead: {for _, t := range items { /* ... */ ... }}")
 				} else {
 					if strings.Contains(code, "func") && returnsElement(code) {
 						// Bare uncalled func literal: {func() core.Node { ... }}. It's never called,
@@ -1458,6 +1561,20 @@ type emitter struct {
 	filename  string
 	src       string
 	posOffset int // added to node positions when computing //line and error positions
+	hints     []ForTypeHint
+}
+
+// hintForOffset returns the ForTypeHint whose Offset matches the absolute
+// byte offset abs in em.src, if any. abs is the position of the `for`
+// keyword itself (basePos+em.posOffset, matching how main.go computes
+// ForTypeHint.Offset when resolving hints for this file).
+func (em *emitter) hintForOffset(abs int) (ForTypeHint, bool) {
+	for _, h := range em.hints {
+		if h.Offset == abs {
+			return h, true
+		}
+	}
+	return ForTypeHint{}, false
 }
 
 func (em *emitter) errorf(pos int, msg, hint string) error {
@@ -1735,9 +1852,11 @@ func (em *emitter) emitExpr(e *exprNode, parentVar string) string {
 		if parentVar != "" {
 			em.stmts.WriteString(ld)
 			if isFuncCall {
-				// func() []core.Node, reactive list
+				// func() []core.Node, reactive list. Single-return form:
+				// unkeyed, same shape emitForCompat uses for {for} - see
+				// core.NodePropertyKey/core.IdentityNode's own doc comments.
 				fmt.Fprintf(&em.stmts,
-					"\tcore.DynList(%s, func() []core.Node { return %s })\n",
+					"\tcore.DynList(%s, func() []core.Node { return %s }, core.NodePropertyKey, core.IdentityNode)\n",
 					parentVar, src)
 			} else {
 				// []core.Node / []any / variadic, static children spread
@@ -1791,6 +1910,126 @@ func (em *emitter) emitCtrlFlow(n *ctrlFlowNode, parentVar string) string {
 	return ""
 }
 
+// forKeyAttr returns the `key={...}` (or `key="..."`) attribute on the
+// single vane element among parts, if any - the compile-time signal that
+// this {for} block wants the keyed, item-level-skip DynList[T] treatment,
+// mirroring how `key=` already signals keying at runtime today, just
+// consulted at compile time here instead.
+// indexForKeyword finds the first real "for" keyword in s, skipping
+// comments/strings and identifier substrings like "forceUpdate".
+func indexForKeyword(s string) (int, bool) {
+	sc := &scanner{src: s}
+	for !sc.atEnd() {
+		c := sc.cur()
+		switch {
+		case c == '"' || c == '\'' || c == '`':
+			sc.readString()
+		case c == '/' && sc.peek(1) == '/':
+			sc.readLineComment()
+		case c == '/' && sc.peek(1) == '*':
+			sc.readBlockComment()
+		case c == 'f' && sc.isKeyword("for"):
+			return sc.pos, true
+		default:
+			sc.pos++
+		}
+	}
+	return 0, false
+}
+
+// bareLoopControl finds a bare continue/break in a keyed {for} body - once
+// promoted, the body is a per-item callback, not a real Go loop, so
+// continue/break there fails to build with a confusing error pointing at
+// generated code. A nested for/switch/select found before any continue/break
+// makes the rest of the scan ambiguous (a later continue/break could be
+// correctly scoped to that nested block, not the outer body), so it bails
+// out with no flag rather than false-positive - but a continue/break found
+// *before* any nested block can't possibly be inside one that starts later,
+// so it's still reported even if the body goes on to contain one.
+func bareLoopControl(body string) (offset int, keyword string, found bool) {
+	sc := &scanner{src: body}
+	var controlOffset int
+	var controlKeyword string
+	for !sc.atEnd() {
+		c := sc.cur()
+		if c == '"' || c == '\'' || c == '`' {
+			sc.readString()
+			continue
+		}
+		if c == '/' && sc.peek(1) == '/' {
+			sc.readLineComment()
+			continue
+		}
+		if c == '/' && sc.peek(1) == '*' {
+			sc.readBlockComment()
+			continue
+		}
+		if controlKeyword == "" && c == 'f' && sc.isKeyword("for") {
+			return 0, "", false
+		}
+		if controlKeyword == "" && c == 's' && (sc.isKeyword("switch") || sc.isKeyword("select")) {
+			return 0, "", false
+		}
+		if controlKeyword == "" && c == 'c' && sc.isKeyword("continue") {
+			controlOffset, controlKeyword = sc.pos, "continue"
+		}
+		if controlKeyword == "" && c == 'b' && sc.isKeyword("break") {
+			controlOffset, controlKeyword = sc.pos, "break"
+		}
+		sc.pos++
+	}
+	if controlKeyword == "" {
+		return 0, "", false
+	}
+	return controlOffset, controlKeyword, true
+}
+
+func forKeyAttr(parts []bodyPart) (vaneAttr, bool) {
+	for _, p := range parts {
+		if p.vane == nil {
+			continue
+		}
+		for _, a := range p.vane.attrs {
+			if a.name == "key" {
+				return a, true
+			}
+		}
+	}
+	return vaneAttr{}, false
+}
+
+// parseRangeHeader splits a `for` range-clause header (e.g. "_, t := range
+// todos.Get()") into the value variable's name ("t") and the range source
+// expression's own text ("todos.Get()"). ok is false for anything that
+// isn't a recognizable two-variable range clause - an index-only "i := range
+// xs" has no per-item value to key on, so keying isn't meaningful there
+// either.
+func parseRangeHeader(header string) (valueVar, rangeExpr string, ok bool) {
+	idx := strings.Index(header, " range ")
+	if idx < 0 {
+		return "", "", false
+	}
+	rangeExpr = strings.TrimSpace(header[idx+len(" range "):])
+	lhs := strings.TrimRight(header[:idx], " ")
+	switch {
+	case strings.HasSuffix(lhs, ":="):
+		lhs = strings.TrimSuffix(lhs, ":=")
+	case strings.HasSuffix(lhs, "="):
+		lhs = strings.TrimSuffix(lhs, "=")
+	default:
+		return "", "", false
+	}
+	vars := strings.Split(lhs, ",")
+	if len(vars) != 2 {
+		return "", "", false
+	}
+	valueVar = strings.TrimSpace(vars[1])
+	if valueVar == "" || valueVar == "_" {
+		return "", "", false
+	}
+	return valueVar, rangeExpr, true
+}
+
 func (em *emitter) emitForCtrl(raw, parentVar string, basePos int) {
 	after := strings.TrimPrefix(raw, "for ")
 	header, rest, err := ctrlReadHeader(after)
@@ -1812,12 +2051,46 @@ func (em *emitter) emitForCtrl(raw, parentVar string, basePos int) {
 		return
 	}
 
+	// The keyed, item-level-skip path needs T's concrete type, resolved via
+	// go/types in an earlier build step (main.go), before it can be
+	// emitted - see ForTypeHint's own doc comment. Until that hint is
+	// available (a naive first pass, or this block genuinely has no
+	// key={} at all), fall through to the same compatibility shape every
+	// unkeyed {for}/{items()...} spread already uses - see emitForCompat.
+	if keyAttr, hasKey := forKeyAttr(parts); hasKey {
+		// basePos is the block's opening '{', not the "for" keyword - search
+		// forward for the real one, must agree with offsetOfForOnLine.
+		forAbsPos := basePos + em.posOffset
+		if idx, ok := indexForKeyword(em.src[forAbsPos:]); ok {
+			forAbsPos += idx
+		}
+		if hint, hasHint := em.hintForOffset(forAbsPos); hasHint {
+			if valueVar, rangeExpr, ok := parseRangeHeader(header); ok {
+				em.emitForKeyed(parentVar, basePos, body, parts, keyAttr, valueVar, rangeExpr, hint.Type)
+				return
+			}
+		}
+	}
+	em.emitForCompat(parentVar, header, basePos, body, parts)
+}
+
+// emitForCompat emits today's exact codegen shape - a real Go for statement
+// building a []core.Node slice via append - unchanged in every particular
+// except the two extra trailing arguments DynList's new generic signature
+// requires. Used for every unkeyed {for}, and for a keyed one whose element
+// type hasn't been resolved yet (see emitForCtrl): core.NodePropertyKey
+// reads back whatever `key={}` already set on each built Node at runtime
+// (emitAttr's own existing "key" case, untouched), so this shape stays
+// correct - just not item-level-skip-optimized - until a resolved hint
+// promotes it to emitForKeyed.
+func (em *emitter) emitForCompat(parentVar, header string, basePos int, body string, parts []bodyPart) {
 	em.counter++
 	listVar := fmt.Sprintf("_vaneItems%d", em.counter)
 	subEm := &emitter{
 		filename:  em.filename,
 		src:       em.src,
 		posOffset: bodyAbsStart(em.src, basePos+em.posOffset, body),
+		hints:     em.hints,
 	}
 
 	var out strings.Builder
@@ -1870,7 +2143,97 @@ func (em *emitter) emitForCtrl(raw, parentVar string, basePos int) {
 	}
 	out.WriteString("\t\t}\n")
 	fmt.Fprintf(&out, "\t\treturn %s\n", listVar)
-	out.WriteString("\t})\n")
+	out.WriteString("\t}, core.NodePropertyKey, core.IdentityNode)\n")
+	em.stmts.WriteString(out.String())
+}
+
+// emitForKeyed emits the real, item-level-skip DynList[elemType] form: a
+// compiler-synthesized keyFn reading keyAttr's own expression, and a render
+// closure built from the same per-iteration setup/element code
+// emitForCompat would otherwise loop over, called once per new or changed
+// key rather than once per render.
+func (em *emitter) emitForKeyed(parentVar string, basePos int, body string, parts []bodyPart, keyAttr vaneAttr, valueVar, rangeExpr, elemType string) {
+	bodyStart := bodyAbsStart(em.src, basePos+em.posOffset, body)
+	if off, kw, found := bareLoopControl(body); found {
+		em.err = em.errorf(bodyStart+off-em.posOffset,
+			fmt.Sprintf("%s has no loop to target here", kw),
+			"a keyed {for}'s body compiles to a per-item callback, not a literal loop, once its "+
+				"element type resolves - "+kw+" only works inside a real Go for/switch/select. "+
+				"Filter the data before ranging instead: `for _, t := range filterFn(items()) { ... }`")
+		return
+	}
+
+	subEm := &emitter{
+		filename:  em.filename,
+		src:       em.src,
+		posOffset: bodyStart,
+		hints:     em.hints,
+	}
+
+	keyExpr := keyAttr.value
+	if !keyAttr.isExpr {
+		keyExpr = fmt.Sprintf("%q", keyAttr.value)
+	}
+
+	var out strings.Builder
+	fmt.Fprintf(&out, "\tcore.DynList(%s, func() []%s { return %s },\n", parentVar, elemType, rangeExpr)
+	// fmt.Sprint, not a bare return: key={} accepts any comparable value (an
+	// int ID is a common, real case - benchmarks/vane's own App.vane does
+	// this), but keyFn's return type is a hard string.
+	fmt.Fprintf(&out, "\t\tfunc(%s %s) string { return fmt.Sprint(%s) },\n", valueVar, elemType, keyExpr)
+	out.WriteString(em.lineDirAbs(basePos + em.posOffset))
+	// Every part's var/expression is collected as emitted, joined into one
+	// slice literal at the end - render returns all of them, not just one.
+	fmt.Fprintf(&out, "\t\tfunc(%s %s) []core.Node {\n", valueVar, elemType)
+	var resultExprs []string
+	for _, p := range parts {
+		if p.goCode != "" {
+			for _, line := range strings.Split(p.goCode, "\n") {
+				if t := strings.TrimSpace(line); t != "" {
+					fmt.Fprintf(&out, "\t\t\t%s\n", t)
+				}
+			}
+		}
+		if p.vane != nil {
+			// key={} triggered this codegen path; stripped from the emitted
+			// element since only keyFn (built from keyExpr above) reads it.
+			withoutKey := *p.vane
+			withoutKey.attrs = make([]vaneAttr, 0, len(p.vane.attrs))
+			for _, a := range p.vane.attrs {
+				if a.name != "key" {
+					withoutKey.attrs = append(withoutKey.attrs, a)
+				}
+			}
+			subEm.stmts.Reset()
+			elemVar := subEm.emitElement(&withoutKey, "")
+			if subEm.err != nil {
+				em.err = subEm.err
+				return
+			}
+			for _, line := range strings.Split(subEm.stmts.String(), "\n") {
+				if strings.TrimSpace(line) == "" {
+					continue
+				}
+				if strings.HasPrefix(line, "//line ") {
+					fmt.Fprintf(&out, "%s\n", line)
+				} else {
+					fmt.Fprintf(&out, "\t\t%s\n", line)
+				}
+			}
+			if elemVar != "" {
+				resultExprs = append(resultExprs, elemVar)
+			}
+		} else if p.callExpr != "" {
+			if subEm.posOffset > 0 {
+				if exprIdx := strings.Index(body, p.callExpr); exprIdx >= 0 {
+					out.WriteString(em.lineDirAbs(subEm.posOffset + exprIdx))
+				}
+			}
+			resultExprs = append(resultExprs, p.callExpr)
+		}
+	}
+	fmt.Fprintf(&out, "\t\t\treturn []core.Node{%s}\n", strings.Join(resultExprs, ", "))
+	out.WriteString("\t\t},\n\t)\n")
 	em.stmts.WriteString(out.String())
 }
 
@@ -2162,6 +2525,7 @@ func (em *emitter) emitBranchParts(parts []bodyPart, out *strings.Builder, bodyS
 		filename:  em.filename,
 		src:       em.src,
 		posOffset: bodyStart,
+		hints:     em.hints,
 	}
 	for _, p := range parts {
 		if p.goCode != "" {

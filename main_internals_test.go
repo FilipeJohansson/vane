@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"go/parser"
 	"go/token"
 	"net/http"
@@ -194,6 +195,106 @@ func TestBuildOverlay_SingleVaneFile(t *testing.T) {
 	}
 }
 
+// TestBuildOverlay_HintResolutionFailureFailsBuild is a regression test for
+// a real gap found reviewing this branch: resolveForTypeHints failing used
+// to only print a warning, letting the build proceed silently demoted to
+// the compat shape for every keyed {for} in the project - a CI pipeline
+// checking exit code alone would never notice. buildOverlay must now fail
+// the build for real.
+func TestBuildOverlay_HintResolutionFailureFailsBuild(t *testing.T) {
+	tmp := t.TempDir()
+	if err := os.WriteFile(filepath.Join(tmp, "go.mod"), []byte("module fixture\n\ngo 1.25.0\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	// A real for-range loop (tripping maybeKeyed's own "key=" heuristic)
+	// alongside a genuine undefined-symbol error elsewhere in the same
+	// file, so packages.Load's type-checking pass fails for real.
+	src := `package main
+
+import "syscall/js"
+
+type ToDo struct {
+	ID   string
+	Text string
+}
+
+func F(todos []ToDo) js.Value {
+	for _, t := range todos {
+		_ = t
+	}
+	_ = "key="
+	return undefinedSymbolThatDoesNotExist()
+}
+`
+	if err := os.WriteFile(filepath.Join(tmp, "App.vane"), []byte(src), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	_, _, _, cleanup, err := buildOverlay(tmp, "")
+	if cleanup != nil {
+		defer cleanup()
+	}
+	if err == nil {
+		t.Fatal("buildOverlay succeeded despite a real hint-resolution failure - the build must fail, not just warn")
+	}
+	if !strings.Contains(err.Error(), "resolving list element types") {
+		t.Fatalf("error doesn't explain the real cause: %v", err)
+	}
+}
+
+// TestBuildOverlay_OneFileHintFailureFailsWholeMultiFileBuild confirms the
+// actual multi-file behavior isn't a design choice left open by this branch:
+// resolveForTypeHints runs one batched packages.Load over the whole project,
+// so a type error in any one file fails that single load for everyone, not
+// just the file with the error. A project with a clean file carrying a real,
+// resolvable keyed {for} alongside a second, broken file must still fail the
+// whole build - not silently succeed for the clean file.
+func TestBuildOverlay_OneFileHintFailureFailsWholeMultiFileBuild(t *testing.T) {
+	tmp := t.TempDir()
+	if err := os.WriteFile(filepath.Join(tmp, "go.mod"), []byte("module fixture\n\ngo 1.25.0\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	goodSrc := `package main
+
+type ToDo struct {
+	ID   string
+	Text string
+}
+
+func F(todos []ToDo) int {
+	total := 0
+	for _, t := range todos {
+		total += len(t.Text)
+	}
+	_ = "key="
+	return total
+}
+`
+	brokenSrc := `package main
+
+func G() int {
+	return undefinedSymbolThatDoesNotExist()
+}
+`
+	if err := os.WriteFile(filepath.Join(tmp, "Good.vane"), []byte(goodSrc), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(tmp, "Broken.vane"), []byte(brokenSrc), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	_, _, _, cleanup, err := buildOverlay(tmp, "")
+	if cleanup != nil {
+		defer cleanup()
+	}
+	if err == nil {
+		t.Fatal("buildOverlay succeeded despite Broken.vane's real type error - the whole build must fail")
+	}
+	if !strings.Contains(err.Error(), "resolving list element types") {
+		t.Fatalf("error doesn't explain the real cause: %v", err)
+	}
+}
+
 func TestBuildOverlay_SkipsDistAndPublic(t *testing.T) {
 	tmp := t.TempDir()
 	os.WriteFile(filepath.Join(tmp, "App.vane"), []byte(minimalVane), 0644)
@@ -287,6 +388,245 @@ func TestBuildOverlay_DeduplicatesSameNamedFiles(t *testing.T) {
 	json.Unmarshal(data, &ol)
 	if len(ol.Replace) != 2 {
 		t.Errorf("want 2 Replace entries (no collision), got %d: %v", len(ol.Replace), ol.Replace)
+	}
+}
+
+func TestOffsetOfForOnLine(t *testing.T) {
+	src := "line one\n\tfor _, t := range todos {\nline three\n"
+	offset, ok := offsetOfForOnLine(src, 2)
+	if !ok {
+		t.Fatal("want ok=true")
+	}
+	if src[offset:offset+3] != "for" {
+		t.Fatalf("offset %d points at %q, not \"for\"", offset, src[offset:offset+3])
+	}
+
+	if _, ok := offsetOfForOnLine(src, 1); ok {
+		t.Error("line 1 has no \"for\", want ok=false")
+	}
+	if _, ok := offsetOfForOnLine(src, 99); ok {
+		t.Error("line 99 doesn't exist, want ok=false")
+	}
+
+	// "for" as part of a longer identifier must not match.
+	notAKeyword := "\tforceUpdate()\n"
+	if _, ok := offsetOfForOnLine(notAKeyword, 1); ok {
+		t.Error("\"forceUpdate\" contains \"for\" but isn't the keyword, want ok=false")
+	}
+}
+
+func TestResolveForTypeHints_NoMaybeKeyedFiles(t *testing.T) {
+	hints, err := resolveForTypeHints(t.TempDir(), []overlayFile{{maybeKeyed: false}})
+	if err != nil {
+		t.Fatalf("resolveForTypeHints: %v", err)
+	}
+	if hints != nil {
+		t.Errorf("want nil hints when nothing is flagged maybeKeyed, got %v", hints)
+	}
+}
+
+func TestResolveForTypeHints_ResolvesKeyedForElementType(t *testing.T) {
+	dir := t.TempDir()
+	os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module fixture\n\ngo 1.25.0\n"), 0o644)
+
+	// No JSX/core.* calls needed here - resolveForTypeHints/typeresolve treat
+	// any `for range` statement the same regardless of what its body does,
+	// so a plain-Go range loop exercises the real mechanism without needing
+	// the real vane core package resolvable from this throwaway module.
+	vaneSrc := `package main
+
+type ToDo struct {
+	ID   string
+	Text string
+}
+
+func F(todos []ToDo) int {
+	total := 0
+	for _, t := range todos {
+		total += len(t.Text)
+	}
+	_ = "key=" // only here to mirror what makes maybeKeyed trip on a real file
+	return total
+}
+`
+	vanePath := filepath.Join(dir, "App.vane")
+	if err := os.WriteFile(vanePath, []byte(vaneSrc), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	goSrc, err := compiler.Compile(vaneSrc, vanePath)
+	if err != nil {
+		t.Fatalf("compiler.Compile: %v", err)
+	}
+
+	of := overlayFile{
+		path:       vanePath,
+		src:        vaneSrc,
+		goPath:     filepath.Join(dir, "App_vane.go"),
+		goSrc:      goSrc,
+		maybeKeyed: true,
+	}
+
+	hints, err := resolveForTypeHints(dir, []overlayFile{of})
+	if err != nil {
+		t.Fatalf("resolveForTypeHints: %v", err)
+	}
+
+	got := hints[of.goPath]
+	if len(got) != 1 {
+		t.Fatalf("got %d hints for %s, want 1: %+v", len(got), of.goPath, got)
+	}
+	if got[0].Type != "ToDo" {
+		t.Fatalf("Type = %q, want ToDo", got[0].Type)
+	}
+	if got[0].Offset < 0 || got[0].Offset+3 > len(vaneSrc) || vaneSrc[got[0].Offset:got[0].Offset+3] != "for" {
+		t.Fatalf("Offset %d does not point at \"for\" in the original .vane source", got[0].Offset)
+	}
+}
+
+// TestResolveForTypeHints_MultiFileProject is a regression test for a real
+// bug found building vane-page (49 real .vane files) end to end: the
+// overlay handed to packages.Load only contained the maybeKeyed-flagged
+// files, so a helper function declared in any *other* file (never present
+// on disk, since _vane.go companions are gitignored, generated-only)
+// resolved as "undefined" - go/types can't type-check a call into a file
+// that's neither on disk nor in the overlay. A single-file project (every
+// other test in this file) can't exercise this, since its one file is
+// always the one file needed.
+func TestResolveForTypeHints_MultiFileProject(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module fixture\n\ngo 1.25.0\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	// helpers.vane style file: no key= at all, so maybeKeyed stays false -
+	// its content must still reach packages.Load some other way, since
+	// nothing in this test writes it to disk.
+	helperSrc := `package main
+
+func greet() string { return "hi" }
+`
+	helperPath := filepath.Join(dir, "Helper.vane")
+	if err := os.WriteFile(helperPath, []byte(helperSrc), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	helperGoSrc, err := compiler.Compile(helperSrc, helperPath)
+	if err != nil {
+		t.Fatalf("compiler.Compile(helper): %v", err)
+	}
+
+	// App.vane style file: has key=, calls greet() (declared in the OTHER
+	// file) so resolution can only succeed if that file's content is also
+	// visible to packages.Load.
+	appSrc := `package main
+
+type ToDo struct {
+	ID   string
+	Text string
+}
+
+func F(todos []ToDo) string {
+	s := greet()
+	for _, t := range todos {
+		s += t.Text
+	}
+	return s
+}
+`
+	appPath := filepath.Join(dir, "App.vane")
+	if err := os.WriteFile(appPath, []byte(appSrc), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	appGoSrc, err := compiler.Compile(appSrc, appPath)
+	if err != nil {
+		t.Fatalf("compiler.Compile(app): %v", err)
+	}
+
+	files := []overlayFile{
+		{
+			path:       helperPath,
+			src:        helperSrc,
+			goPath:     filepath.Join(dir, "Helper_vane.go"),
+			goSrc:      helperGoSrc,
+			maybeKeyed: false,
+		},
+		{
+			path:       appPath,
+			src:        appSrc,
+			goPath:     filepath.Join(dir, "App_vane.go"),
+			goSrc:      appGoSrc,
+			maybeKeyed: true,
+		},
+	}
+
+	hints, err := resolveForTypeHints(dir, files)
+	if err != nil {
+		t.Fatalf("resolveForTypeHints: %v (the helper file's content must be in the overlay too, not just the maybeKeyed one)", err)
+	}
+	got := hints[files[1].goPath]
+	if len(got) != 1 || got[0].Type != "ToDo" {
+		t.Fatalf("hints for App.vane = %+v, want exactly one ForTypeHint{Type: \"ToDo\"}", got)
+	}
+}
+
+// BenchmarkResolveForTypeHints is the real, repo-committed, regression-
+// tracked version of the go/types verification spike's own "real measured
+// cost" finding: how expensive is one batched packages.Load pass, on a
+// package sized closer to a real small app (30 types/functions) than a
+// single-line fixture. Compared against BenchmarkCompileWithoutTypeResolution
+// below, which measures the same class of file through the plain
+// text-scanning compiler with no type resolution at all - the two numbers
+// together are what justify batching this once per build rather than once
+// per file/per {for} block.
+func BenchmarkResolveForTypeHints(b *testing.B) {
+	dir := b.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module fixture\n\ngo 1.25.0\n"), 0o644); err != nil {
+		b.Fatal(err)
+	}
+	var body strings.Builder
+	body.WriteString("package main\n\n")
+	for i := 0; i < 30; i++ {
+		fmt.Fprintf(&body, "type T%d struct{ A, B, C string; N int }\nfunc F%d(items []T%d) { for _, t := range items { _ = t.A } }\n", i, i, i)
+	}
+	src := body.String()
+	vanePath := filepath.Join(dir, "App.vane")
+	if err := os.WriteFile(vanePath, []byte(src), 0o644); err != nil {
+		b.Fatal(err)
+	}
+	goSrc, err := compiler.Compile(src, vanePath)
+	if err != nil {
+		b.Fatal(err)
+	}
+	of := overlayFile{
+		path:       vanePath,
+		src:        src,
+		goPath:     filepath.Join(dir, "App_vane.go"),
+		goSrc:      goSrc,
+		maybeKeyed: true,
+	}
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		if _, err := resolveForTypeHints(dir, []overlayFile{of}); err != nil {
+			b.Fatal(err)
+		}
+	}
+}
+
+// BenchmarkCompileWithoutTypeResolution measures the same-shaped file
+// through compiler.Compile alone (no go/types at all) - the baseline
+// BenchmarkResolveForTypeHints's own cost is measured against.
+func BenchmarkCompileWithoutTypeResolution(b *testing.B) {
+	var body strings.Builder
+	body.WriteString("package main\nimport \"syscall/js\"\nfunc F() js.Value {\n\treturn (\n")
+	body.WriteString("\t\t<ul>{for i, x := range items { cls := \"a\"; if x == \"\" { cls = \"b\" }; <li key={x} className={cls}>{x}</li> }}</ul>\n")
+	body.WriteString("\t)\n}\n")
+	src := body.String()
+
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		if _, err := compiler.Compile(src, "bench.vane"); err != nil {
+			b.Fatal(err)
+		}
 	}
 }
 
@@ -574,6 +914,127 @@ func TestTinygoBuildArgs_OutputAndPackagePathIncluded(t *testing.T) {
 	}
 }
 
+// TestCompileTinyGoOverlayFiles_PromotesKeyedFor is a regression test for a
+// real gap: buildWasmTinyGo called compiler.Compile directly, never
+// resolveForTypeHints/CompileWithHints, so a --tinygo build never promoted a
+// keyed {for} to the real DynList codegen - always the compat shape, with no
+// warning. compileTinyGoOverlayFiles is the fix: it runs the same batched
+// hint-resolution pass buildOverlay uses before returning each file's
+// goSrc.
+func TestCompileTinyGoOverlayFiles_PromotesKeyedFor(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module fixture\n\ngo 1.25.0\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	vaneSrc := `package main
+
+type ToDo struct {
+	ID   string
+	Text string
+}
+
+func F(todos []ToDo) int {
+	total := 0
+	for _, t := range todos {
+		total += len(t.Text)
+	}
+	_ = "key=" // trips maybeKeyed like a real key={} attribute would
+	return total
+}
+`
+	if err := os.WriteFile(filepath.Join(dir, "App.vane"), []byte(vaneSrc), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	files, err := compileTinyGoOverlayFiles(dir, map[string]bool{"dist": true, "public": true})
+	if err != nil {
+		t.Fatalf("compileTinyGoOverlayFiles: %v", err)
+	}
+	if len(files) != 1 {
+		t.Fatalf("got %d files, want 1", len(files))
+	}
+	if !strings.Contains(files[0].goSrc, "for _, t := range todos") {
+		t.Errorf("expected the hint-resolved output to still contain the real range loop, got:\n%s", files[0].goSrc)
+	}
+}
+
+// TestCompileTinyGoOverlayFiles_MultiFileProject exercises the same
+// undefined-symbol regression TestResolveForTypeHints_MultiFileProject
+// guards for buildOverlay: a helper declared in one file and called from
+// another, generated-only _vane.go companions never on disk, must still
+// type-check across all of a project's files, not just the maybeKeyed ones.
+func TestCompileTinyGoOverlayFiles_MultiFileProject(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module fixture\n\ngo 1.25.0\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	appSrc := `package main
+
+func F(todos []ToDo) int {
+	total := 0
+	for _, t := range todos {
+		total += weight(t)
+	}
+	_ = "key="
+	return total
+}
+`
+	helperSrc := `package main
+
+type ToDo struct {
+	ID   string
+	Text string
+}
+
+func weight(t ToDo) int { return len(t.Text) }
+`
+	if err := os.WriteFile(filepath.Join(dir, "App.vane"), []byte(appSrc), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "Helper.vane"), []byte(helperSrc), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	files, err := compileTinyGoOverlayFiles(dir, map[string]bool{"dist": true, "public": true})
+	if err != nil {
+		t.Fatalf("compileTinyGoOverlayFiles: %v", err)
+	}
+	if len(files) != 2 {
+		t.Fatalf("got %d files, want 2", len(files))
+	}
+}
+
+// TestCompileTinyGoOverlayFiles_NoKeyedForUnaffected confirms a project with
+// no keyed {for} at all (maybeKeyed never trips) round-trips through this
+// path unchanged - resolveForTypeHints itself already short-circuits when
+// nothing is flagged (see TestResolveForTypeHints_NoMaybeKeyedFiles), this
+// just confirms compileTinyGoOverlayFiles's own file-writing/walk logic
+// doesn't require a keyed {for} to work at all.
+func TestCompileTinyGoOverlayFiles_NoKeyedForUnaffected(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module fixture\n\ngo 1.25.0\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	vaneSrc := `package main
+
+func F() int { return 42 }
+`
+	if err := os.WriteFile(filepath.Join(dir, "App.vane"), []byte(vaneSrc), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	files, err := compileTinyGoOverlayFiles(dir, map[string]bool{"dist": true, "public": true})
+	if err != nil {
+		t.Fatalf("compileTinyGoOverlayFiles: %v", err)
+	}
+	if len(files) != 1 {
+		t.Fatalf("got %d files, want 1", len(files))
+	}
+	if !strings.Contains(files[0].goSrc, "func F() int { return 42 }") {
+		t.Errorf("expected naive-compiled output unchanged, got:\n%s", files[0].goSrc)
+	}
+}
+
 func TestRunWasmOpt_MissingToolIsNotAnError(t *testing.T) {
 	// Simulate wasm-opt not being on PATH by pointing PATH somewhere empty.
 	dir := t.TempDir()
@@ -597,7 +1058,7 @@ func TestRunWasmOpt_MissingToolIsNotAnError(t *testing.T) {
 
 func TestRunWasmOpt_InvalidInputReturnsError(t *testing.T) {
 	if _, err := exec.LookPath("wasm-opt"); err != nil {
-		t.Skip("wasm-opt not installed, skipping (optional dependency, see internal_docs/next-steps.md gap #11)")
+		t.Skip("wasm-opt not installed, skipping (optional dependency)")
 	}
 	wasmPath := filepath.Join(t.TempDir(), "app.wasm")
 	if err := os.WriteFile(wasmPath, []byte("not a real wasm file"), 0o600); err != nil {

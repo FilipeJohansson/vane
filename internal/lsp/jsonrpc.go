@@ -2,6 +2,7 @@ package lsp
 
 import (
 	"bufio"
+	"bytes"
 	"fmt"
 	"io"
 	"strconv"
@@ -10,6 +11,11 @@ import (
 
 // Message is a raw LSP/JSONRPC message body (JSON bytes).
 type Message []byte
+
+// maxMessageSize bounds LSP payloads read or written - 64 MiB is comfortably
+// below int overflow range while far above any real LSP message, so a
+// malformed or malicious Content-Length can't drive an unbounded allocation.
+const maxMessageSize = 64 * 1024 * 1024
 
 // ReadMessage reads one LSP message from r.
 // Format: "Content-Length: N\r\n\r\n" followed by N bytes of JSON.
@@ -38,6 +44,9 @@ func ReadMessage(r *bufio.Reader) (Message, error) {
 	if contentLength < 0 {
 		return nil, fmt.Errorf("missing Content-Length header")
 	}
+	if contentLength > maxMessageSize {
+		return nil, fmt.Errorf("Content-Length too large: %d", contentLength)
+	}
 
 	body := make([]byte, contentLength)
 	if _, err := io.ReadFull(r, body); err != nil {
@@ -46,12 +55,23 @@ func ReadMessage(r *bufio.Reader) (Message, error) {
 	return Message(body), nil
 }
 
-// WriteMessage writes one LSP message to w.
+// WriteMessage writes one LSP message to w, as a single Write call - not
+// header then body separately - so a caller can wrap w with a mutex and get
+// true per-message atomicity even with multiple concurrent writers (see
+// internal/lsp's keyed-for resolution, which writes to gopls's stdin from
+// its own goroutine alongside the main editor-proxy loop).
 func WriteMessage(w io.Writer, msg Message) error {
-	header := fmt.Sprintf("Content-Length: %d\r\n\r\n", len(msg))
-	if _, err := io.WriteString(w, header); err != nil {
-		return err
+	msgLen := len(msg)
+	if msgLen > maxMessageSize {
+		return fmt.Errorf("message too large: %d", msgLen)
 	}
-	_, err := w.Write(msg)
+	// bytes.Buffer grows its own backing array internally rather than this
+	// function pre-computing a capacity from two lengths added together -
+	// still exactly one w.Write call at the end, preserving the atomicity
+	// this function exists for.
+	var buf bytes.Buffer
+	fmt.Fprintf(&buf, "Content-Length: %d\r\n\r\n", msgLen)
+	buf.Write(msg)
+	_, err := w.Write(buf.Bytes())
 	return err
 }

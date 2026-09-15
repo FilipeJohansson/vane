@@ -4,12 +4,23 @@ package core
 
 import (
 	"fmt"
+	"reflect"
+	"sort"
 	"strconv"
+	"sync/atomic"
 	"syscall/js"
 
 	"github.com/filipejohansson/vane/core/signal"
 	"github.com/filipejohansson/vane/internal/dom"
 )
+
+// dynListDOMOps counts DynList's own replaceChild/insertBefore/removeChild
+// calls made by the keyed reconciliation path specifically (never the
+// unkeyed rebuild path, which always touches every node by design - see
+// DynList's own doc comment). Exposed read-only via export_test.go; tests
+// use it to confirm a swap/reorder in a large keyed list touches only what
+// actually moved, not the whole list.
+var dynListDOMOps atomic.Int64
 
 func init() {
 	signal.EffectPanicHandler = func(r any) {
@@ -18,6 +29,7 @@ func init() {
 	signal.LoopWatchdogHandler = func(msg string) {
 		js.Global().Get("console").Call("error", "[vane] "+msg)
 	}
+	signal.WarnHandler = Warn
 }
 
 // DynChild appends a reactive child to parent.
@@ -80,166 +92,355 @@ func DynChild(parent Node, fn func() any) {
 	})
 }
 
-// DynList appends a reactive list of children to parent between two marker nodes.
-// Re-runs fn when its signal deps change.
+// NodePropertyKey reads a Node's own `"key"` JS property (set via `key={expr}`
+// in vane syntax, or by hand via `Unwrap(n).Set("key", ...)`), returning ""
+// if absent. This is the `keyFn` DynList's compatibility instantiation uses
+// for callers building `[]Node` directly instead of raw item values - see
+// IdentityNode and DynList's own doc comment.
+func NodePropertyKey(n Node) string {
+	if isNilNode(n) {
+		return ""
+	}
+	switch k := Unwrap(n).Get("key"); k.Type() {
+	case js.TypeString:
+		return k.String()
+	case js.TypeNumber:
+		return strconv.FormatFloat(k.Float(), 'f', -1, 64)
+	default:
+		return ""
+	}
+}
+
+// IdentityNode wraps n as a single-element slice. The `render` DynList's
+// compatibility instantiation uses for callers building `[]Node` directly -
+// there's nothing left to construct, the item already is the Node.
+func IdentityNode(n Node) []Node { return []Node{n} }
+
+// dynListEntry is one currently-mounted keyed item's persisted state,
+// surviving unchanged across re-renders until its key's value changes or
+// disappears. nodes is never empty - see renderNodesForKey.
+type dynListEntry[T any] struct {
+	nodes []js.Value
+	value T
+	scope *signal.Scope
+}
+
+// renderNodesRaw runs render(t) and unwraps the result to raw js.Values,
+// dropping any nil Node - a nil is simply omitted, never inserted.
+func renderNodesRaw[T any](render func(T) []Node, t T) []js.Value {
+	rendered := render(t)
+	out := make([]js.Value, 0, len(rendered))
+	for _, n := range rendered {
+		if isNilNode(n) {
+			continue
+		}
+		out = append(out, Unwrap(n))
+	}
+	return out
+}
+
+// renderNodesForKey is renderNodesRaw, but a key with zero real nodes still
+// gets one comment-node placeholder - the reorder pass needs a real anchor
+// per key, and a comment stays invisible to :empty/children.length.
+func renderNodesForKey[T any](render func(T) []Node, t T) []js.Value {
+	ns := renderNodesRaw(render, t)
+	if len(ns) == 0 {
+		ns = []js.Value{dom.Document.Call(dom.CreateComment, "")}
+	}
+	return ns
+}
+
+// DynList appends a reactive, keyed list of children to parent. render is
+// called once per new key and again only when a persisting key's value
+// changes (reflect.DeepEqual) - render returns every top-level node one item
+// produces, usually one but not always, tracked and moved as a unit per key.
 //
-// Keyed reconciliation is automatic: if the nodes returned by fn have a "key"
-// property set (via key={expr} in vane syntax), DynList reconciles by key,
-// only moving/removing/inserting what changed. Without keys, the list is rebuilt
-// from scratch on every change.
+// keyFn resolves each item's identity. Empty for every item (or keyFn nil):
+// the list is unkeyed, rebuilt from scratch each change. Empty for only some
+// items: those items get no persistence, rendered fresh each update and
+// diffed by position, like a React list child with no key. The same
+// non-empty key on two items warns and falls back to a full unkeyed rebuild
+// for that update.
 //
-// An explicit keyFn can also be passed for cases where nodes are built without vane syntax.
-func DynList(parent Node, fn func() []Node, keyFns ...func() []string) {
+// NodePropertyKey/IdentityNode adapt a `.vane` `{items()...}` spread's
+// already-built core.Node values into this same signature - see their own
+// doc comments.
+//
+// Reordering uses a longest-increasing-subsequence pass over persisting
+// keys' old-vs-new positions: only keys outside it physically move.
+func DynList[T any](parent Node, items func() []T, keyFn func(T) string, render func(T) []Node) {
 	p := Unwrap(parent)
 	start := dom.Document.Call(dom.CreateTextNode, "")
 	end := dom.Document.Call(dom.CreateTextNode, "")
 	p.Call(dom.AppendChild, start)
 	p.Call(dom.AppendChild, end)
 
-	live := make(map[string]js.Value) // key → DOM node (keyed path only)
+	live := make(map[string]*dynListEntry[T]) // key -> persisted keyed-path state
+	order := []string{}                       // current DOM order of live's real keys, for the next reorder pass
 
-	// childScope owns every effect/listener fn() creates on the current
-	// render, keyed or unkeyed alike. It's disposed and rebuilt around every
-	// fn() call, exactly like DynChild's own child scope, so a re-render never
-	// leaves the previous render's item-level effects/listeners without an
-	// owner to dispose them.
-	var childScope *signal.Scope
+	// Keyless items are never tracked in live (they have no identity to
+	// persist), so their previous render's DOM nodes have nowhere else to be
+	// found and removed from - tracked here instead, flat, replaced wholesale
+	// every render, same idea as live's own "whatever's left over gets
+	// removed" cleanup but for the nodes live never sees.
+	var prevKeylessNodes []js.Value
+
+	// Owns a fully-unkeyed/duplicate-fallback render's effects; disposed and
+	// rebuilt every such render, separate from live's own per-key scopes.
+	var unkeyedScope *signal.Scope
+
+	// Owns items() itself plus every keyless item's render this run - both
+	// are torn down and rebuilt fresh every time, so a keyless item needs no
+	// scope bookkeeping of its own.
+	var itemsScope *signal.Scope
+
 	signal.RegisterDispose(func() {
-		if childScope != nil {
-			childScope.Dispose()
-			childScope = nil
+		if unkeyedScope != nil {
+			unkeyedScope.Dispose()
+		}
+		if itemsScope != nil {
+			itemsScope.Dispose()
+		}
+		for _, e := range live {
+			e.scope.Dispose()
 		}
 	})
 
-	// explicitKeyFn is set when caller provides a key function directly.
-	var explicitKeyFn func() []string
-	if len(keyFns) > 0 && keyFns[0] != nil {
-		explicitKeyFn = keyFns[0]
+	removeAllChildren := func() {
+		for {
+			next := start.Get("nextSibling")
+			if next.IsNull() || next.IsUndefined() || next.Equal(end) {
+				break
+			}
+			p.Call(dom.RemoveChild, next)
+		}
 	}
-	if len(keyFns) > 1 {
-		Warn("core.DynList: more than one key function passed, only the first is used")
+
+	unkeyedRebuild := func(newItems []T) {
+		if unkeyedScope != nil {
+			unkeyedScope.Dispose()
+		}
+		for k, e := range live {
+			e.scope.Dispose()
+			delete(live, k)
+		}
+		order = order[:0]
+		prevKeylessNodes = nil // removeAllChildren below already clears every node physically
+		removeAllChildren()
+		unkeyedScope = signal.RunScoped(func() {
+			for _, t := range newItems {
+				for _, n := range renderNodesRaw(render, t) {
+					p.Call("insertBefore", n, end)
+				}
+			}
+		})
 	}
 
 	signal.Effect(func() {
-		if childScope != nil {
-			childScope.Dispose()
+		if itemsScope != nil {
+			itemsScope.Dispose()
 		}
-
-		var newNodes []js.Value
-		childScope = signal.RunScoped(func() {
-			wrapped := fn()
-			newNodes = make([]js.Value, len(wrapped))
-			for i, n := range wrapped {
-				if !isNilNode(n) {
-					newNodes[i] = Unwrap(n)
+		var newItems []T
+		newKeys := []string{}
+		keylessNodes := make(map[int][]js.Value) // index -> its rendered nodes, for key == "" items only
+		itemsScope = signal.RunScoped(func() {
+			newItems = items()
+			newKeys = make([]string, len(newItems))
+			if keyFn != nil {
+				for i, t := range newItems {
+					newKeys[i] = keyFn(t)
+					if newKeys[i] == "" {
+						keylessNodes[i] = renderNodesForKey(render, t)
+					}
 				}
 			}
 		})
 
-		// Resolve keys: explicit keyFn takes priority, then node .key property.
-		var newKeys []string
-		if explicitKeyFn != nil {
-			newKeys = explicitKeyFn()
-			if len(newKeys) != len(newNodes) {
-				Warn(fmt.Sprintf(
-					"core.DynList: key function returned %d keys for %d nodes, falling back to unkeyed rendering for this update",
-					len(newKeys), len(newNodes)))
-				newKeys = nil
-			}
-		} else {
-			keys := make([]string, len(newNodes))
-			keyedCount, presentCount := 0, 0
-			for i, n := range newNodes {
-				if isNilRaw(n) {
-					continue
-				}
-				presentCount++
-				switch k := n.Get("key"); k.Type() {
-				case js.TypeString:
-					keys[i] = k.String()
-					keyedCount++
-				case js.TypeNumber:
-					keys[i] = strconv.FormatFloat(k.Float(), 'f', -1, 64)
-					keyedCount++
-				}
-			}
-			switch {
-			case keyedCount == 0:
-				// No keys anywhere, plain unkeyed list, the common case.
-			case keyedCount == presentCount:
-				newKeys = keys
-			default:
-				// Mixed: some nodes have key={...}, others don't. Fall back to
-				// unkeyed rendering for this update so every node still renders
-				// (an unkeyed node would otherwise be treated as key "" and skipped).
-				Warn("core.DynList: some nodes have key={...} and others don't, falling back to unkeyed rendering for this update")
-			}
-		}
-
-		if newKeys == nil {
-			// Unkeyed: rebuild the DOM from scratch. The item effects/listeners
-			// fn() just created above are already owned by the fresh childScope.
-			// If keyed nodes existed before this update, they get removed from the
-			// DOM below but live would still hold stale refs to them. Clear it here
-			// so a keyed item added later doesn't hit a removeChild panic.
-			for k := range live {
-				delete(live, k)
-			}
-			for {
-				next := start.Get("nextSibling")
-				if next.IsNull() || next.IsUndefined() || next.Equal(end) {
-					break
-				}
-				p.Call(dom.RemoveChild, next)
-			}
-			for _, n := range newNodes {
-				if !isNilRaw(n) {
-					p.Call("insertBefore", n, end)
-				}
-			}
-			return
-		}
-
-		// Keyed: remove stale, insert/reorder right-to-left.
-		incoming := make(map[string]struct{}, len(newKeys))
+		keyedCount := 0
 		for _, k := range newKeys {
 			if k != "" {
-				incoming[k] = struct{}{}
+				keyedCount++
 			}
 		}
-		for k, n := range live {
-			if _, ok := incoming[k]; !ok {
-				p.Call(dom.RemoveChild, n)
-				delete(live, k)
+		if keyedCount == 0 {
+			unkeyedRebuild(newItems)
+			return
+		}
+		if seen := make(map[string]bool, keyedCount); true {
+			for _, k := range newKeys {
+				if k == "" {
+					continue
+				}
+				if seen[k] {
+					Warn(fmt.Sprintf("core.DynList: key function returned %q for more than one item, falling back to unkeyed rendering for this update", k))
+					unkeyedRebuild(newItems)
+					return
+				}
+				seen[k] = true
 			}
 		}
 
-		ref := end
-		for i := len(newKeys) - 1; i >= 0; i-- {
+		// Real keyed path: every non-empty key is distinct. A keyless ("")
+		// item participates in this same pass (reordered alongside its
+		// keyed siblings below) but is never looked up in or stored to
+		// live - keylessNodes above already rendered it fresh this run.
+		newLive := make(map[string]*dynListEntry[T], keyedCount)
+		newNodesPerItem := make([][]js.Value, len(newItems))
+		var thisKeylessNodes []js.Value
+		for i, t := range newItems {
 			k := newKeys[i]
-			n := newNodes[i]
-			if isNilRaw(n) || k == "" {
+			if k == "" {
+				newNodesPerItem[i] = keylessNodes[i]
+				thisKeylessNodes = append(thisKeylessNodes, keylessNodes[i]...)
 				continue
 			}
-			if existing, exists := live[k]; exists {
-				// Swap in the new node, since it carries current state (className, text,
-				// etc.) even though the key matches the old one.
-				prev := ref.Get("previousSibling")
-				if prev.Truthy() && prev.Equal(existing) {
-					p.Call("replaceChild", n, existing)
-				} else {
-					p.Call(dom.RemoveChild, existing)
-					p.Call("insertBefore", n, ref)
+			if existing, ok := live[k]; ok {
+				delete(live, k)
+				if reflect.DeepEqual(existing.value, t) {
+					// Unchanged: skip render entirely - no DOM touch, no new
+					// effects, the existing subtree and its scope survive.
+					newLive[k] = existing
+					newNodesPerItem[i] = existing.nodes
+					continue
 				}
-				live[k] = n
-				ref = n
+				// Changed: rebuild this key's subtree, previous scope
+				// disposed, neighbors untouched. New nodes go in right
+				// before the old group, which is then removed.
+				existing.scope.Dispose()
+				var ns []js.Value
+				scope := signal.RunScoped(func() {
+					ns = renderNodesForKey(render, t)
+				})
+				anchor := existing.nodes[0]
+				for _, n := range ns {
+					p.Call("insertBefore", n, anchor)
+					dynListDOMOps.Add(1)
+				}
+				for _, old := range existing.nodes {
+					p.Call(dom.RemoveChild, old)
+					dynListDOMOps.Add(1)
+				}
+				newLive[k] = &dynListEntry[T]{nodes: ns, value: t, scope: scope}
+				newNodesPerItem[i] = ns
 			} else {
-				p.Call("insertBefore", n, ref)
-				live[k] = n
-				ref = n
+				// New key.
+				var ns []js.Value
+				scope := signal.RunScoped(func() {
+					ns = renderNodesForKey(render, t)
+				})
+				newLive[k] = &dynListEntry[T]{nodes: ns, value: t, scope: scope}
+				newNodesPerItem[i] = ns
+			}
+		}
+		// Whatever's left in live had its key removed from the list entirely.
+		for _, e := range live {
+			for _, n := range e.nodes {
+				p.Call(dom.RemoveChild, n)
+				dynListDOMOps.Add(1)
+			}
+			e.scope.Dispose()
+		}
+
+		// Reorder: keys already in the longest run in the right relative
+		// order (per their OLD position) never move; only keys outside it
+		// get physically repositioned. A keyless item has no old position
+		// (refIndices -1), so it's always repositioned too.
+		oldIndexOf := make(map[string]int, len(order))
+		for i, k := range order {
+			oldIndexOf[k] = i
+		}
+		refIndices := make([]int, len(newKeys))
+		for i, k := range newKeys {
+			if k == "" {
+				refIndices[i] = -1
+				continue
+			}
+			if oi, ok := oldIndexOf[k]; ok {
+				refIndices[i] = oi
+			} else {
+				refIndices[i] = -1 // new key: never part of the stable run
+			}
+		}
+		stable := stableIndices(refIndices)
+
+		ref := end
+		stablePos := len(stable) - 1
+		for i := len(newKeys) - 1; i >= 0; i-- {
+			nodes := newNodesPerItem[i]
+			if stablePos >= 0 && stable[stablePos] == i {
+				stablePos--
+				if len(nodes) > 0 {
+					ref = nodes[0]
+				}
+				continue
+			}
+			for j := len(nodes) - 1; j >= 0; j-- {
+				p.Call("insertBefore", nodes[j], ref)
+				dynListDOMOps.Add(1)
+				ref = nodes[j]
+			}
+		}
+
+		// Every keyless item was just re-rendered fresh above (never reused
+		// from a prior render, never in live) - the previous render's own
+		// keyless nodes are now orphaned and must be removed explicitly, or
+		// they'd accumulate forever instead of being replaced.
+		for _, n := range prevKeylessNodes {
+			p.Call(dom.RemoveChild, n)
+			dynListDOMOps.Add(1)
+		}
+		prevKeylessNodes = thisKeylessNodes
+
+		live = newLive
+		order = order[:0]
+		for _, k := range newKeys {
+			if k != "" {
+				order = append(order, k)
 			}
 		}
 	})
+}
+
+// stableIndices returns, in ascending order, the indices into refIndices
+// whose values form one longest strictly increasing subsequence - the
+// elements DynList's reorder pass can leave physically untouched. A value
+// of -1 (a brand new key, absent from the previous render) never
+// participates: it always needs inserting, so it's never part of the
+// "already in order" run.
+func stableIndices(refIndices []int) []int {
+	n := len(refIndices)
+	if n == 0 {
+		return nil
+	}
+	tails := make([]int, 0, n) // tails[k] = index into refIndices ending the best length-(k+1) run found so far
+	prev := make([]int, n)     // prev[i] = index into refIndices of i's predecessor in its own run, or -1
+	for i, v := range refIndices {
+		if v < 0 {
+			prev[i] = -1
+			continue
+		}
+		lo := sort.Search(len(tails), func(mid int) bool { return refIndices[tails[mid]] >= v })
+		if lo > 0 {
+			prev[i] = tails[lo-1]
+		} else {
+			prev[i] = -1
+		}
+		if lo == len(tails) {
+			tails = append(tails, i)
+		} else {
+			tails[lo] = i
+		}
+	}
+	if len(tails) == 0 {
+		return nil
+	}
+	result := make([]int, len(tails))
+	k := tails[len(tails)-1]
+	for i := len(tails) - 1; i >= 0; i-- {
+		result[i] = k
+		k = prev[k]
+	}
+	return result
 }
 
 // DynText appends a reactive text node to parent.

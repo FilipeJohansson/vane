@@ -19,7 +19,7 @@ test:
 
 # Runs core/ and core/router/ DOM code (js/wasm build tag) against a jsdom
 # DOM via a Node.js exec wrapper, no real browser needed. First run installs
-# the jsdom devDependency (tools/wasmtest/). See internal_docs/testing.md.
+# the jsdom devDependency (tools/wasmtest/).
 # Known gap: jsdom has no layout engine, so anything depending on real
 # layout (offsetWidth, etc.) isn't testable this way.
 test-dom:

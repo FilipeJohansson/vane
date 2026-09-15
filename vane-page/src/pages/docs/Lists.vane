@@ -1,0 +1,263 @@
+package docs
+
+import (
+	"github.com/filipejohansson/vane/core"
+
+	"vane-page/src/components"
+)
+
+// The {for}+key example and the {items()...} example render the exact same
+// two-item todo list, with a click on each item toggling its "done" state -
+// only the list construct differs, so the two are directly comparable. Both
+// share the same data model and toggle logic (listsSharedSetupSnippet, shown
+// once before the {for} section). core.List[T] needs a different data
+// model, so it gets its own, fully self-contained snippet.
+
+const listsSharedSetupSnippet = `type Todo struct {
+    ID   string
+    Text string
+    Done bool
+}
+
+todos := core.NewSignal([]Todo{
+    {"1", "Learn Vane", false},
+    {"2", "Ship it", false},
+})
+
+toggle := func(id string) {
+    next := make([]Todo, len(todos.Get()))
+    for i, t := range todos.Get() {
+        if t.ID == id {
+            t.Done = !t.Done
+        }
+        next[i] = t
+    }
+    todos.Set(next)
+}`
+
+const listsKeyedForSnippet = `// Todo, todos, toggle from above
+
+return (
+    <ul>
+        {for _, t := range todos.Get() {
+            <li key={t.ID} className={func() string {
+                if t.Done { return "done" }
+                return ""
+            }()}>
+                <span onClick={func(core.MouseEvent) { toggle(t.ID) }}>{t.Text}</span>
+            </li>
+        }}
+    </ul>
+)`
+
+const listsItemsSpreadSnippet = `// Todo, todos, toggle from above
+
+todoNode := func(t Todo) core.Node {
+    return (
+        <li key={t.ID} className={func() string {
+            if t.Done { return "done" }
+            return ""
+        }()}>
+            <span onClick={func(core.MouseEvent) { toggle(t.ID) }}>{t.Text}</span>
+        </li>
+    )
+}
+
+items := func() []core.Node {
+    nodes := make([]core.Node, 0)
+    for _, t := range todos.Get() {
+        nodes = append(nodes, todoNode(t))
+    }
+    return nodes
+}
+return (<ul>{items()...}</ul>)`
+
+const listsFieldLevelSnippet = `type Todo struct {
+    ID   string             // the reconciliation key - must never change
+    Text string             // doesn't change here, so plain
+    Done *core.Signal[bool] // changes on its own, often - signal
+}
+
+todos := core.NewList(func(t Todo) string { return t.ID })
+todos.Set([]Todo{
+    {ID: "1", Text: "Learn Vane", Done: core.NewSignal(false)},
+    {ID: "2", Text: "Ship it", Done: core.NewSignal(false)},
+})
+
+return (
+    <ul>
+        {for _, t := range todos.Items() {
+            <li key={t.ID} className={func() string {
+                if t.Done.Get() { return "done" }
+                return ""
+            }()}>
+                <span onClick={func(core.MouseEvent) { t.Done.Set(!t.Done.Get()) }}>
+                    {t.Text}
+                </span>
+            </li>
+        }}
+    </ul>
+)`
+
+func Lists() core.Node {
+	core.Head(func() core.HeadConfig {
+		title := "Lists | Vane Docs"
+		description := "How to render lists in Vane - the {for}+key pattern to reach for by default, {items()...} for raw nodes, and core.List[T] for field-level reactive collections - with examples and the real difference between them."
+		url := core.Window().Get("location").Get("origin").String() + "/vane/docs/lists"
+		return core.HeadConfig{
+			Title:         title,
+			Description:   description,
+			Canonical:     url,
+			OGTitle:       title,
+			OGDescription: description,
+			OGURL:         url,
+		}
+	})
+
+	items := listsTOCItems
+
+	return (
+		<div className="docs-page">
+			<article className="docs-article">
+				{docsHeader(
+					"Build Your UI",
+					"Lists",
+					"Three ways to render a list in Vane, what each one actually costs, and when to reach for which.",
+				)}
+
+				<h2 className="docs-h2" id="the-basics">The basics</h2>
+				<p className="docs-p">
+					A list is reactive when its node-building logic lives in a function
+					that re-runs when the data it reads changes - a plain slice built once
+					at mount never updates, since the component function itself doesn't
+					re-run. Vane has two constructs for this: a native{" "}
+					<code>{"{for}"}</code> loop directly in JSX, or a separate function
+					returning <code>[]core.Node</code> spread with{" "}
+					<code>{"{items()...}"}</code>. <code>{"{for}"}</code> is the one to
+					reach for by default - see below for why.
+				</p>
+
+				<h2 className="docs-h2" id="why-keys">Why keys matter</h2>
+				<p className="docs-p">
+					Without a <code>key</code>, Vane has no way to tell "this is the same
+					item, just moved" from "this is a completely different item" - so every
+					change (adding, removing, or reordering even one item) rebuilds the
+					entire list from scratch. Adding <code>key={"{expr}"}</code> to each
+					item's root element gives Vane a stable identity to reconcile against
+					instead, so it can figure out what actually changed. Both list
+					constructs below support it the same way.
+				</p>
+				{callout("important", "Important", "key must be unique per item and stable across renders - deriving it from an item's own ID field is the usual choice. A duplicate key logs a warning and falls back to a full rebuild for that update.")}
+
+				<h2 className="docs-h2" id="comparing">Comparing the options</h2>
+				<p className="docs-p">
+					<code>{"{for}"}</code> and <code>{"{items()...}"}</code> both accept{" "}
+					<code>key</code>, but only <code>{"{for}"}</code> can skip a persisting
+					item's own rebuild when its data hasn't changed - because the compiler
+					generates its loop body itself, it can compare an item's actual data
+					field by field. <code>{"{items()...}"}</code> calls a plain Go closure
+					to build every node, and Vane has no way to look inside that closure to
+					tell whether it would have produced the same result as last time - it
+					can only compare positions, not content. Omitting <code>key</code> on
+					either construct falls back to rebuilding the whole list on any change.
+				</p>
+
+				{docsTable(
+					[]string{"Construct", "Add/remove/reorder", "A changed item's own content"},
+					[][]core.Node{
+						{core.Fragment(code("{for}"), core.Text(" + "), code("key")), core.Text("Only what moved"), core.Text("Skipped if unchanged")},
+						{core.Fragment(code("{items()...}"), core.Text(" + "), code("key")), core.Text("Only what moved"), core.Text("Rebuilds that item")},
+						{code("core.List[T]"), core.Text("Only what moved"), core.Text("Never involved at all")},
+					},
+				)}
+
+				<h2 className="docs-h2" id="for-keyed">Default: <code>{"{for}"}</code> + key</h2>
+				<p className="docs-p">
+					The recommended default for most reactive lists: a native{" "}
+					<code>{"{for}"}</code> loop with <code>key</code> on the root element.
+					A two-item todo list, click an item to toggle it done:
+				</p>
+				{components.CodeBlock("TodoList.vane", listsSharedSetupSnippet)}
+				{components.CodeBlock("TodoList.vane", listsKeyedForSnippet)}
+				<p className="docs-p">
+					Because the compiler generates this loop's body itself, it can compare
+					an existing key's actual data (the whole <code>Todo</code> value, field
+					by field) against what's there now. If nothing changed, that item is
+					skipped entirely: no function call, no DOM touch, nothing. Only items
+					whose data genuinely changed get rebuilt, and only the keys that
+					actually moved get repositioned.
+				</p>
+				{callout("tip", "Tip", "This is the recommended default for most reactive lists. See JSX Syntax for the full {for} syntax.")}
+
+				<h2 className="docs-h2" id="items-spread"><code>{"{items()...}"}</code>: when you need raw nodes</h2>
+				<p className="docs-p">
+					Reach for this instead when the node-building logic can't be a simple{" "}
+					<code>{"{for}"}</code> over one typed slice - for instance, building a
+					list of mixed node shapes from a type switch, or composing nodes from
+					several different sources into one list. The function returns{" "}
+					<code>[]core.Node</code> directly, and <code>key</code> works the same
+					way as above:
+				</p>
+				{components.CodeBlock("TodoList.vane", listsItemsSpreadSnippet)}
+				<p className="docs-p">
+					One real limit here: a persisting item's own content still rebuilds
+					every time the surrounding list re-renders, even if that item's own
+					data didn't change - see{" "}
+					<a className="docs-inline-link" href="#comparing">above</a> for why.
+					For a plain list of one typed item, prefer <code>{"{for}"}</code>.
+				</p>
+
+				<h2 className="docs-h2" id="field-level">Field-level with <code>core.List[T]</code></h2>
+				<p className="docs-p">
+					<code>{"{for}"}</code>+key still compares an item's <em>whole</em> value
+					to decide whether to rebuild it - a single field changing means the
+					item's entire subtree rebuilds, even if only one{" "}
+					<code>{"{expr}"}</code> inside it actually needed to update. For a list
+					where individual fields change often (a live-updating table, a todo's
+					done state toggling), model those specific fields as signals instead of
+					plain values, and use <code>core.List[T]</code> to hold the items. Only{" "}
+					<code>Done</code> is a signal below, for three different reasons:{" "}
+					<code>ID</code> is the key passed to <code>core.NewList</code> itself,
+					so it must never change - making it a signal would invite editing the
+					very thing reconciliation identifies items by. <code>Text</code> simply
+					doesn't change in this example (a real edit feature would make it a
+					signal too). <code>Done</code> does change, independently and often -
+					that's the one field this pattern actually exists for. Notice there's
+					no separate <code>toggle</code> here - setting{" "}
+					<code>t.Done</code>'s own signal directly in the <code>onClick</code> is
+					the whole update:
+				</p>
+				{components.CodeBlock("TodoList.vane", listsFieldLevelSnippet)}
+				<p className="docs-p">
+					<code>core.List[T].Items()</code> is reactive only to structural
+					changes - which keys exist, and their order - never to a value changing
+					inside an existing item's own fields. So setting a field's own signal
+					never touches list reconciliation at all, because it was never involved
+					in the first place - Vane's usual fine-grained reactivity, the same
+					mechanism behind a plain <code>{"{count.Get()}"}</code> binding, handles
+					it directly.
+				</p>
+				<p className="docs-p">
+					This is a real modeling change, not just an API swap: instead of
+					"replace the whole list with a new slice" (<code>{"todos.Set(newSlice)"}</code>{" "}
+					on a plain signal), state updates become "set this one field's own
+					signal" (<code>{"t.Done.Set(...)"}</code>). Worth it once a list has
+					several independently-changing fields updating often; unnecessary
+					complexity for a list that mostly just grows, shrinks, and reorders.
+				</p>
+				{callout("important", "Important", "core.List[T]'s own Set still reconciles structurally the same way {for}+key does when items are added, removed, or reordered - field-level signals only bypass reconciliation for a value changing inside an item that was already there.")}
+				{callout("important", "Important", "A duplicate key in core.List[T] also logs a warning, but there's no rebuild to fall back to here: Get(key) resolves to whichever duplicate was written last, while Items() still returns every one of them.")}
+
+				<h2 className="docs-h2" id="which-one">Which one should I use?</h2>
+				<ul className="docs-list">
+					<li>Writing a new list, or your node-building logic ranges over one typed slice: <code>{"{for}"}</code>+key. Almost always the right call.</li>
+					<li>The node-building logic must return raw <code>[]core.Node</code> directly - mixed node shapes, composing from several sources: <code>{"{items()...}"}</code>+key.</li>
+					<li>A list with several fields updating independently and often, at real scale: <code>core.List[T]</code> is worth the modeling change.</li>
+				</ul>
+
+				{pageNav("lists")}
+			</article>
+			{toc(items)}
+		</div>
+	)
+}

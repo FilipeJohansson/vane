@@ -5,9 +5,6 @@
 // double-requestAnimationFrame measured inside the page (not round-tripped
 // through Playwright IPC), and records each app's initial transferred
 // payload size. Run from the repo root: node benchmarks/runner/bench.mjs
-//
-// See internal_docs/1.0.0/performance-benchmarks.md for the full
-// methodology writeup and its stated limitations.
 
 import http from "node:http";
 import fs from "node:fs";
