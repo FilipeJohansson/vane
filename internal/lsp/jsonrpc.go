@@ -2,9 +2,9 @@ package lsp
 
 import (
 	"bufio"
+	"bytes"
 	"fmt"
 	"io"
-	"math"
 	"strconv"
 	"strings"
 )
@@ -65,15 +65,13 @@ func WriteMessage(w io.Writer, msg Message) error {
 	if msgLen > maxMessageSize {
 		return fmt.Errorf("message too large: %d", msgLen)
 	}
-	header := fmt.Sprintf("Content-Length: %d\r\n\r\n", msgLen)
-	headerLen := len(header)
-	if msgLen > math.MaxInt-headerLen {
-		return fmt.Errorf("message too large")
-	}
-	totalLen := headerLen + msgLen
-	buf := make([]byte, 0, totalLen)
-	buf = append(buf, header...)
-	buf = append(buf, msg...)
-	_, err := w.Write(buf)
+	// bytes.Buffer grows its own backing array internally rather than this
+	// function pre-computing a capacity from two lengths added together -
+	// still exactly one w.Write call at the end, preserving the atomicity
+	// this function exists for.
+	var buf bytes.Buffer
+	fmt.Fprintf(&buf, "Content-Length: %d\r\n\r\n", msgLen)
+	buf.Write(msg)
+	_, err := w.Write(buf.Bytes())
 	return err
 }
