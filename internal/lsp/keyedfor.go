@@ -297,6 +297,14 @@ func (s *docStore) scheduleKeyedForResolve(uri, text, strippedGo string, sm *com
 		vURI := virtualURI(uri)
 		var hints []compiler.ForTypeHint
 		for _, c := range candidates {
+			// A newer edit landed while this loop was still hovering earlier
+			// candidates - the result being built here is already stale, so
+			// stop issuing further real gopls round-trips for it instead of
+			// finishing every candidate first and only noticing at the end.
+			if s.generation(uri) != genBefore {
+				fmt.Fprintf(os.Stderr, "[vane lsp] keyed-for: aborting resolve for %s, superseded mid-hover (gen %d -> %d)\n", uri, genBefore, s.generation(uri))
+				return
+			}
 			typ, ok := s.hover.hover(vURI, c.hoverLine, c.hoverCol)
 			if !ok {
 				continue

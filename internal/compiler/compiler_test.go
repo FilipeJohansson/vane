@@ -913,8 +913,8 @@ func TestSyscallJSNotDuplicated(t *testing.T) {
 }
 
 // TestBothJSAndFmtInjectedTogether is a regression test for the "js."/"fmt."
-// checks now sharing a single stripCommentsAndStrings(out) call (item 14):
-// a file needing both imports (js.Value return type plus a keyed {for}'s
+// checks now sharing a single stripCommentsAndStrings(out) call: a file
+// needing both imports (js.Value return type plus a keyed {for}'s
 // fmt.Sprint-wrapped keyFn) must still get both, not just whichever check ran
 // against the shared stripped copy first.
 func TestBothJSAndFmtInjectedTogether(t *testing.T) {

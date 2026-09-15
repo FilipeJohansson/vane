@@ -8,6 +8,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 	"unicode/utf16"
@@ -89,9 +90,9 @@ func TestFindKeyedForCandidates_KeyedFor(t *testing.T) {
 }
 
 // TestUTF16Column is a direct unit test of the byte-to-UTF-16 conversion
-// hoverCol now uses (item 18): a hover position sent to gopls over
-// JSON-RPC is a UTF-16 code unit offset, not a byte offset - the two only
-// coincide when everything before the target on that line is ASCII.
+// hoverCol uses: a hover position sent to gopls over JSON-RPC is a UTF-16
+// code unit offset, not a byte offset - the two only coincide when
+// everything before the target on that line is ASCII.
 func TestUTF16Column(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -118,7 +119,7 @@ func TestUTF16Column(t *testing.T) {
 }
 
 // TestFindKeyedForCandidates_NonASCIIIndexVarShiftsHoverColumn is an
-// end-to-end regression test for item 18: a non-ASCII index variable name
+// end-to-end regression test: a non-ASCII index variable name
 // (valid Go - unicode letters are legal in identifiers) sitting before the
 // range value variable on the same generated line used to leave hoverCol at
 // the raw byte column, landing gopls's hover one position short of the real
@@ -381,6 +382,86 @@ func TestScheduleKeyedForResolve_NoKeyInFileIsNoop(t *testing.T) {
 	}
 	if g := store.generation(vaneURI); g != genBefore {
 		t.Errorf("generation changed for a file with no key={} at all")
+	}
+}
+
+const twoKeyedForFixtureSrc = "package main\n" +
+	"import \"syscall/js\"\n" +
+	"func F() js.Value {\n" +
+	"\treturn (\n" +
+	"\t\t<div>\n" +
+	"\t\t<ul>{for _, t := range items { <li key={t.ID}>{t.Text}</li> }}</ul>\n" +
+	"\t\t<ul>{for _, u := range others { <li key={u.ID}>{u.Text}</li> }}</ul>\n" +
+	"\t\t</div>\n" +
+	"\t)\n" +
+	"}\n"
+
+// TestScheduleKeyedForResolve_AbortsMidHoverWhenSuperseded is a regression
+// test for a real staleness gap: the hover loop used to check generation
+// only after every candidate finished hovering, so a burst of edits made a
+// superseded goroutine keep issuing real gopls round-trips for candidates
+// that no longer mattered. This fixture has two candidates; the fake gopls
+// bumps the document's generation (simulating a newer edit landing) while
+// answering the first hover, and the test asserts the second hover call
+// never happens.
+func TestScheduleKeyedForResolve_AbortsMidHoverWhenSuperseded(t *testing.T) {
+	const vaneURI = "file:///D:/proj/Test.vane"
+	goSrc, sm, err := compiler.CompileWithMap(twoKeyedForFixtureSrc, "Test.vane")
+	if err != nil {
+		t.Fatalf("compile: %v", err)
+	}
+	strippedGo := stripLineDirectives(goSrc)
+
+	store := newDocStore()
+	store.set(vaneURI, twoKeyedForFixtureSrc, goSrc, sm)
+
+	candidates := findKeyedForCandidates(strippedGo, twoKeyedForFixtureSrc, sm)
+	if len(candidates) != 2 {
+		t.Fatalf("fixture setup: got %d candidates, want 2", len(candidates))
+	}
+
+	var hoverCalls atomic.Int32
+	pr, pw := io.Pipe()
+	store.hover = newHoverClient(pw)
+	store.goplsIn = pw
+
+	go func() {
+		r := bufio.NewReader(pr)
+		for {
+			msg, err := ReadMessage(r)
+			if err != nil {
+				return
+			}
+			var env struct {
+				ID     json.RawMessage `json:"id"`
+				Method string          `json:"method"`
+			}
+			if json.Unmarshal(msg, &env) != nil || env.Method != "textDocument/hover" {
+				continue
+			}
+			n := hoverCalls.Add(1)
+			if n == 1 {
+				// A newer edit lands while the first hover is in flight.
+				store.set(vaneURI, twoKeyedForFixtureSrc, goSrc, sm)
+			}
+			var idStr string
+			_ = json.Unmarshal(env.ID, &idStr)
+			b, _ := json.Marshal(map[string]any{
+				"contents": map[string]any{"kind": "plaintext", "value": "var t Todo"},
+			})
+			store.hover.take(idStr, b)
+		}
+	}()
+
+	store.scheduleKeyedForResolve(vaneURI, twoKeyedForFixtureSrc, strippedGo, sm)
+
+	// No didChange is expected here (the resolve aborts before recompiling),
+	// so there's no event to block on - a bounded settle window instead,
+	// long enough for a wrongly-issued second hover to have already arrived.
+	time.Sleep(300 * time.Millisecond)
+
+	if n := hoverCalls.Load(); n != 1 {
+		t.Fatalf("hover calls = %d, want exactly 1 (must abort before hovering the second, now-stale candidate)", n)
 	}
 }
 
