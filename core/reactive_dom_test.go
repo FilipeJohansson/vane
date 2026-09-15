@@ -372,6 +372,328 @@ func TestDynListMixedKeyedUnkeyedRendersAll(t *testing.T) {
 	}
 }
 
+// TestDynListMixedKeylessKeyedAcrossThreeRenders confirms the per-item
+// degradation holds across multiple renders, not just the first: a
+// persistently keyless item mixed into an otherwise fully-keyed
+// list must never make the properly-keyed rows lose their identity/
+// skip-render behavior, across 3 consecutive updates that only ever touch
+// the keyless item's own value.
+func TestDynListMixedKeylessKeyedAcrossThreeRenders(t *testing.T) {
+	parent := core.El("ul")
+	type row struct{ ID, Text string }
+	rows := core.NewSignal([]row{{"1", "a"}, {"", "x1"}, {"2", "b"}})
+
+	keyedRenderCounts := map[string]int{}
+	keylessRenderCount := 0
+	render := func(r row) []core.Node {
+		if r.ID == "" {
+			keylessRenderCount++
+			return []core.Node{core.Text(r.Text)}
+		}
+		keyedRenderCounts[r.ID]++
+		return []core.Node{core.Text(r.ID + ":" + r.Text)}
+	}
+	core.DynList(parent, rows.Get, func(r row) string { return r.ID }, render)
+	if !signal.WaitEffects(200 * time.Millisecond) {
+		t.Fatal("scheduler did not settle after the initial render")
+	}
+	if keyedRenderCounts["1"] != 1 || keyedRenderCounts["2"] != 1 {
+		t.Fatalf("initial keyedRenderCounts = %v, want 1 each", keyedRenderCounts)
+	}
+	if keylessRenderCount != 1 {
+		t.Fatalf("initial keylessRenderCount = %d, want 1", keylessRenderCount)
+	}
+
+	for i, text := range []string{"x2", "x3", "x4"} {
+		rows.Set([]row{{"1", "a"}, {"", text}, {"2", "b"}})
+		if !signal.WaitEffects(200 * time.Millisecond) {
+			t.Fatalf("scheduler did not settle after update %d", i+1)
+		}
+		if keyedRenderCounts["1"] != 1 || keyedRenderCounts["2"] != 1 {
+			t.Fatalf("after update %d: keyedRenderCounts = %v, want still 1 each (unchanged keyed rows must never re-render)", i+1, keyedRenderCounts)
+		}
+		if want := i + 2; keylessRenderCount != want {
+			t.Fatalf("after update %d: keylessRenderCount = %d, want %d (keyless never persists, always re-renders)", i+1, keylessRenderCount, want)
+		}
+	}
+
+	got := childTexts(t, parent)
+	got = got[1 : len(got)-1]
+	want := []string{"1:a", "x4", "2:b"}
+	if len(got) != len(want) {
+		t.Fatalf("final childTexts = %v, want %v", got, want)
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Fatalf("final childTexts = %v, want %v", got, want)
+		}
+	}
+}
+
+// TestDynListKeylessItemAtStartMiddleEnd confirms a keyless item renders
+// correctly regardless of where it sits in the list.
+func TestDynListKeylessItemAtStartMiddleEnd(t *testing.T) {
+	type row struct{ ID, Text string }
+	cases := []struct {
+		name string
+		rows []row
+		want []string
+	}{
+		{"start", []row{{"", "k"}, {"1", "a"}, {"2", "b"}}, []string{"k", "1:a", "2:b"}},
+		{"middle", []row{{"1", "a"}, {"", "k"}, {"2", "b"}}, []string{"1:a", "k", "2:b"}},
+		{"end", []row{{"1", "a"}, {"2", "b"}, {"", "k"}}, []string{"1:a", "2:b", "k"}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			parent := core.El("ul")
+			rowsSig := core.NewSignal(tc.rows)
+			core.DynList(parent, rowsSig.Get, func(r row) string { return r.ID }, func(r row) []core.Node {
+				if r.ID == "" {
+					return []core.Node{core.Text(r.Text)}
+				}
+				return []core.Node{core.Text(r.ID + ":" + r.Text)}
+			})
+			if !signal.WaitEffects(200 * time.Millisecond) {
+				t.Fatal("scheduler did not settle after the initial render")
+			}
+			got := childTexts(t, parent)
+			got = got[1 : len(got)-1]
+			if len(got) != len(tc.want) {
+				t.Fatalf("childTexts = %v, want %v", got, tc.want)
+			}
+			for i := range tc.want {
+				if got[i] != tc.want[i] {
+					t.Fatalf("childTexts = %v, want %v", got, tc.want)
+				}
+			}
+		})
+	}
+}
+
+// TestDynListTwoKeylessItemsSimultaneously confirms two different keyless
+// items in the same list both render correctly and don't get confused for
+// each other (both have the same "identity" - empty key - so nothing must
+// rely on key uniqueness among them), while real keyed rows around them keep
+// their own skip-render behavior.
+func TestDynListTwoKeylessItemsSimultaneously(t *testing.T) {
+	parent := core.El("ul")
+	type row struct{ ID, Text string }
+	rows := core.NewSignal([]row{{"1", "a"}, {"", "k1"}, {"", "k2"}, {"2", "b"}})
+
+	keyedRenderCounts := map[string]int{}
+	render := func(r row) []core.Node {
+		if r.ID == "" {
+			return []core.Node{core.Text(r.Text)}
+		}
+		keyedRenderCounts[r.ID]++
+		return []core.Node{core.Text(r.ID + ":" + r.Text)}
+	}
+	core.DynList(parent, rows.Get, func(r row) string { return r.ID }, render)
+	if !signal.WaitEffects(200 * time.Millisecond) {
+		t.Fatal("scheduler did not settle after the initial render")
+	}
+
+	assertOrder := func(want []string) {
+		t.Helper()
+		got := childTexts(t, parent)
+		got = got[1 : len(got)-1]
+		if len(got) != len(want) {
+			t.Fatalf("childTexts = %v, want %v", got, want)
+		}
+		for i := range want {
+			if got[i] != want[i] {
+				t.Fatalf("childTexts = %v, want %v", got, want)
+			}
+		}
+	}
+	assertOrder([]string{"1:a", "k1", "k2", "2:b"})
+
+	rows.Set([]row{{"1", "a"}, {"", "k1-changed"}, {"", "k2-changed"}, {"2", "b"}})
+	if !signal.WaitEffects(200 * time.Millisecond) {
+		t.Fatal("scheduler did not settle after the update")
+	}
+	if keyedRenderCounts["1"] != 1 || keyedRenderCounts["2"] != 1 {
+		t.Fatalf("keyedRenderCounts = %v, want still 1 each - unaffected by the keyless items' own updates", keyedRenderCounts)
+	}
+	assertOrder([]string{"1:a", "k1-changed", "k2-changed", "2:b"})
+}
+
+// TestDynListUnkeyedNilRenderHasZeroDOMFootprint confirms a nil-rendering
+// item in an unkeyed list leaves no trace at all - no placeholder node of
+// any kind, not even a comment - at every position: start, middle, and end
+// of the list, not just "somewhere in there."
+func TestDynListUnkeyedNilRenderHasZeroDOMFootprint(t *testing.T) {
+	parent := core.El("ul")
+	type row struct {
+		ID   string
+		Skip bool
+	}
+	rows := core.NewSignal([]row{
+		{"1", true},  // nil at the start
+		{"2", false},
+		{"3", true},  // nil in the middle
+		{"4", false},
+		{"5", true},  // nil at the end
+	})
+
+	core.DynList(parent, rows.Get, func(row) string { return "" }, func(r row) []core.Node {
+		if r.Skip {
+			return nil
+		}
+		li := core.El("li")
+		core.AppendText(li, r.ID)
+		return []core.Node{li}
+	})
+	if !signal.WaitEffects(200 * time.Millisecond) {
+		t.Fatal("scheduler did not settle after the initial render")
+	}
+
+	raw := core.Unwrap(parent)
+	if n := raw.Get("children").Get("length").Int(); n != 2 {
+		t.Fatalf("got %d elements, want 2 (only the non-nil items)", n)
+	}
+	if got := childTexts(t, parent); len(got) != 2+2 { // 2 real items + 2 start/end markers
+		t.Fatalf("childNodes = %v, want exactly 2 real items plus the 2 list markers, no nil placeholders", got)
+	}
+}
+
+// TestDynListKeyedNilRenderUsesCommentPlaceholder confirms a keyed item
+// whose render returns no real nodes gets a comment-node placeholder - a
+// real, stable anchor for the reorder pass - but is invisible to the DOM
+// APIs the original finding named: :empty/children.length/querySelectorAll.
+func TestDynListKeyedNilRenderUsesCommentPlaceholder(t *testing.T) {
+	parent := core.El("ul")
+	type row struct {
+		ID   string
+		Skip bool
+	}
+	rows := core.NewSignal([]row{{"1", true}})
+
+	core.DynList(parent, rows.Get, func(r row) string { return r.ID }, func(r row) []core.Node {
+		if r.Skip {
+			return nil
+		}
+		li := core.El("li")
+		core.AppendText(li, r.ID)
+		return []core.Node{li}
+	})
+	if !signal.WaitEffects(200 * time.Millisecond) {
+		t.Fatal("scheduler did not settle after the initial render")
+	}
+
+	raw := core.Unwrap(parent)
+	if n := raw.Get("children").Get("length").Int(); n != 0 {
+		t.Fatalf("children.length = %d, want 0 (a comment node is not an Element)", n)
+	}
+	if n := raw.Call("querySelectorAll", "li").Get("length").Int(); n != 0 {
+		t.Fatalf("querySelectorAll(\"li\") found %d, want 0", n)
+	}
+
+	// The parent itself is genuinely non-empty (start/end markers plus the
+	// placeholder are all real childNodes), but nothing an :empty-style
+	// element check or children.length would ever see.
+	childNodeCount := raw.Get("childNodes").Get("length").Int()
+	if childNodeCount == 0 {
+		t.Fatal("childNodes is empty - the placeholder comment node itself is missing")
+	}
+}
+
+// TestDynListKeyedNilThenNonNilRenderTransitions confirms both directions of
+// a keyed item's render toggling between nil and real nodes - non-nil
+// becoming nil, and nil becoming non-nil - end with the DOM correctly
+// reflecting the new state, not stuck on stale content or a stray element.
+func TestDynListKeyedNilThenNonNilRenderTransitions(t *testing.T) {
+	parent := core.El("ul")
+	type row struct {
+		ID   string
+		Skip bool
+	}
+	rows := core.NewSignal([]row{{"1", false}})
+
+	render := func(r row) []core.Node {
+		if r.Skip {
+			return nil
+		}
+		li := core.El("li")
+		core.AppendText(li, r.ID)
+		return []core.Node{li}
+	}
+	core.DynList(parent, rows.Get, func(r row) string { return r.ID }, render)
+	if !signal.WaitEffects(200 * time.Millisecond) {
+		t.Fatal("scheduler did not settle after the initial render")
+	}
+	raw := core.Unwrap(parent)
+	if n := raw.Call("querySelectorAll", "li").Get("length").Int(); n != 1 {
+		t.Fatalf("initial: querySelectorAll(\"li\") = %d, want 1", n)
+	}
+
+	// Non-nil -> nil.
+	rows.Set([]row{{"1", true}})
+	if !signal.WaitEffects(200 * time.Millisecond) {
+		t.Fatal("scheduler did not settle after becoming nil")
+	}
+	if n := raw.Call("querySelectorAll", "li").Get("length").Int(); n != 0 {
+		t.Fatalf("after becoming nil: querySelectorAll(\"li\") = %d, want 0", n)
+	}
+
+	// nil -> non-nil.
+	rows.Set([]row{{"1", false}})
+	if !signal.WaitEffects(200 * time.Millisecond) {
+		t.Fatal("scheduler did not settle after becoming non-nil again")
+	}
+	if n := raw.Call("querySelectorAll", "li").Get("length").Int(); n != 1 {
+		t.Fatalf("after becoming non-nil again: querySelectorAll(\"li\") = %d, want 1", n)
+	}
+	if got := raw.Call("querySelectorAll", "li").Index(0).Get("textContent").String(); got != "1" {
+		t.Errorf("revived item's text = %q, want \"1\"", got)
+	}
+}
+
+// TestDynListReorderMovesCommentBackedKeyAsStableAnchor confirms a
+// comment-node-backed (nil-rendering) key survives a reorder as a real,
+// stable anchor, and the surrounding real items still end up in the right
+// order - the reorder pass doesn't need every key to have a real element.
+func TestDynListReorderMovesCommentBackedKeyAsStableAnchor(t *testing.T) {
+	parent := core.El("ul")
+	type row struct {
+		ID   string
+		Skip bool
+	}
+	rows := core.NewSignal([]row{{"1", false}, {"2", true}, {"3", false}})
+
+	render := func(r row) []core.Node {
+		if r.Skip {
+			return nil
+		}
+		return []core.Node{core.Text(r.ID)}
+	}
+	core.DynList(parent, rows.Get, func(r row) string { return r.ID }, render)
+	if !signal.WaitEffects(200 * time.Millisecond) {
+		t.Fatal("scheduler did not settle after the initial render")
+	}
+
+	rows.Set([]row{{"3", false}, {"2", true}, {"1", false}})
+	if !signal.WaitEffects(200 * time.Millisecond) {
+		t.Fatal("scheduler did not settle after the reorder")
+	}
+
+	got := childTexts(t, parent)
+	got = got[1 : len(got)-1] // strip start/end markers
+	// Key "2" (the comment placeholder) contributes an empty textContent but
+	// still occupies its own childNodes slot, in the middle, between the two
+	// real items in their new order - the comment moved as a real anchor,
+	// not just "somewhere, doesn't matter where."
+	want := []string{"3", "", "1"}
+	if len(got) != len(want) {
+		t.Fatalf("childTexts after reorder = %v, want %v", got, want)
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Fatalf("childTexts after reorder = %v, want %v", got, want)
+		}
+	}
+}
+
 // TestDynListSkipsRenderForUnchangedKey verifies the core claim of the
 // generic DynList's keyed path: render is called once for a new key, and
 // never again for that key once reflect.DeepEqual says its value hasn't
@@ -533,6 +855,207 @@ func TestDynListReorderHandlesHarderCasesThanASwap(t *testing.T) {
 			}
 		}
 	}
+}
+
+// TestDynListTwoNodesPerKey_InitialMountOrder confirms a keyed list whose
+// render produces 2 top-level nodes per item mounts both, in the right
+// relative order, for every key - the one-key-to-many-nodes shape this
+// whole fix exists to support.
+func TestDynListTwoNodesPerKey_InitialMountOrder(t *testing.T) {
+	parent := core.El("ul")
+	type row struct{ ID, Text string }
+	rows := core.NewSignal([]row{{"1", "a"}, {"2", "b"}})
+
+	core.DynList(parent, rows.Get, func(r row) string { return r.ID }, func(r row) []core.Node {
+		return []core.Node{core.Text(r.ID + "-a"), core.Text(r.ID + "-b")}
+	})
+	if !signal.WaitEffects(200 * time.Millisecond) {
+		t.Fatal("scheduler did not settle after the initial render")
+	}
+
+	got := childTexts(t, parent)
+	want := []string{"", "1-a", "1-b", "2-a", "2-b", ""} // start/end markers are blank
+	if len(got) != len(want) {
+		t.Fatalf("got %v, want %v", got, want)
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Fatalf("got %v, want %v", got, want)
+		}
+	}
+}
+
+// TestDynListTwoNodesPerKey_UpdateReplacesOnlyThatKeysNodes confirms that
+// updating one key's value in a 2-node-per-key list rebuilds only that key's
+// 2 nodes - a sibling key's own 2 DOM nodes must keep their exact identity,
+// not just their text content, mirroring
+// TestDynListChangedKeyLeavesNeighborNodeUntouched's single-node version.
+func TestDynListTwoNodesPerKey_UpdateReplacesOnlyThatKeysNodes(t *testing.T) {
+	parent := core.El("ul")
+	type row struct{ ID, Text string }
+	rows := core.NewSignal([]row{{"1", "a"}, {"2", "b"}})
+
+	core.DynList(parent, rows.Get, func(r row) string { return r.ID }, func(r row) []core.Node {
+		liA := core.El("li")
+		core.AppendText(liA, r.ID+"-a-"+r.Text)
+		liB := core.El("li")
+		core.AppendText(liB, r.ID+"-b-"+r.Text)
+		return []core.Node{liA, liB}
+	})
+	if !signal.WaitEffects(200 * time.Millisecond) {
+		t.Fatal("scheduler did not settle after the initial render")
+	}
+
+	raw := core.Unwrap(parent)
+	children := raw.Get("children")
+	if n := children.Get("length").Int(); n != 4 {
+		t.Fatalf("got %d <li> elements, want 4 (2 keys x 2 nodes each)", n)
+	}
+	neighbor0 := children.Index(0) // key "1"'s first node
+	neighbor1 := children.Index(1) // key "1"'s second node
+
+	rows.Set([]row{{"1", "a"}, {"2", "changed"}})
+	if !signal.WaitEffects(200 * time.Millisecond) {
+		t.Fatal("scheduler did not settle after the update")
+	}
+
+	children = raw.Get("children")
+	if n := children.Get("length").Int(); n != 4 {
+		t.Fatalf("got %d <li> elements after update, want 4", n)
+	}
+	if !neighbor0.Equal(children.Index(0)) || !neighbor1.Equal(children.Index(1)) {
+		t.Fatal("key \"1\"'s own 2 DOM nodes were replaced when only key \"2\" changed")
+	}
+	if got := children.Index(2).Get("textContent").String(); got != "2-a-changed" {
+		t.Errorf("key \"2\"'s first node text = %q, want \"2-a-changed\"", got)
+	}
+	if got := children.Index(3).Get("textContent").String(); got != "2-b-changed" {
+		t.Errorf("key \"2\"'s second node text = %q, want \"2-b-changed\"", got)
+	}
+}
+
+// TestDynListTwoNodesPerKey_ReorderMovesNodePairsTogether confirms a reorder
+// moves each key's node-pair as one unit, never splitting the pair apart
+// or interleaving it with another key's nodes.
+func TestDynListTwoNodesPerKey_ReorderMovesNodePairsTogether(t *testing.T) {
+	parent := core.El("ul")
+	ids := core.NewSignal([]int{1, 2, 3})
+
+	render := func(id int) []core.Node {
+		return []core.Node{core.Text(strconv.Itoa(id) + "a"), core.Text(strconv.Itoa(id) + "b")}
+	}
+	core.DynList(parent, ids.Get, func(id int) string { return strconv.Itoa(id) }, render)
+	if !signal.WaitEffects(200 * time.Millisecond) {
+		t.Fatal("scheduler did not settle after the initial render")
+	}
+
+	ids.Set([]int{3, 1, 2})
+	if !signal.WaitEffects(200 * time.Millisecond) {
+		t.Fatal("scheduler did not settle after the reorder")
+	}
+
+	got := childTexts(t, parent)
+	got = got[1 : len(got)-1] // strip start/end markers
+	want := []string{"3a", "3b", "1a", "1b", "2a", "2b"}
+	if len(got) != len(want) {
+		t.Fatalf("got %v, want %v", got, want)
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Fatalf("got %v, want %v (a key's node pair was split apart or interleaved)", got, want)
+		}
+	}
+}
+
+// TestDynListTwoNodesPerKey_RemovalRemovesBothNodes confirms removing an
+// item from a 2-node-per-key list removes both of its DOM nodes, not just
+// one, leaving the surviving keys' nodes intact and in order.
+func TestDynListTwoNodesPerKey_RemovalRemovesBothNodes(t *testing.T) {
+	parent := core.El("ul")
+	ids := core.NewSignal([]int{1, 2, 3})
+
+	render := func(id int) []core.Node {
+		return []core.Node{core.Text(strconv.Itoa(id) + "a"), core.Text(strconv.Itoa(id) + "b")}
+	}
+	core.DynList(parent, ids.Get, func(id int) string { return strconv.Itoa(id) }, render)
+	if !signal.WaitEffects(200 * time.Millisecond) {
+		t.Fatal("scheduler did not settle after the initial render")
+	}
+
+	ids.Set([]int{1, 3})
+	if !signal.WaitEffects(200 * time.Millisecond) {
+		t.Fatal("scheduler did not settle after removing key \"2\"")
+	}
+
+	got := childTexts(t, parent)
+	got = got[1 : len(got)-1]
+	want := []string{"1a", "1b", "3a", "3b"}
+	if len(got) != len(want) {
+		t.Fatalf("got %v, want %v (removed key's nodes must both be gone)", got, want)
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Fatalf("got %v, want %v", got, want)
+		}
+	}
+}
+
+// TestDynListKeyNodeCountChangesBetweenRenders covers the edge case a
+// one-key-to-many-nodes render introduces: a single key whose render
+// produces a different number of nodes across renders (a
+// conditionally-rendered second element), in both directions.
+func TestDynListKeyNodeCountChangesBetweenRenders(t *testing.T) {
+	parent := core.El("ul")
+	type row struct {
+		ID     string
+		Expand bool
+	}
+	rows := core.NewSignal([]row{{"1", false}})
+
+	core.DynList(parent, rows.Get, func(r row) string { return r.ID }, func(r row) []core.Node {
+		nodes := []core.Node{core.Text(r.ID + "-a")}
+		if r.Expand {
+			nodes = append(nodes, core.Text(r.ID+"-b"))
+		}
+		return nodes
+	})
+	if !signal.WaitEffects(200 * time.Millisecond) {
+		t.Fatal("scheduler did not settle after the initial render")
+	}
+	got := childTexts(t, parent)
+	if want := []string{"", "1-a", ""}; !equalStrings(got, want) {
+		t.Fatalf("1 node case: got %v, want %v", got, want)
+	}
+
+	rows.Set([]row{{"1", true}})
+	if !signal.WaitEffects(200 * time.Millisecond) {
+		t.Fatal("scheduler did not settle after growing to 2 nodes")
+	}
+	got = childTexts(t, parent)
+	if want := []string{"", "1-a", "1-b", ""}; !equalStrings(got, want) {
+		t.Fatalf("grown to 2 nodes: got %v, want %v", got, want)
+	}
+
+	rows.Set([]row{{"1", false}})
+	if !signal.WaitEffects(200 * time.Millisecond) {
+		t.Fatal("scheduler did not settle after shrinking back to 1 node")
+	}
+	got = childTexts(t, parent)
+	if want := []string{"", "1-a", ""}; !equalStrings(got, want) {
+		t.Fatalf("shrunk back to 1 node: got %v, want %v (no orphaned second node)", got, want)
+	}
+}
+
+func equalStrings(a, b []string) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+	return true
 }
 
 // TestDynListDeepEqualWithFuncFieldDoesNotPanic confirms the actual failure

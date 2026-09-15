@@ -10,9 +10,19 @@ func renderingItem(value string) core.Node {
 	return <li data-testid="dynamic-item">{value}</li>
 }
 
+type keyedEntry struct {
+	ID   string
+	Term string
+	Def  string
+}
+
 func Rendering() core.Node {
 	showDetails := core.NewSignal(false)
 	items := core.NewSignal([]string{"first", "second"})
+	keyedEntries := core.NewSignal([]keyedEntry{
+		{ID: "1", Term: "Alpha", Def: "First letter"},
+		{ID: "2", Term: "Beta", Def: "Second letter"},
+	})
 
 	list := func() []core.Node {
 		values := items.Get()
@@ -52,6 +62,18 @@ func Rendering() core.Node {
 					}
 				}}>
 					Remove item
+				</button>
+				<dl data-testid="keyed-dynlist">{for _, entry := range keyedEntries.Get() {
+					<dt key={entry.ID} data-testid="keyed-term">{entry.Term}</dt>
+					<dd data-testid="keyed-def">{entry.Def}</dd>
+				}}</dl>
+				<button onClick={func(core.MouseEvent) {
+					entries := keyedEntries.Get()
+					updated := append([]keyedEntry(nil), entries...)
+					updated[0].Def = "Updated definition"
+					keyedEntries.Set(updated)
+				}}>
+					Update first definition
 				</button>
 			</section>
 		</>

@@ -242,6 +242,59 @@ func F(todos []ToDo) js.Value {
 	}
 }
 
+// TestBuildOverlay_OneFileHintFailureFailsWholeMultiFileBuild confirms the
+// actual multi-file behavior isn't a design choice left open by this branch:
+// resolveForTypeHints runs one batched packages.Load over the whole project,
+// so a type error in any one file fails that single load for everyone, not
+// just the file with the error. A project with a clean file carrying a real,
+// resolvable keyed {for} alongside a second, broken file must still fail the
+// whole build - not silently succeed for the clean file.
+func TestBuildOverlay_OneFileHintFailureFailsWholeMultiFileBuild(t *testing.T) {
+	tmp := t.TempDir()
+	if err := os.WriteFile(filepath.Join(tmp, "go.mod"), []byte("module fixture\n\ngo 1.25.0\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	goodSrc := `package main
+
+type ToDo struct {
+	ID   string
+	Text string
+}
+
+func F(todos []ToDo) int {
+	total := 0
+	for _, t := range todos {
+		total += len(t.Text)
+	}
+	_ = "key="
+	return total
+}
+`
+	brokenSrc := `package main
+
+func G() int {
+	return undefinedSymbolThatDoesNotExist()
+}
+`
+	if err := os.WriteFile(filepath.Join(tmp, "Good.vane"), []byte(goodSrc), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(tmp, "Broken.vane"), []byte(brokenSrc), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	_, _, _, cleanup, err := buildOverlay(tmp, "")
+	if cleanup != nil {
+		defer cleanup()
+	}
+	if err == nil {
+		t.Fatal("buildOverlay succeeded despite Broken.vane's real type error - the whole build must fail")
+	}
+	if !strings.Contains(err.Error(), "resolving list element types") {
+		t.Fatalf("error doesn't explain the real cause: %v", err)
+	}
+}
+
 func TestBuildOverlay_SkipsDistAndPublic(t *testing.T) {
 	tmp := t.TempDir()
 	os.WriteFile(filepath.Join(tmp, "App.vane"), []byte(minimalVane), 0644)

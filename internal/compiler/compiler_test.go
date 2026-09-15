@@ -706,6 +706,64 @@ func TestForLoopKeyedWithHintElementPlusCallExpr(t *testing.T) {
 	}
 }
 
+// TestForLoopKeyedWithHintThreeSiblingElements extends
+// TestForLoopKeyedWithHintTwoSiblingElements to 3 parts - the 2-sibling case
+// alone wouldn't catch a fix that only handles exactly 2 parts as a special
+// case instead of the general N-part join.
+func TestForLoopKeyedWithHintThreeSiblingElements(t *testing.T) {
+	src := wrap(`<dl>{for _, t := range items { <dt key={t.ID}>{t.Term}</dt> <dd>{t.Def}</dd> <dd>{t.Extra}</dd> }}</dl>`)
+	forOffset := strings.Index(src, "for _, t")
+	hints := []compiler.ForTypeHint{{Offset: forOffset, Type: "Entry"}}
+	out := compileWithHints(t, src, hints)
+
+	has(t, out, `func(t Entry) []core.Node {`)
+	if n := strings.Count(out, "\t\t\treturn []core.Node{"); n != 1 {
+		t.Fatalf("want exactly 1 `return []core.Node{...}`, got %d in:\n%s", n, out)
+	}
+	if !regexp.MustCompile(`return \[\]core\.Node\{_vane\d+, _vane\d+, _vane\d+\}`).MatchString(out) {
+		t.Fatalf("return statement doesn't hold all 3 element vars in one slice literal:\n%s", out)
+	}
+
+	fset := token.NewFileSet()
+	full := strings.Replace(out, "func F()",
+		"type Entry struct {\n\tID    string\n\tTerm  string\n\tDef   string\n\tExtra string\n}\n\nvar items []Entry\n\nfunc F()", 1)
+	if _, err := parser.ParseFile(fset, "", full, parser.AllErrors); err != nil {
+		t.Fatalf("generated code with 3 sibling elements is not valid Go: %v\n%s", err, full)
+	}
+}
+
+// TestForLoopKeyedWithHintGoCodePlusElementPlusCallExpr confirms a body
+// mixing all three part shapes emitForKeyed can see - a plain Go statement,
+// a keyed element, and a trailing call expression - compiles with the
+// element and call expression both in the returned slice, and the Go
+// statement executed before it, in source order.
+func TestForLoopKeyedWithHintGoCodePlusElementPlusCallExpr(t *testing.T) {
+	src := wrap(`<ul>{for _, t := range items {
+		label := t.Text + "!"
+		<li key={t.ID}>{label}</li>
+		logRow(t)
+	}}</ul>`)
+	forOffset := strings.Index(src, "for _, t")
+	hints := []compiler.ForTypeHint{{Offset: forOffset, Type: "ToDo"}}
+	out := compileWithHints(t, src, hints)
+
+	has(t, out, `func(t ToDo) []core.Node {`)
+	has(t, out, `label := t.Text + "!"`)
+	if !regexp.MustCompile(`return \[\]core\.Node\{_vane\d+, logRow\(t\)\}`).MatchString(out) {
+		t.Fatalf("return statement doesn't hold both the element var and the call expression:\n%s", out)
+	}
+	if strings.Index(out, "label := t.Text") > strings.Index(out, "return []core.Node{") {
+		t.Fatalf("the goCode statement must execute before the return, not after:\n%s", out)
+	}
+
+	fset := token.NewFileSet()
+	full := strings.Replace(out, "func F()",
+		"type ToDo struct {\n\tID   string\n\tText string\n}\n\nvar items []ToDo\n\nfunc logRow(t ToDo) core.Node { return nil }\n\nfunc F()", 1)
+	if _, err := parser.ParseFile(fset, "", full, parser.AllErrors); err != nil {
+		t.Fatalf("generated code mixing goCode+element+call-expr is not valid Go: %v\n%s", err, full)
+	}
+}
+
 // TestForLoopKeyedWithHintCommentInRangeExpr confirms a comment mentioning
 // "for" inside the range expression doesn't confuse the keyed for-keyword
 // search.

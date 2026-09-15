@@ -178,6 +178,13 @@ func DynList[T any](parent Node, items func() []T, keyFn func(T) string, render 
 	live := make(map[string]*dynListEntry[T]) // key -> persisted keyed-path state
 	order := []string{}                       // current DOM order of live's real keys, for the next reorder pass
 
+	// Keyless items are never tracked in live (they have no identity to
+	// persist), so their previous render's DOM nodes have nowhere else to be
+	// found and removed from - tracked here instead, flat, replaced wholesale
+	// every render, same idea as live's own "whatever's left over gets
+	// removed" cleanup but for the nodes live never sees.
+	var prevKeylessNodes []js.Value
+
 	// Owns a fully-unkeyed/duplicate-fallback render's effects; disposed and
 	// rebuilt every such render, separate from live's own per-key scopes.
 	var unkeyedScope *signal.Scope
@@ -218,6 +225,7 @@ func DynList[T any](parent Node, items func() []T, keyFn func(T) string, render 
 			delete(live, k)
 		}
 		order = order[:0]
+		prevKeylessNodes = nil // removeAllChildren below already clears every node physically
 		removeAllChildren()
 		unkeyedScope = signal.RunScoped(func() {
 			for _, t := range newItems {
@@ -278,10 +286,12 @@ func DynList[T any](parent Node, items func() []T, keyFn func(T) string, render 
 		// live - keylessNodes above already rendered it fresh this run.
 		newLive := make(map[string]*dynListEntry[T], keyedCount)
 		newNodesPerItem := make([][]js.Value, len(newItems))
+		var thisKeylessNodes []js.Value
 		for i, t := range newItems {
 			k := newKeys[i]
 			if k == "" {
 				newNodesPerItem[i] = keylessNodes[i]
+				thisKeylessNodes = append(thisKeylessNodes, keylessNodes[i]...)
 				continue
 			}
 			if existing, ok := live[k]; ok {
@@ -370,6 +380,16 @@ func DynList[T any](parent Node, items func() []T, keyFn func(T) string, render 
 				ref = nodes[j]
 			}
 		}
+
+		// Every keyless item was just re-rendered fresh above (never reused
+		// from a prior render, never in live) - the previous render's own
+		// keyless nodes are now orphaned and must be removed explicitly, or
+		// they'd accumulate forever instead of being replaced.
+		for _, n := range prevKeylessNodes {
+			p.Call(dom.RemoveChild, n)
+			dynListDOMOps.Add(1)
+		}
+		prevKeylessNodes = thisKeylessNodes
 
 		live = newLive
 		order = order[:0]
