@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - *(docs)* Add anchor scrolling behavior for initial load and update vane-app docs TOC links (#34)
 - Add a local performance benchmark comparing Vane to React, Svelte, and Solid (#36)
+- Add gzip compression size info to WASM build output (#38)
 
 ## [0.5.0] - 2026-09-12
 
