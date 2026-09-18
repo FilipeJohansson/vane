@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"compress/gzip"
 	"encoding/json"
 	"errors"
 	"flag"
@@ -482,9 +483,15 @@ func buildWasm(dir, gcflags, sourceURLBase string, rebuild, release, skipOptimiz
 		}
 	}
 
+	compressSize, _ := compressSize(wasmOut) // not a problem if compress fail, skips err check - it's just info
+
 	sizeStr := ""
 	if info, statErr := os.Stat(wasmOut); statErr == nil { // #nosec G703 -- wasmOut is inside the selected project directory
-		sizeStr = fmt.Sprintf(" %s(%s)%s", clDim, formatSize(info.Size()), clReset)
+		if compressSize > 0 {
+			sizeStr = fmt.Sprintf(" %s(%s | gzip: %s)%s", clDim, formatSize(info.Size()), formatSize(compressSize), clReset)
+		} else {
+			sizeStr = fmt.Sprintf(" %s(%s)%s", clDim, formatSize(info.Size()), clReset)
+		}
 	}
 	verb := "built"
 	if rebuild {
@@ -494,6 +501,27 @@ func buildWasm(dir, gcflags, sourceURLBase string, rebuild, release, skipOptimiz
 		clGreen, clReset, verb, sizeStr, clDim, time.Since(buildStart).Seconds(), clReset)
 
 	return nil
+}
+
+func compressSize(path string) (int64, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return 0, err
+	}
+
+	var b bytes.Buffer
+	gz, err := gzip.NewWriterLevel(&b, gzip.BestCompression)
+	if err != nil {
+		return 0, err
+	}
+	if _, err := gz.Write(data); err != nil {
+		return 0, err
+	}
+	if err := gz.Close(); err != nil {
+		return 0, err
+	}
+
+	return int64(b.Len()), nil
 }
 
 // parseRunArgs parses `vane run [dir] [--port N] [--debug] [--tinygo]`,
