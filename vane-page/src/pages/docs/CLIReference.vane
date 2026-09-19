@@ -1,0 +1,69 @@
+package docs
+
+import (
+	"github.com/filipejohansson/vane/core"
+)
+
+func CLIReference() core.Node {
+	core.Head(func() core.HeadConfig {
+		title := "CLI Reference | Vane Docs"
+		description := "Every vane command and flag: init, run, build, compile, lsp, version."
+		url := core.Window().Get("location").Get("origin").String() + "/vane/docs/cli-reference"
+		return core.HeadConfig{
+			Title:         title,
+			Description:   description,
+			Canonical:     url,
+			OGTitle:       title,
+			OGDescription: description,
+			OGURL:         url,
+		}
+	})
+
+	items := cliReferenceTOCItems
+
+	return (
+		<div className="docs-page">
+			<article className="docs-article">
+				{docsHeader(
+					"Reference",
+					"CLI Reference",
+					"Every vane command and flag: init, run, build, compile, lsp, version.",
+				)}
+
+				<h2 className="docs-h2" id="commands">Commands</h2>
+				{docsTable(
+					[]string{"Command", "What it does"},
+					[][]core.Node{
+						{code("vane init <module>"), core.Text("Scaffold a new project in the current directory")},
+						{code("vane run [dir]"), core.Text("Build then serve dist/ on :8080 with hot-reload")},
+						{code("vane build [dir]"), core.Text("Compile .vane files and build app.wasm → dist/ (default: current directory)")},
+						{code("vane compile <file>"), core.Text("Compile a single .vane file to stdout (dry-run)")},
+						{code("vane lsp"), core.Text("Start the language server (JSON-RPC over stdio); spawned by an editor extension, not run directly")},
+						{code("vane version"), core.Text("Print the vane version")},
+						{code("vane help"), core.Text("Show the command summary")},
+					},
+				)}
+				<p className="docs-p">
+					<code>vane compile</code> is a diagnostic tool worth knowing about: when JSX
+					produces unexpected behavior or a compiler error references an unfamiliar line
+					number, it prints the exact generated Go code for a single file.
+				</p>
+
+				<h2 className="docs-h2" id="flags">Flags</h2>
+				{docsTable(
+					[]string{"Flag", "Applies to", "Effect"},
+					[][]core.Node{
+						{code("--port N"), code("run"), core.Text("Serve on port N instead of the default 8080")},
+						{code("--debug"), code("run"), core.Text("Build without inlining/optimizations, for accurate Go call stacks and readable goroutine names. Off by default: it costs runtime speed")},
+						{code("--tinygo"), core.Fragment(code("run"), core.Text(", "), code("build")), core.Text("Compile with TinyGo instead of the standard compiler, roughly a third the binary size, source files visible in DevTools. Needs a separate TinyGo + binaryen install")},
+						{code("--release"), code("build"), core.Text("Strip core.Warn developer-misuse warnings, apply -s -w linker flags and wasm-opt -Oz if available")},
+						{code("--no-optimize"), code("build"), core.Text("Keep --release's warning-stripping, skip the linker flags and wasm-opt. Escape hatch if an optimization pass breaks your build")},
+					},
+				)}
+
+				{pageNav("cli-reference")}
+			</article>
+			{toc(items)}
+		</div>
+	)
+}

@@ -124,7 +124,7 @@ const SSESnippet = `<script>
 // are highlighted; when /__vane_src/ is available the affected source lines
 // are fetched and shown inline.
 //
-// Note: Go 1.24 js/wasm does not emit DWARF, so browser breakpoints are not
+// Note: Go's js/wasm target does not emit DWARF, so browser breakpoints are not
 // possible. However, //line directives ARE reflected in the runtime symbol
 // table, meaning panic stack traces already reference the original .vane
 // file + line, which this snippet surfaces.

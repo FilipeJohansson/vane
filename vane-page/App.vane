@@ -44,6 +44,7 @@ func docPages() []router.Entry {
 		router.Route("tutorial", docs.Tutorial, router.WithTitle("Tutorial: Build a Todo List | Vane Docs")),
 		router.Route("language-spec", docs.LanguageSpec, router.WithTitle(".vane Language Spec | Vane Docs")),
 		router.Route("api-reference", docs.APIReference, router.WithTitle("API Reference | Vane Docs")),
+		router.Route("cli-reference", docs.CLIReference, router.WithTitle("CLI Reference | Vane Docs")),
 		router.Route(":slug", docs.Stub),
 	}
 }
