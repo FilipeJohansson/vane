@@ -56,6 +56,7 @@ var Manifest = []Topic{
 	{Slug: "cli-reference", Title: "CLI Reference", Summary: "Every vane command and flag: init, run, build, compile, lsp, version.", Category: "Reference"},
 	{Slug: "api-reference", Title: "API Reference", Summary: "Curated index of Vane's public API by concept, linking to pkg.go.dev.", Category: "Reference"},
 	{Slug: "language-spec", Title: ".vane Language Spec", Summary: "The syntax .vane files must follow, and what's covered by Vane's compatibility contract.", Category: "Reference"},
+	{Slug: "performance", Title: "Performance", Summary: "Vane performance measured against React, Svelte, and Solid.", Category: "Reference"},
 }
 
 // Categories returns the manifest grouped by Category, preserving the

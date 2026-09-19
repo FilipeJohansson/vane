@@ -45,6 +45,16 @@ var cliReferenceTOCItems = []tocItem{
 	{"flags", "Flags"},
 }
 
+var performanceTOCItems = []tocItem{
+	{"what-each-test-does", "The apps"},
+	{"methodology", "Hardware"},
+	{"results", "Results"},
+	{"what-these-numbers-mean", "What these numbers mean"},
+	{"why-creation-is-slower", "Why creation and insertion are slower"},
+	{"reproduce", "Reproducing"},
+	{"limitations", "Limitations"},
+}
+
 var componentsTOCItems = []tocItem{
 	{"basic-components", "Basic components"},
 	{"children", "Children"},

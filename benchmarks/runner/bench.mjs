@@ -6,17 +6,24 @@
 // through Playwright IPC), and records each app's initial transferred
 // payload size. Run from the repo root: node benchmarks/runner/bench.mjs
 
-import http from "node:http";
+import { chromium } from "@playwright/test";
 import fs from "node:fs";
+import http from "node:http";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { chromium } from "@playwright/test";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const benchmarksDir = path.resolve(__dirname, "..");
 
+// vane, vane-for, and vane-items are the same app written 3 ways, matching
+// vane-page's public "Lists" docs page: vane-items uses {items()...} (compat
+// path), vane-for uses native {for}+key without core.List[T], and vane uses
+// core.List[T] (the fastest documented pattern). Comparing all 3 against
+// React/Svelte/Solid shows the real effect of pattern choice
 const APPS = [
-  { name: "vane", dist: path.join(benchmarksDir, "vane", "dist") },
+  { name: "vane (core.List[T])", dist: path.join(benchmarksDir, "vane", "dist") },
+  { name: "vane ({for}+key)", dist: path.join(benchmarksDir, "vane-for", "dist") },
+  { name: "vane ({items()...})", dist: path.join(benchmarksDir, "vane-items", "dist") },
   { name: "react", dist: path.join(benchmarksDir, "react", "dist") },
   { name: "svelte", dist: path.join(benchmarksDir, "svelte", "dist") },
   { name: "solid", dist: path.join(benchmarksDir, "solid", "dist") },

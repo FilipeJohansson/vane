@@ -157,6 +157,11 @@ func BundleSize() core.Node {
 					<code>js/wasm</code> output, so <code>wasm-opt --metrics</code> is the closest
 					thing available today.
 				</p>
+				<p className="docs-p">
+					For how Vane runs once it's loaded, see{" "}
+					{router.Link(router.LinkProps{To: "/docs/performance"}, "Performance")} —
+					real numbers against React, Svelte, and Solid.
+				</p>
 
 				{pageNav("bundle-size")}
 			</article>

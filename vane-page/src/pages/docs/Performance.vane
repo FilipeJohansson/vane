@@ -1,0 +1,277 @@
+package docs
+
+import (
+	"github.com/filipejohansson/vane/core"
+
+	"vane-page/src/components"
+)
+
+const perfRunSnippet = `git clone https://github.com/FilipeJohansson/vane
+cd vane
+BENCH_RUNS=10 node benchmarks/runner/bench.mjs`
+
+func Performance() core.Node {
+	core.Head(func() core.HeadConfig {
+		title := "Performance | Vane Docs"
+		description := "Vane performance measured against React, Svelte, and Solid."
+		url := core.Window().Get("location").Get("origin").String() + "/vane/docs/performance"
+		return core.HeadConfig{
+			Title:         title,
+			Description:   description,
+			Canonical:     url,
+			OGTitle:       title,
+			OGDescription: description,
+			OGURL:         url,
+		}
+	})
+
+	items := performanceTOCItems
+
+	return (
+		<div className="docs-page">
+			<article className="docs-article">
+				{docsHeader(
+					"Reference",
+					"Performance",
+					"Vane performance measured against React, Svelte, and Solid",
+				)}
+
+				<p className="docs-p">
+					Vane's architecture rests on two claims: no virtual DOM, and reactivity
+					fine-grained enough that changing one row doesn't touch the rest. Both are
+					testable. This page tests them against React, Svelte, and Solid, using the
+					same operations <a href="https://github.com/krausest/js-framework-benchmark" target="_blank" rel="noopener noreferrer">js-framework-benchmark</a>{" "}
+					does. Vane loses two of them badly — building new DOM, and payload size — and
+					wins or ties on several others. Both are shown below.
+				</p>
+				<p className="docs-p">
+					Everything on this page comes from the Vane GitHub repository: the six apps
+					live under{" "}
+					<a href="https://github.com/FilipeJohansson/vane/tree/master/benchmarks" target="_blank" rel="noopener noreferrer">benchmarks/</a>,
+					the runner that drives them is{" "}
+					<a href="https://github.com/FilipeJohansson/vane/blob/master/benchmarks/runner/bench.mjs" target="_blank" rel="noopener noreferrer">benchmarks/runner/bench.mjs</a>,
+					and it writes its raw output to{" "}
+					<a href="https://github.com/FilipeJohansson/vane/blob/master/benchmarks/results/results.json" target="_blank" rel="noopener noreferrer">benchmarks/results/results.json</a>.
+					Clone the repo and run it yourself — nothing here needs to be taken on faith.
+				</p>
+
+				<h2 className="docs-h2" id="what-each-test-does">Test setup</h2>
+				<p className="docs-p">
+					Three of the six apps are Vane, written three different ways (see{" "}
+					<a href="/vane/docs/lists">Lists</a> for what each pattern is for):{" "}
+					<code>{"{items()...}"}</code>, native <code>{"{for}"}</code>+key, and{" "}
+					<code>core.List[T]</code>. The other three are React, Svelte, and Solid.
+				</p>
+				{docsTable(
+					[]string{"", ""},
+					[][]core.Node{
+						{core.Text("Vane (all 3 patterns)"), core.Text("Go 1.25, local checkout, vane build --release")},
+						{core.Text("React"), core.Text("19.3.0, Vite 8.3.0 production build")},
+						{core.Text("Svelte"), core.Text("5.57.0 (runes), Vite 8.3.0 production build")},
+						{core.Text("Solid"), core.Text("1.9.15, Vite 8.3.0 production build")},
+					},
+				)}
+				<p className="docs-p">
+					Nine operations, one row-table app per framework:
+				</p>
+				{docsTable(
+					[]string{"Operation", "What it does", "What it's for"},
+					[][]core.Node{
+						{core.Text("Create 1,000 rows"), core.Text("Empty table → 1,000 rows."), core.Text("Pure DOM-creation cost, nothing to reconcile against.")},
+						{core.Text("Replace all rows"), core.Text("1,000 rows on screen, create 1,000 more. The old 1,000 are discarded."), core.Text("Whether tearing down the old set adds cost on top of building the new one.")},
+						{core.Text("Partial update"), core.Text("Every 10th of 1,000 rows changes its label."), core.Text("Whether only the changed rows are touched, or the cost scales with the whole list.")},
+						{core.Text("Select row"), core.Text("Click row 2's label."), core.Text("A single, tiny, targeted DOM change — the case fine-grained reactivity is meant for.")},
+						{core.Text("Swap rows"), core.Text("Row 2 and row 998 exchange positions in a 1,000-row table."), core.Text("Structural reordering: move 2 nodes, or touch everything between them?")},
+						{core.Text("Remove row"), core.Text("Row 2 leaves a 1,000-row list."), core.Text("Whether the other 999 rows are left alone.")},
+						{core.Text("Create 10,000 rows"), core.Text("Same as create, 10x the scale."), core.Text("Whether creation cost scales linearly or worse.")},
+						{core.Text("Append 1,000 rows"), core.Text("1,000 rows on screen, append 1,000 more (2,000 total)."), core.Text("Mixes building 1,000 new rows with not disturbing the 1,000 that already exist.")},
+						{core.Text("Clear rows"), core.Text("1,000 rows → 0."), core.Text("Teardown cost in isolation, no creation involved.")},
+					},
+				)}
+				<p className="docs-p">
+					Every sample starts from a fresh page load, not just a fresh operation, so
+					nothing carries state or memory over from the sample before it. Timing is{" "}
+					<code>performance.now()</code> plus a double{" "}
+					<code>requestAnimationFrame</code> after the triggering click, read from
+					inside the page itself so the test runner's own IPC latency never enters the
+					number. 10 samples per operation per app; the value reported is the median.
+				</p>
+
+				<h2 className="docs-h2" id="methodology">Hardware</h2>
+				<p className="docs-p">
+					One laptop, default OS scheduler, nothing pinned or isolated — nothing about
+					this setup is a clean room. Treat the gaps between frameworks as the real
+					signal; the exact millisecond counts will shift on different hardware, though
+					not by enough to flip which framework wins a given operation.
+				</p>
+				{docsTable(
+					[]string{"", ""},
+					[][]core.Node{
+						{core.Text("OS"), core.Text("Windows 10 Home, 10.0.19045")},
+						{core.Text("CPU"), core.Text("Intel Core i5-10400F @ 2.90GHz")},
+						{core.Text("Browser"), core.Text("Chromium 151.0.7922.34 (Playwright's bundled build)")},
+						{core.Text("Node"), core.Text("v22.12.0")},
+						{core.Text("@playwright/test"), core.Text("1.62.1")},
+					},
+				)}
+
+				<h2 className="docs-h2" id="results">Results</h2>
+				<p className="docs-p">
+					Size of each app's main bundle asset — <code>app.wasm</code> for Vane, the
+					main JS chunk for the other three — raw on disk and gzip -9:
+				</p>
+				{docsTable(
+					[]string{"App", "Raw", "Gzip"},
+					[][]core.Node{
+						{core.Text("Vane (app.wasm)"), core.Text("2.5 MB"), core.Text("765 KB")},
+						{core.Text("React (main JS)"), core.Text("216.6 KB"), core.Text("66.9 KB")},
+						{core.Text("Svelte (main JS)"), core.Text("34.0 KB"), core.Text("13.4 KB")},
+						{core.Text("Solid (main JS)"), core.Text("13.8 KB"), core.Text("5.6 KB")},
+					},
+				)}
+				<p className="docs-p">
+					The local test server used for the timing numbers above sends files as-is,
+					no compression — the sizes measured during those runs are the raw column.
+					Real hosts almost always compress automatically: GitHub Pages, Netlify,
+					Cloudflare Pages, and S3-behind-CloudFront all gzip or brotli responses with
+					no configuration needed. In production, a visitor downloads closer to the
+					gzip column than the raw one.
+				</p>
+				<p className="docs-p">
+					Compression narrows the gap without closing it — raw, Vane is roughly 184x
+					Solid's main asset; gzip'd, roughly 136x. Vane is still the largest download
+					by far either way, because the raw material being compressed is the Go
+					runtime and garbage collector shipped inside <code>app.wasm</code>, not
+					something gzip can compress away. See{" "}
+					<a href="/vane/docs/bundle-size">Analyze Bundle Size</a> for the full
+					breakdown on Vane's own binary and what TinyGo buys back.
+				</p>
+				<p className="docs-p">
+					Operation timings, milliseconds, lower is better, median of 10 samples:
+				</p>
+				{docsTable(
+					[]string{"Operation", "Vane (List[T])", "Vane ({for}+key)", "Vane ({items()...})", "React", "Svelte", "Solid"},
+					[][]core.Node{
+						{core.Text("Create 1,000 rows"), core.Text("279.95"), core.Text("271.10"), core.Text("262.30"), core.Text("61.65"), core.Text("68.40"), core.Text("57.65")},
+						{core.Text("Replace all rows"), core.Text("307.60"), core.Text("297.65"), core.Text("282.15"), core.Text("61.30"), core.Text("62.85"), core.Text("49.65")},
+						{core.Text("Partial update"), core.Text("23.90"), core.Text("40.05"), core.Text("289.55"), core.Text("27.90"), core.Text("29.40"), core.Text("27.40")},
+						{core.Text("Select row"), core.Text("29.25"), core.Text("24.45"), core.Text("21.65"), core.Text("29.00"), core.Text("20.40"), core.Text("26.90")},
+						{core.Text("Swap rows"), core.Text("26.15"), core.Text("27.40"), core.Text("285.80"), core.Text("54.00"), core.Text("25.50"), core.Text("11.00")},
+						{core.Text("Remove row"), core.Text("28.20"), core.Text("28.35"), core.Text("288.20"), core.Text("31.20"), core.Text("29.35"), core.Text("26.30")},
+						{core.Text("Create 10,000 rows"), core.Text("2687.35"), core.Text("2739.30"), core.Text("2621.50"), core.Text("826.65"), core.Text("775.45"), core.Text("432.95")},
+						{core.Text("Append 1,000"), core.Text("299.90"), core.Text("293.40"), core.Text("551.35"), core.Text("71.20"), core.Text("71.70"), core.Text("61.75")},
+						{core.Text("Clear rows"), core.Text("28.65"), core.Text("24.30"), core.Text("30.55"), core.Text("21.50"), core.Text("13.15"), core.Text("26.95")},
+					},
+				)}
+
+				<h2 className="docs-h2" id="what-these-numbers-mean">What these numbers mean</h2>
+				<p className="docs-p">
+					One operation has <code>core.List[T]</code> ahead of all three JS frameworks:
+					partial update, at 23.90ms against React's 27.90ms, Svelte's 29.40ms, and
+					Solid's 27.40ms. A <code>Signal.Set</code> on a <code>List[T]</code> field
+					writes straight to the changed value and never enters list reconciliation for
+					that update at all.
+				</p>
+				<p className="docs-p">
+					Once a list already exists on screen, touching one row costs roughly the same
+					everywhere: select, swap, remove, and clear all land within a few milliseconds
+					of each other across <code>{"{for}"}</code>+key, <code>core.List[T]</code>,
+					and all three JS frameworks.
+				</p>
+				<p className="docs-p">
+					Building new DOM is the real weak spot, and it shows up the same way
+					regardless of which of the three Vane patterns is used: create 1,000 rows
+					lands at 4-5x React/Svelte/Solid, create 10,000 at 3-6x, appending 1,000 more
+					at 4-8x. None of the three patterns change how a single DOM node actually
+					gets built — only how already-mounted ones get reconciled — so none of them
+					touch this cost. It's broken down in detail further down this page.
+				</p>
+				<p className="docs-p">
+					Payload size is the other clear loss: <code>app.wasm</code> alone is
+					2.5 MB raw / 765 KB gzip'd, against 14-217 KB raw / 5.6-66.9 KB gzip'd for the
+					other three's main JS chunk — a gap compression narrows but doesn't close (see
+					Results above for the exact ratios). That's the Go runtime, its garbage
+					collector, and whatever standard-library packages the app pulls in, all shipped
+					inside that one file. See{" "}
+					<a href="/vane/docs/bundle-size">Analyze Bundle Size</a> for where those bytes
+					actually go and what TinyGo buys back.
+				</p>
+				<p className="docs-p">
+					Separately from how Vane compares to React/Svelte/Solid: which of the three
+					Vane patterns gets used matters just as much. <code>{"{items()...}"}</code>{" "}
+					takes a plain <code>[]core.Node</code> built however the caller wants — useful
+					when the nodes come from more than one source or don't share a shape, see{" "}
+					<a href="/vane/docs/lists">Lists</a> — but that freedom has a real cost: 10-12x
+					slower than the other two patterns on anything structural. Partial update
+					(289.55ms), swap (285.80ms), and remove (288.20ms) all land in that range;
+					append (551.35ms) is the single worst number anywhere in this table.
+				</p>
+				<p className="docs-p">
+					Creation and payload are mostly one-time costs: first load, and whatever bulk
+					rebuilds an app actually does. For a dashboard, an internal tool, or anything
+					behind a login where the bundle downloads once and gets cached, that cost is
+					paid up front and the interaction numbers above are what users actually feel
+					afterward. For a content site where every first-visit millisecond counts, this
+					table says plainly that Vane isn't the right tool today.
+				</p>
+
+				<h2 className="docs-h2" id="why-creation-is-slower">Why creation and insertion are slower</h2>
+				<p className="docs-p">
+					A CPU profile (Chrome DevTools Protocol) of "Create 1,000 rows" splits into
+					four buckets:
+				</p>
+				{docsTable(
+					[]string{"Bucket", "Share", "What it is"},
+					[][]core.Node{
+						{code("wasm-module"), core.Text("52-56%"), core.Text("Go-side cost — not one thing, see below")},
+						{code("v8-internal"), core.Text("22-23%"), core.Text("The browser's own JS engine doing internal work")},
+						{code("dom-native"), core.Text("13-15%"), core.Text("Native DOM node creation — every framework pays this")},
+						{code("wasm-exec-glue"), core.Text("9-11%"), core.Text("The WASM↔JS call-crossing and marshaling itself")},
+					},
+				)}
+				<p className="docs-p">
+					The literal crossing into JavaScript is the smallest of the four. The larger{" "}
+					<code>wasm-module</code> share is at least two separate costs, not yet split
+					apart from each other:
+				</p>
+				<p className="docs-p">
+					<strong>Go's per-object finalizer bookkeeping.</strong> Every{" "}
+					<code>js.Value</code> Go creates — including every Go string passed to{" "}
+					<code>el.Set(key, someString)</code> — gets a garbage-collector finalizer
+					registered by the Go runtime, unconditionally, with no manual-release API in
+					the standard library. One table row with a handful of attributes and two
+					click handlers is 10+ finalized values; 1,000 rows means 10,000+ finalizers
+					registered in one burst. <code>runtime.addspecial</code> alone accounted for
+					roughly a quarter of total time in an unstripped profiling build.
+				</p>
+				<p className="docs-p">
+					<strong>Per-item reactive-effect allocation.</strong> A real row registers 3
+					independent reactive bindings (class, id, label). Each is a Go-side
+					allocation with nothing to do with <code>js.Value</code> or the WASM↔JS
+					boundary at all — it's Vane's own signal/effect system doing its work. This
+					sits inside the same coarse <code>wasm-module</code> bucket as the finalizer
+					cost above.
+				</p>
+
+				<h2 className="docs-h2" id="reproduce">Reproducing</h2>
+				{components.TerminalBlock("Terminal", perfRunSnippet)}
+
+				<h2 className="docs-h2" id="limitations">Limitations</h2>
+				<ul className="docs-list">
+					<li>Scope is list/table operations only. Nothing here measures routing, forms,
+					non-list components, or a deeply nested component tree — a real app's shape
+					may not resemble a row table at all.</li>
+					<li>No single number summarizes this page on purpose — partial update and
+					bulk creation point in opposite directions, which is exactly why every
+					operation is shown instead of an average.</li>
+					<li>The bucket breakdown in "Why creation and insertion are slower" is from an
+					earlier CPU-profiling session against this same benchmark shape, not a fresh
+					profile taken during this run.</li>
+				</ul>
+
+				{pageNav("performance")}
+			</article>
+			{toc(items)}
+		</div>
+	)
+}
