@@ -595,7 +595,7 @@ func cmdRun(dir, port string, debug, tinygo bool) error {
 		} else {
 			fmt.Printf("  %sDevTools → call stacks show Go function names%s\n", clDim, clReset)
 			fmt.Printf("  %sGo panics are grouped in the console via VaneDebugSnippet%s\n", clDim, clReset)
-			fmt.Printf("\n  %snote: Go 1.24 js/wasm does not emit DWARF, so source-level breakpoints%s\n", clDim, clReset)
+			fmt.Printf("\n  %snote: Go's js/wasm target does not emit DWARF, so source-level breakpoints%s\n", clDim, clReset)
 			fmt.Printf("  %s      are not yet possible. This will work automatically once Go%s\n", clDim, clReset)
 			fmt.Printf("  %s      supports DWARF output for the js/wasm target.%s\n\n", clDim, clReset)
 		}
@@ -1197,7 +1197,7 @@ func bundleCSS(distDir string) error {
 func goModTemplate(module string) string {
 	return fmt.Sprintf(`module %s
 
-go 1.24
+go 1.25.0
 `, module)
 }
 

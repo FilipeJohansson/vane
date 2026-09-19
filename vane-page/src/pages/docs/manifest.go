@@ -53,8 +53,9 @@ var Manifest = []Topic{
 	{Slug: "html-forms", Title: "Build HTML Forms", Summary: "Controlled inputs, validation, and submit handling in Vane.", Category: "How-to Patterns"},
 	{Slug: "lucide-icons", Title: "Add Lucide Icons", Summary: "Wire up the Lucide icon library, the same way this site's own Nav does.", Category: "How-to Patterns"},
 
-	{Slug: "language-spec", Title: ".vane Language Spec", Summary: "The syntax .vane files must follow, and what's covered by Vane's compatibility contract.", Category: "Reference"},
+	{Slug: "cli-reference", Title: "CLI Reference", Summary: "Every vane command and flag: init, run, build, compile, lsp, version.", Category: "Reference"},
 	{Slug: "api-reference", Title: "API Reference", Summary: "Curated index of Vane's public API by concept, linking to pkg.go.dev.", Category: "Reference"},
+	{Slug: "language-spec", Title: ".vane Language Spec", Summary: "The syntax .vane files must follow, and what's covered by Vane's compatibility contract.", Category: "Reference"},
 }
 
 // Categories returns the manifest grouped by Category, preserving the

@@ -44,7 +44,7 @@ func Installation() core.Node {
 
 				<h2 className="docs-h2" id="prerequisites">Prerequisites</h2>
 				<p className="docs-p">
-					Vane currently targets <code>Go 1.24+</code> and the standard <code>GOOS=js GOARCH=wasm</code>{" "}
+					Vane currently targets <code>Go 1.25+</code> and the standard <code>GOOS=js GOARCH=wasm</code>{" "}
 					toolchain. The CLI and every scaffolded app build with the default Go WASM target,
 					so there's no extra runtime install required for the normal path.
 				</p>

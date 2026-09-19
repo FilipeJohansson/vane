@@ -348,7 +348,7 @@ func Tutorial() core.Node {
 				<h2 className="docs-h2" id="prerequisites">Before you begin</h2>
 				<p className="docs-p">You'll need:</p>
 				<ul className="docs-list">
-					<li>Go 1.24+ and the <code>vane</code> CLI installed — see {tutorialDocLink("installation", "Installation")} if you haven't yet.</li>
+					<li>Go 1.25+ and the <code>vane</code> CLI installed — see {tutorialDocLink("installation", "Installation")} if you haven't yet.</li>
 					<li>A terminal and a text editor.</li>
 					<li>A current desktop browser (Chrome, Edge, Firefox, or Safari).</li>
 				</ul>

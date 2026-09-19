@@ -40,6 +40,11 @@ var bundleSizeTOCItems = []tocItem{
 	{"inspecting-it", "Inspecting your own build"},
 }
 
+var cliReferenceTOCItems = []tocItem{
+	{"commands", "Commands"},
+	{"flags", "Flags"},
+}
+
 var componentsTOCItems = []tocItem{
 	{"basic-components", "Basic components"},
 	{"children", "Children"},
@@ -66,7 +71,6 @@ var developAndBuildTOCItems = []tocItem{
 	{"dev-server", "Development server"},
 	{"production-builds", "Production builds"},
 	{"deploying", "Deploying dist/"},
-	{"cli-reference", "CLI reference"},
 }
 
 var dosAndDontsTOCItems = []tocItem{
