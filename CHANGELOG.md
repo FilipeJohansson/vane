@@ -16,6 +16,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Add a local performance benchmark comparing Vane to React, Svelte, and Solid (#36)
 - Add gzip compression size info to WASM build output (#38)
 - Add CLI reference documentation and update related content (#39)
+- *(docs)* Publish benchmark results (#40)
 
 ## [0.5.0] - 2026-09-12
 
