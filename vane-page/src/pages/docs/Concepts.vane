@@ -133,7 +133,7 @@ func Concepts() core.Node {
 					[][]core.Node{
 						{core.Text("Run code once"), core.Text("Function body")},
 						{core.Text("React to state changes"), code("core.Effect")},
-						{core.Text("Update the DOM"), core.Text("JSX bindings")},
+						{core.Text("Update the DOM"), core.Text("Vane syntax bindings")},
 						{core.Text("Clean up on unmount"), code("core.OnDispose")},
 						{core.Text("Clean up before an Effect runs again"), core.Fragment(core.Text("Return a cleanup function from "), code("core.Effect"))},
 					},

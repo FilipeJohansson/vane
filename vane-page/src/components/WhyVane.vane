@@ -1,0 +1,139 @@
+package components
+
+import (
+	"fmt"
+	"sync/atomic"
+	"time"
+
+	"github.com/filipejohansson/vane/core"
+)
+
+const pillarInterval = 5 * time.Second
+
+type whyVanePillar struct {
+	title string
+	desc  string
+}
+
+var whyVanePillars = []whyVanePillar{
+	{"Go-native", "Write your whole frontend in Go. No JS, no TS, no second toolchain to learn."},
+	{"No Virtual DOM", "Updates hit the real DOM directly. No diffing pass, no wasted re-renders."},
+	{"Fine-grained reactivity", "Only the exact value that changed updates, never the whole component."},
+	{"Type-safe", "Your components, state, and data stay inside Go's type system end to end."},
+}
+
+// Also resets the auto-advance countdown on click, so it doesn't fire
+// again a moment later based on the previously active pillar's schedule.
+func pillarStepButton(active *core.Signal[int], resetTimer func(), i int) core.Node {
+	cls := "pillar-step"
+	if active.Get() == i {
+		cls = "pillar-step pillar-step--active"
+	}
+	return (
+		<button
+			key={i}
+			type="button"
+			className={cls}
+			aria-label={fmt.Sprintf("Show %s", whyVanePillars[i].title)}
+			onClick={func(core.MouseEvent) {
+				active.Set(i)
+				resetTimer()
+			}}
+		/>
+	)
+}
+
+func pillarShowcase() core.Node {
+	active := core.NewSignal(0)
+
+	var lastChange atomic.Int64
+	lastChange.Store(time.Now().UnixNano())
+	resetTimer := func() { lastChange.Store(time.Now().UnixNano()) }
+
+	core.Effect(func() func() {
+		RefreshIcons()
+		return nil
+	})
+
+	prev := func() {
+		n := len(whyVanePillars)
+		active.Set((active.Get() - 1 + n) % n)
+		resetTimer()
+	}
+	next := func() {
+		active.Set((active.Get() + 1) % len(whyVanePillars))
+		resetTimer()
+	}
+
+	core.Effect(func() func() {
+		var stopped atomic.Bool
+		go func() {
+			for {
+				time.Sleep(200 * time.Millisecond)
+				if stopped.Load() {
+					return
+				}
+				elapsed := time.Since(time.Unix(0, lastChange.Load()))
+				if elapsed >= pillarInterval {
+					active.Set((active.Get() + 1) % len(whyVanePillars))
+					lastChange.Store(time.Now().UnixNano())
+				}
+			}
+		}()
+		return func() { stopped.Store(true) }
+	})
+
+	// Called from inside the JSX below, not invoked here - building the
+	// slice eagerly would read active.Get() during pillarShowcase's own
+	// top-level execution, making the *outer* {pillarShowcase()} binding
+	// at the call site depend on active and re-invoke this whole function
+	// (resetting active to a fresh NewSignal(0)) on every click.
+	stepButtons := func() []core.Node {
+		nodes := make([]core.Node, len(whyVanePillars))
+		for i := range whyVanePillars {
+			nodes[i] = pillarStepButton(active, resetTimer, i)
+		}
+		return nodes
+	}
+
+	return (
+		<div className="pillar-showcase">
+			{pillarCard(active)}
+			<div className="pillar-nav">
+				<button type="button" className="pillar-nav-arrow" aria-label="Previous" onClick={func(core.MouseEvent) { prev() }}>
+					{Icon("chevron-left")}
+				</button>
+				<div
+					className="pillar-steps"
+					role="tablist"
+					aria-label="Why Vane"
+					ref={func(el core.Node) {
+						core.Unwrap(el).Get("style").Call("setProperty", "--pillar-interval", fmt.Sprintf("%gs", pillarInterval.Seconds()))
+					}}
+				>
+					{stepButtons()...}
+				</div>
+				<button type="button" className="pillar-nav-arrow" aria-label="Next" onClick={func(core.MouseEvent) { next() }}>
+					{Icon("chevron-right")}
+				</button>
+			</div>
+		</div>
+	)
+}
+
+// active.Get() is read here, in its own nested call, rather than as a
+// plain variable in pillarShowcase's body - same reactivity-scoping
+// reason as stepButtons above, keeping the re-render local to the card.
+func pillarCard(active *core.Signal[int]) core.Node {
+	p := whyVanePillars[active.Get()]
+
+	return (
+		<div className="pillar-statement">
+			<span className="pillar-statement-bar" aria-hidden="true" />
+			<div className="pillar-statement-text">
+				<h3 className="pillar-statement-title">{p.title}</h3>
+				<p className="pillar-statement-desc">{p.desc}</p>
+			</div>
+		</div>
+	)
+}

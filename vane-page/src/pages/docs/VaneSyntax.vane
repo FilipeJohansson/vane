@@ -6,7 +6,7 @@ import (
 	"vane-page/src/components"
 )
 
-const jsxRuleAssignSnippet = `// ✗ won't compile
+const syntaxRuleAssignSnippet = `// ✗ won't compile
 nodes[i] = (<li>{t}</li>)
 
 // ✓ correct
@@ -15,7 +15,7 @@ func listItem(t string) core.Node {
 }
 nodes[i] = listItem(t)`
 
-const jsxRuleUncalledSnippet = `// ✗ won't compile: literal is never called
+const syntaxRuleUncalledSnippet = `// ✗ won't compile: literal is never called
 {func() core.Node {
     return (<span>hi</span>)
 }}
@@ -25,7 +25,7 @@ const jsxRuleUncalledSnippet = `// ✗ won't compile: literal is never called
     return (<span>hi</span>)
 }()}`
 
-const jsxReturnNilSnippet = `// ✓ correct: return nil is idiomatic early exit
+const syntaxReturnNilSnippet = `// ✓ correct: return nil is idiomatic early exit
 func Modal() core.Node {
     if !open.Get() { return nil }
     return (<div className="modal">...</div>)
@@ -44,7 +44,7 @@ core.Effect(func() func() {
     return func() { sub.Cancel() }
 })`
 
-const jsxForSnippet = `func TodoList() core.Node {
+const syntaxForSnippet = `func TodoList() core.Node {
     todos := core.NewSignal([]todo{...})
 
     return (
@@ -58,7 +58,7 @@ const jsxForSnippet = `func TodoList() core.Node {
     )
 }`
 
-const jsxIfSnippet = `return (
+const syntaxIfSnippet = `return (
     <div>
         {if loading.Get() {
             <p>Loading...</p>
@@ -70,7 +70,7 @@ const jsxIfSnippet = `return (
     </div>
 )`
 
-const jsxSwitchSnippet = `return (
+const syntaxSwitchSnippet = `return (
     <div>
         {switch status.Get() {
         case "loading":
@@ -83,7 +83,7 @@ const jsxSwitchSnippet = `return (
     </div>
 )`
 
-const jsxListSnippet = `func itemNode(t string) core.Node {
+const syntaxListSnippet = `func itemNode(t string) core.Node {
     return (<li>{t}</li>)
 }
 
@@ -105,7 +105,7 @@ func TodoList() core.Node {
     )
 }`
 
-const jsxKeyedListSnippet = `func todoNode(t todo) core.Node {
+const syntaxKeyedListSnippet = `func todoNode(t todo) core.Node {
     return (<li key={t.ID} className="todo-item">{t.Text}</li>)
 }
 
@@ -126,11 +126,11 @@ func TodoList() core.Node {
     )
 }`
 
-func JSXSyntax() core.Node {
+func VaneSyntax() core.Node {
 	core.Head(func() core.HeadConfig {
-		title := "JSX Syntax | Vane Docs"
-		description := "Full prop/event table, JSX rules, inline for/if/switch, and reactive lists."
-		url := core.Window().Get("location").Get("origin").String() + "/vane/docs/jsx-syntax"
+		title := "Vane Syntax | Vane Docs"
+		description := "Full prop/event table, Vane syntax rules, inline for/if/switch, and reactive lists."
+		url := core.Window().Get("location").Get("origin").String() + "/vane/docs/vane-syntax"
 		return core.HeadConfig{
 			Title:         title,
 			Description:   description,
@@ -141,14 +141,14 @@ func JSXSyntax() core.Node {
 		}
 	})
 
-	items := jsxSyntaxTOCItems
+	items := vaneSyntaxTOCItems
 
 	return (
 		<div className="docs-page">
 			<article className="docs-article">
 				{docsHeader(
 					"Build Your UI",
-					"JSX Syntax",
+					"Vane Syntax",
 					"The HTML-like syntax inside .vane files is not JSX, it's Vane's own parser and compiler. This is the full prop/event table plus the rules for where it can and can't appear.",
 				)}
 				{callout("tip", "Reference", "Looking for the frozen, compile-guaranteed version of these rules? See ", apiDocLink("language-spec", ".vane Language Spec"), ".")}
@@ -210,29 +210,29 @@ func JSXSyntax() core.Node {
 						{code(`{expr}`), core.Text("Reactive child node")},
 						{code(`{slice...}`), core.Fragment(core.Text("Reactive list, keyed if nodes have a "), code("key"), core.Text(" prop"))},
 						{code(`key={expr}`), core.Fragment(core.Text("List reconciliation key, read by "), code("{slice...}"))},
-						{code(`{for ... { <jsx/> }}`), core.Text("Inline reactive loop")},
-						{code(`{if ... { <jsx/> }}`), core.Text("Inline reactive conditional")},
-						{code(`{switch ... { case: <jsx/> }}`), core.Text("Inline reactive switch")},
+						{code(`{for ... { <node/> }}`), core.Text("Inline reactive loop")},
+						{code(`{if ... { <node/> }}`), core.Text("Inline reactive conditional")},
+						{code(`{switch ... { case: <node/> }}`), core.Text("Inline reactive switch")},
 						{code(`<></>`), core.Text("Fragment, groups nodes without a wrapper element")},
 					},
 				)}
 
-				<h2 className="docs-h2" id="jsx-rules">JSX rules</h2>
+				<h2 className="docs-h2" id="syntax-rules">Vane syntax rules</h2>
 				<p className="docs-p">
-					JSX is only compiled inside <code>return (...)</code> statements. Two patterns
+					It's only compiled inside <code>return (...)</code> statements. Two patterns
 					that look valid will not compile.
 				</p>
 
-				<p className="docs-p"><strong>1. JSX in assignments.</strong> Extract to a named function instead:</p>
-				{components.CodeBlock("list.go", jsxRuleAssignSnippet)}
+				<p className="docs-p"><strong>1. Assignments.</strong> Extract to a named function instead:</p>
+				{components.CodeBlock("list.go", syntaxRuleAssignSnippet)}
 
 				<p className="docs-p">
 					<strong>2. Uncalled func literals.</strong> A <code>func() core.Node {"{ ... }"}</code>{" "}
-					used as a JSX child is rescanned so a <code>return</code> with JSX inside it compiles,
+					used as a child is rescanned so a <code>return</code> with it inside compiles,
 					but only if it's invoked immediately. Forgetting the trailing <code>()</code> leaves
 					the result unrendered and is a compile error:
 				</p>
-				{components.CodeBlock("inline.go", jsxRuleUncalledSnippet)}
+				{components.CodeBlock("inline.go", syntaxRuleUncalledSnippet)}
 				{callout("tip", "Tip", "This is the same pattern vane init's starter template uses for its guard-clause greeting: an inline, immediately-called func() core.Node that returns nil when there's nothing to show. return nil inside it compiles to core.Empty(), an empty renderable node, safe to use for guard clauses.")}
 
 				<h2 className="docs-h2" id="return-nil">Early exits with return nil</h2>
@@ -241,7 +241,7 @@ func JSXSyntax() core.Node {
 					is rewritten by the compiler to <code>return core.Empty()</code>, an idiomatic
 					guard clause instead of a nil pointer.
 				</p>
-				{components.CodeBlock("Modal.vane", jsxReturnNilSnippet)}
+				{components.CodeBlock("Modal.vane", syntaxReturnNilSnippet)}
 				<p className="docs-p">
 					The rewrite is scoped to whichever <code>func</code> literal encloses
 					that <code>return nil</code>, so a <code>func() core.Node {"{ ... }"}</code>{" "}
@@ -254,31 +254,31 @@ func JSXSyntax() core.Node {
 				<h2 className="docs-h2" id="inline-control-flow">Inline control flow</h2>
 				<p className="docs-p">
 					<code>{"{for ...}"}</code>, <code>{"{if ...}"}</code>, and <code>{"{switch ...}"}</code>{" "}
-					can appear directly as JSX children, compiled to reactive bindings. When signal
+					can appear directly as children, compiled to reactive bindings. When signal
 					deps change, only the affected slot updates.
 				</p>
 
 				<p className="docs-p"><strong>for</strong></p>
-				{components.CodeBlock("TodoList.vane", jsxForSnippet)}
+				{components.CodeBlock("TodoList.vane", syntaxForSnippet)}
 				<p className="docs-p">
-					Go code before the JSX element runs per-iteration as setup. Add <code>key={"{t.id}"}</code> for
+					Go code before the element runs per-iteration as setup. Add <code>key={"{t.id}"}</code> for
 					keyed reconciliation - the recommended default for most reactive lists.
 					See {apiDocLink("lists", "Lists")} for how to write lists, every pattern
 					available, and the real difference between them.
 				</p>
 
 				<p className="docs-p"><strong>if</strong></p>
-				{components.CodeBlock("loading.vane", jsxIfSnippet)}
+				{components.CodeBlock("loading.vane", syntaxIfSnippet)}
 				<p className="docs-p">
 					<code>else if</code> chains work too, as many as needed. A missing <code>else</code> renders nothing.
 				</p>
 
 				<p className="docs-p"><strong>switch</strong></p>
-				{components.CodeBlock("status.vane", jsxSwitchSnippet)}
+				{components.CodeBlock("status.vane", syntaxSwitchSnippet)}
 
 				<ul className="docs-list">
-					<li>Each branch / loop iteration contains Go setup code (any number of statements) followed by one JSX element.</li>
-					<li>Multiple JSX nodes in one branch: wrap in <code>{"<>...</>"}</code> Fragment.</li>
+					<li>Each branch / loop iteration contains Go setup code (any number of statements) followed by one element.</li>
+					<li>Multiple nodes in one branch: wrap in <code>{"<>...</>"}</code> Fragment.</li>
 					<li><code>if</code>/<code>for</code>/<code>switch</code> inside the blocks are plain Go, no extra <code>{"{...}"}</code> delimiters.</li>
 					<li>These are reactive: signal reads anywhere in the expression re-run the whole closure.</li>
 				</ul>
@@ -289,9 +289,9 @@ func JSXSyntax() core.Node {
 					construct, alongside the <code>{"{for}"}</code> loop above - reach for
 					it when the node-building function needs to return raw{" "}
 					<code>[]core.Node</code> directly. Build the nodes in a separate
-					function, JSX must be inside a <code>return</code>:
+					function; the markup must be inside a <code>return</code>:
 				</p>
-				{components.CodeBlock("TodoList.vane", jsxListSnippet)}
+				{components.CodeBlock("TodoList.vane", syntaxListSnippet)}
 
 				<p className="docs-p">
 					Add <code>key={"{expr}"}</code> to the root element of each list item to
@@ -299,10 +299,10 @@ func JSXSyntax() core.Node {
 					removing, or reordering items then only touches what actually moved,
 					instead of rebuilding the whole list:
 				</p>
-				{components.CodeBlock("TodoList.vane", jsxKeyedListSnippet)}
+				{components.CodeBlock("TodoList.vane", syntaxKeyedListSnippet)}
 				{callout("tip", "Tip", "Without key, {items()...} rebuilds the entire list on every change. See ", apiDocLink("lists", "Lists"), " for how to write lists, every pattern available, and the real difference between them.")}
 
-				{pageNav("jsx-syntax")}
+				{pageNav("vane-syntax")}
 			</article>
 			{toc(items)}
 		</div>

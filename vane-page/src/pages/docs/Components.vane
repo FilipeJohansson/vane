@@ -138,14 +138,14 @@ func Components() core.Node {
 				{docsHeader(
 					"Build Your UI",
 					"Components",
-					"Components are plain Go functions returning core.Node. JSX is compiled into direct DOM operations before the Go compiler ever sees your code.",
+					"Components are plain Go functions returning core.Node. Vane's syntax is compiled into direct DOM operations before the Go compiler ever sees your code.",
 				)}
 				{callout("tip", "Reference", "For the compiler's exact component-vs-element rule, see ", apiDocLink("language-spec", ".vane Language Spec"), ".")}
 
 				<h2 className="docs-h2" id="basic-components">Basic components</h2>
 				<p className="docs-p">
-					A component is just a Go function returning <code>core.Node</code>. JSX inside
-					the <code>return</code> statement compiles into direct DOM creation calls.
+					A component is just a Go function returning <code>core.Node</code>. That syntax
+					inside the <code>return</code> statement compiles into direct DOM creation calls.
 				</p>
 				{components.CodeBlock("App.vane", basicComponentSnippet)}
 				<p className="docs-p">

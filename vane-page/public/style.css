@@ -4,13 +4,14 @@
 @import 'Button.css';
 @import 'CopyButton.css';
 @import 'CodeBlock.css';
+@import 'PreviewFrame.css';
 @import 'Hero.css';
 @import 'Weathervane.css';
+@import 'Logo.css';
+@import 'WhyVane.css';
 @import 'FeatureTabs.css';
 @import 'Features.css';
-@import 'Proof.css';
 @import 'DocsCards.css';
-@import 'Examples.css';
 @import 'CommunityCTA.css';
 @import 'Footer.css';
 @import 'DocsLayout.css';
@@ -26,20 +27,24 @@ html { scroll-behavior: smooth; overflow-x: hidden; }
   --surface: #0d111c;
   --surface-2: #131a2b;
   --surface-3: #182035;
+  --surface-glass: rgba(19, 26, 43, 0.6);
   --border: #1f2940;
   --border-2: #2a3654;
 
   --text: #e6ebf5;
   --muted: #8b96b3;
   --hint: #7b86a8;
+  --code-plain: color-mix(in srgb, var(--text) 45%, var(--muted));
 
   --accent: #00ADD8;
   --accent-btn: #007a99;
   --accent-2: #5eead4;
+  --accent-violet: #8b7cf6;
   --accent-soft: rgba(0, 173, 216, 0.14);
   --accent-glow: rgba(0, 173, 216, 0.55);
+  --violet-glow: rgba(139, 124, 246, 0.45);
+  --gradient-brand: linear-gradient(135deg, var(--accent) 0%, var(--accent-violet) 100%);
 
-  /* code token colors, used by FeatureTabs' snippet highlighter */
   --tok-fn: #f5c451;
   --tok-type: #c792ea;
   --tok-signal: #ff9d5c;
@@ -48,7 +53,20 @@ html { scroll-behavior: smooth; overflow-x: hidden; }
   --tok-prop: #7aa2f7;
 
   --mono: ui-monospace, "SFMono-Regular", "JetBrains Mono", Menlo, Consolas, monospace;
-  --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+
+  --r-sm: 10px;
+  --r-md: 18px;
+  --r-lg: 28px;
+  --r-pill: 999px;
+
+  --shadow-card: 0 20px 50px -24px rgba(0, 0, 0, 0.6);
+  --shadow-lift: 0 28px 70px -20px rgba(0, 0, 0, 0.65);
+
+  --fs-hero: clamp(2.75rem, 6vw, 4.75rem);
+  --fs-section: clamp(1.9rem, 3.4vw, 2.75rem);
+
+  --section-pad-y: clamp(5rem, 9vw, 7.5rem);
 }
 
 :root[data-theme="light"] {
@@ -56,6 +74,7 @@ html { scroll-behavior: smooth; overflow-x: hidden; }
   --surface: #ffffff;
   --surface-2: #eef1f8;
   --surface-3: #e4e8f2;
+  --surface-glass: rgba(255, 255, 255, 0.7);
   --border: #dbe1ec;
   --border-2: #c6cee0;
 
@@ -66,8 +85,10 @@ html { scroll-behavior: smooth; overflow-x: hidden; }
   --accent: #0090b3;
   --accent-btn: #007a99;
   --accent-2: #0f9488;
+  --accent-violet: #6d5bd0;
   --accent-soft: rgba(0, 144, 179, 0.1);
   --accent-glow: rgba(0, 144, 179, 0.35);
+  --violet-glow: rgba(109, 91, 208, 0.3);
 
   --tok-fn: #9a6600;
   --tok-type: #7c3aed;
@@ -75,6 +96,9 @@ html { scroll-behavior: smooth; overflow-x: hidden; }
   --tok-call: #0369a1;
   --tok-tag: #be185d;
   --tok-prop: #1d4ed8;
+
+  --shadow-card: 0 20px 50px -28px rgba(16, 19, 28, 0.25);
+  --shadow-lift: 0 28px 70px -24px rgba(16, 19, 28, 0.3);
 }
 
 body {
@@ -83,6 +107,8 @@ body {
   color: var(--text);
   min-height: 100vh;
   -webkit-font-smoothing: antialiased;
+  font-size: 16px;
+  line-height: 1.5;
 }
 
 a { color: inherit; }
@@ -92,78 +118,68 @@ code {
   background: var(--surface-2);
   color: var(--accent);
   padding: 0.15rem 0.4rem;
-  border-radius: 4px;
+  border-radius: 5px;
   font-size: 0.875em;
 }
 
-/** eyebrow / section header, reused by every page section */
-
 .eyebrow {
-  display: inline-block;
-  font-family: var(--mono);
-  font-size: 0.75rem;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-family: var(--sans);
+  font-size: 0.8rem;
+  font-weight: 600;
   color: var(--accent);
-  margin-bottom: 0.75rem;
+  background: var(--accent-soft);
+  border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
+  border-radius: var(--r-pill);
+  padding: 0.4rem 0.9rem;
+  margin-bottom: 1.25rem;
+}
+
+.eyebrow-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 8px var(--accent-glow);
 }
 
 .section {
+  position: relative;
   width: 100%;
-  max-width: 1080px;
+  max-width: 1120px;
   margin: 0 auto;
-  padding: 5rem 1.5rem;
+  padding: var(--section-pad-y) 1.5rem;
 }
 
 .section-header {
-  max-width: 640px;
-  margin: 0 auto 2.5rem;
+  max-width: 620px;
+  margin: 0 auto 3rem;
   text-align: center;
 }
 
 .section-title {
-  font-size: 2rem;
-  font-weight: 700;
-  letter-spacing: -0.02em;
-  line-height: 1.25;
-  margin-bottom: 0.75rem;
+  font-size: var(--fs-section);
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1.15;
+  margin-bottom: 0.9rem;
 }
 
 .section-sub {
   color: var(--muted);
+  font-size: 1.05rem;
   line-height: 1.7;
 }
 
-/** spinning border, draws attention to an action until it's taken.
-    Reused by Hero, FeatureTabs, and CommunityCTA. */
-
-@property --spin-angle {
-  syntax: '<angle>';
-  inherits: false;
-  initial-value: 0deg;
-}
-
-.spin-border {
-  display: inline-block;
-  border-radius: 10px;
-  padding: 2px;
-  background: conic-gradient(from var(--spin-angle), transparent 0deg, var(--accent) 90deg, transparent 200deg);
-  animation: spin-border-rotate 2.5s linear infinite;
-}
-
-/* On hover the ring yields to the button's own hover glow instead of
-   spinning underneath it. Background goes transparent rather than the
-   padding collapsing to 0, so the button doesn't jump on hover. */
-.spin-border:hover {
-  background: transparent;
-  animation-play-state: paused;
-}
-
-@keyframes spin-border-rotate {
-  to { --spin-angle: 360deg; }
+.text-gradient {
+  background: var(--gradient-brand);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
 }
 
 @media (max-width: 480px) {
-  .section { padding: 3.5rem 1rem; }
-  .section-title { font-size: 1.6rem; }
+  .section { padding: 3.5rem 1.25rem; }
 }

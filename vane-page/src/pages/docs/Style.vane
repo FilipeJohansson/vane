@@ -94,7 +94,7 @@ func Style() core.Node {
 				<p className="docs-p">
 					Signal reads inside the struct literal make the style reactive: any signal
 					read while building the <code>core.Style</code> value re-runs the whole thing
-					whenever that signal changes, the same way any other JSX expression binding
+					whenever that signal changes, the same way any other expression binding
 					works. Compute a field with an inline, immediately-called function when it
 					depends on a signal:
 				</p>

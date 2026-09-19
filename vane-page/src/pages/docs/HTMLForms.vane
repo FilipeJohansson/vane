@@ -92,7 +92,7 @@ const formsFieldSnippet = `type FieldProps struct {
 }
 
 // Field takes the backing signal directly (not its resolved value) so the
-// <input>'s value binding stays scoped to this component's own JSX attribute.
+// <input>'s value binding stays scoped to this component's own attribute.
 // Reading value.Get() at the call site instead would make the parent's
 // {Field(...)} slot re-run on every keystroke, rebuilding the input and
 // dropping focus/cursor position.
@@ -150,7 +150,7 @@ func HTMLForms() core.Node {
 					it's the same <code>value={"{expr}"}</code> binding any other element uses:
 				</p>
 				{components.CodeBlock("input.go", formsControlledSnippet)}
-				{callout("tip", "Tip", "value is cursor-preserving: setting it to the string the DOM already holds skips the write instead of resetting the cursor/selection, so typing doesn't fight the reactive update. See JSX Syntax for the full prop table.")}
+				{callout("tip", "Tip", "value is cursor-preserving: setting it to the string the DOM already holds skips the write instead of resetting the cursor/selection, so typing doesn't fight the reactive update. See Vane Syntax for the full prop table.")}
 
 				<h2 className="docs-h2" id="skip-signals">Skip signals when you don't need live values</h2>
 				<p className="docs-p">

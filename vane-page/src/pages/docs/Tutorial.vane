@@ -403,7 +403,7 @@ func Tutorial() core.Node {
 				{components.CodeBlock("src/pages/TodoList.vane", tutorialStep2PageSnippet)}
 				<p className="docs-p">
 					The inline <code>{"{if ... } else { ... }"}</code> picks between the
-					empty message and the list — see {tutorialDocLink("jsx-syntax", "JSX Syntax")}{" "}
+					empty message and the list — see {tutorialDocLink("vane-syntax", "Vane Syntax")}{" "}
 					for the full inline control-flow syntax. <code>{"{for}"}</code> is a
 					reactive loop: it re-runs whenever a signal it reads changes (here,{" "}
 					<code>Todos</code>), and <code>key={"{t.ID}"}</code> lets Vane move
@@ -430,7 +430,7 @@ func Tutorial() core.Node {
 					<code>onSubmit</code> calls <code>preventDefault</code>{" "}
 					automatically (confirmed in <code>core</code>'s source: it's called
 					before your handler runs, every time — see{" "}
-					{tutorialDocLink("jsx-syntax", "JSX Syntax")} for the full event
+					{tutorialDocLink("vane-syntax", "Vane Syntax")} for the full event
 					table), so pressing Enter in the input or clicking "Add" both submit
 					the form without a page reload. Typing updates <code>text</code>{" "}
 					via <code>onInput</code>; submitting reads it, calls{" "}

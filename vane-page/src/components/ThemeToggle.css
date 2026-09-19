@@ -4,7 +4,7 @@
   justify-content: center;
   width: 2.1rem;
   height: 2.1rem;
-  border-radius: 6px;
+  border-radius: var(--r-sm);
   border: 1px solid var(--border);
   background: var(--surface);
   color: var(--text);
@@ -16,3 +16,5 @@
 .theme-toggle:hover { border-color: var(--border-2); }
 
 .theme-toggle svg { width: 16px; height: 16px; }
+
+.theme-toggle span { display: flex; }

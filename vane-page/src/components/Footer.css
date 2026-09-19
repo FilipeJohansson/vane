@@ -1,29 +1,32 @@
 .footer {
   border-top: 1px solid var(--border);
   background: var(--surface);
-  padding: 3rem 1.5rem 1.5rem;
+  padding: 4rem 1.5rem 2rem;
 }
 
 .footer-grid {
-  max-width: 1080px;
+  max-width: 1120px;
   margin: 0 auto;
   display: grid;
   grid-template-columns: 1.5fr 1fr 1fr;
-  gap: 2rem;
-  padding-bottom: 2rem;
+  gap: 2.5rem;
+  padding-bottom: 2.5rem;
 }
 
 .footer-brand-name {
-  font-family: var(--mono);
-  font-weight: 700;
-  color: var(--accent);
-  font-size: 1.1rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 800;
+  color: var(--text);
+  font-size: 1.15rem;
+  letter-spacing: -0.02em;
 }
 
 .footer-tagline {
   color: var(--muted);
-  font-size: 0.85rem;
-  margin-top: 0.5rem;
+  font-size: 0.88rem;
+  margin-top: 0.75rem;
   max-width: 260px;
   line-height: 1.6;
 }
@@ -31,11 +34,13 @@
 .footer-col {
   display: flex;
   flex-direction: column;
-  gap: 0.6rem;
+  align-items: flex-start;
+  gap: 0.7rem;
 }
 
 .footer-col-title {
-  font-size: 0.75rem;
+  font-size: 0.78rem;
+  font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.05em;
   color: var(--hint);
@@ -45,18 +50,18 @@
 .footer-col a {
   color: var(--muted);
   text-decoration: none;
-  font-size: 0.9rem;
+  font-size: 0.92rem;
 }
 
 .footer-col a:hover { color: var(--accent); }
 
 .footer-bottom {
-  max-width: 1080px;
+  max-width: 1120px;
   margin: 0 auto;
-  padding-top: 1.5rem;
+  padding-top: 1.75rem;
   border-top: 1px solid var(--border);
-  color: var(--accent);
-  font-size: 0.8rem;
+  color: var(--hint);
+  font-size: 0.82rem;
   font-family: var(--mono);
   display: flex;
   justify-content: space-between;

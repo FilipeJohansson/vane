@@ -7,7 +7,7 @@ import (
 )
 
 // CopyButton copies text to the clipboard and flashes a confirmation
-func CopyButton(text string) core.Node {
+func CopyButton(text string, asIcon ...bool) core.Node {
 	copied := core.NewSignal(false)
 
 	onClick := func(core.MouseEvent) {
@@ -19,12 +19,26 @@ func CopyButton(text string) core.Node {
 		}()
 	}
 
+	core.Effect(func() func() {
+		copied.Get()
+		RefreshIcons()
+		return nil
+	})
+
 	return (
 		<button className="copy-btn" type="button" aria-label="Copy command to clipboard" onClick={onClick}>
-			{if copied.Get() {
-				<span>Copied</span>
+			{if len(asIcon) > 0 && asIcon[0] {
+				{if copied.Get() {
+					<span className="copy-icon" aria-hidden="true">{Icon("check")}</span>
+				} else {
+					<span className="copy-icon" aria-hidden="true">{Icon("copy")}</span>
+				}}
 			} else {
-				<span>Copy</span>
+				{if copied.Get() {
+					<span>Copied</span>
+				} else {
+					<span>Copy</span>
+				}}
 			}}
 		</button>
 	)

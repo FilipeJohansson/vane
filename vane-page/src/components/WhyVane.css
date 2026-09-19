@@ -1,0 +1,113 @@
+.pillar-showcase {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.pillar-statement {
+  display: flex;
+  align-items: stretch;
+  gap: 1.25rem;
+  min-height: 130px;
+  animation: pillar-fade-in 0.45s ease;
+}
+
+@keyframes pillar-fade-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.pillar-statement-bar {
+  flex-shrink: 0;
+  width: 4px;
+  border-radius: var(--r-pill);
+  background: var(--gradient-brand);
+  box-shadow: 0 0 16px var(--accent-glow);
+}
+
+.pillar-statement-title {
+  font-size: 1.4rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  margin-bottom: 0.5rem;
+}
+
+.pillar-statement-desc {
+  color: var(--muted);
+  font-size: 0.95rem;
+  line-height: 1.65;
+}
+
+.pillar-nav {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+}
+
+.pillar-nav-arrow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  flex-shrink: 0;
+  color: var(--hint);
+  background: transparent;
+  border: 1px solid var(--border-2);
+  border-radius: 50%;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+}
+
+.pillar-nav-arrow:hover { color: var(--text); border-color: var(--accent); }
+.pillar-nav-arrow svg { width: 14px; height: 14px; }
+
+.pillar-steps {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.pillar-step {
+  flex: 0 0 auto;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--border-2);
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.pillar-step:hover { background: var(--hint); }
+
+.pillar-step--active {
+  position: relative;
+  width: 28px;
+  height: 6px;
+  border-radius: var(--r-pill);
+  background: var(--border-2);
+  overflow: hidden;
+}
+
+.pillar-step--active::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: var(--gradient-brand);
+  transform: scaleX(0);
+  transform-origin: left;
+  animation: pillar-progress var(--pillar-interval, 4s) linear;
+}
+
+@keyframes pillar-progress {
+  from { transform: scaleX(0); }
+  to { transform: scaleX(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pillar-statement { animation: none; }
+  .pillar-step--active::after { animation: none; transform: scaleX(1); }
+}

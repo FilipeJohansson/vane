@@ -1,12 +1,29 @@
 .app {
+  position: relative;
   display: flex;
   flex-direction: column;
   min-height: 100vh;
-  background-image:
-    linear-gradient(var(--border) 1px, transparent 1px),
-    linear-gradient(90deg, var(--border) 1px, transparent 1px);
-  background-size: 48px 48px;
-  background-position: center top;
+  overflow-x: clip;
+}
+
+/* Fixed (not absolute) so the aurora backdrop doesn't reflow or repeat
+   per-section as the page scrolls. */
+.app::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(700px circle at 15% 0%, var(--accent-glow), transparent 60%),
+    radial-gradient(600px circle at 85% 10%, var(--violet-glow), transparent 60%),
+    var(--bg);
+  opacity: 0.55;
+  filter: blur(10px);
 }
 
 .main { flex: 1; }
+
+@media (prefers-reduced-motion: no-preference) {
+  .app::before { transition: opacity 0.3s; }
+}

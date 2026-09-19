@@ -42,13 +42,16 @@ func Footer() core.Node {
 		<footer className="footer">
 			<div className="footer-grid">
 				<div className="footer-brand">
-					<span className="footer-brand-name">Vane</span>
-					<p className="footer-tagline">Go + JSX, compiled to WebAssembly. No virtual DOM.</p>
+					<span className="footer-brand-name">
+						{Logo()}
+						Vane
+					</span>
+					<p className="footer-tagline">Frontend development, the Go way.</p>
 				</div>
 				<div className="footer-col">
 					<span className="footer-col-title">Docs</span>
 					{router.Link(router.LinkProps{To: "/docs/signals"}, "Signals")}
-					{router.Link(router.LinkProps{To: "/docs/jsx-syntax"}, "JSX syntax")}
+					{router.Link(router.LinkProps{To: "/docs/vane-syntax"}, "Vane Syntax")}
 					{router.Link(router.LinkProps{To: "/docs/routing"}, "Routing")}
 					{router.Link(router.LinkProps{To: "/docs/accessibility"}, "Accessibility")}
 				</div>

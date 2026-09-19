@@ -20,7 +20,7 @@ var SectionsBySlug = map[string][]tocItem{
 	"head":              headTOCItems,
 	"html-forms":        htmlFormsTOCItems,
 	"installation":      installationTOCItems,
-	"jsx-syntax":        jsxSyntaxTOCItems,
+	"vane-syntax":       vaneSyntaxTOCItems,
 	"language-spec":     languageSpecTOCItems,
 	"lucide-icons":      lucideIconsTOCItems,
 	"patterns":          patternsTOCItems,

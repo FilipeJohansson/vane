@@ -28,7 +28,7 @@ var Manifest = []Topic{
 	{Slug: "signals", Title: "Signals & Reactivity", Summary: "Effect, OnDispose, ComputedOf, Untrack.", Category: "Start a New Project"},
 
 	{Slug: "components", Title: "Components", Summary: "Functions, children, the controller pattern.", Category: "Build Your UI"},
-	{Slug: "jsx-syntax", Title: "JSX Syntax", Summary: "Full prop/event table, inline for/if/switch.", Category: "Build Your UI"},
+	{Slug: "vane-syntax", Title: "Vane Syntax", Summary: "Full prop/event table, inline for/if/switch.", Category: "Build Your UI"},
 	{Slug: "lists", Title: "Lists", Summary: "The {for}+key pattern to reach for by default, {items()...} for raw nodes, and core.List[T] for field-level reactive collections.", Category: "Build Your UI"},
 	{Slug: "style", Title: "Styles and CSS", Summary: "The core.Style struct and co-located CSS.", Category: "Build Your UI"},
 
@@ -40,7 +40,7 @@ var Manifest = []Topic{
 	{Slug: "portal", Title: "Portals", Summary: "Render into a DOM node outside the component tree.", Category: "Advanced"},
 	{Slug: "head", Title: "Head Management", Summary: "Reactive document.title and meta tags.", Category: "Advanced"},
 
-	{Slug: "dos-and-donts", Title: "Do's and Don'ts", Summary: "Vane-specific conventions: where JSX literals are allowed, Untrack for setup reads, and other easy mistakes.", Category: "Best Practices"},
+	{Slug: "dos-and-donts", Title: "Do's and Don'ts", Summary: "Vane-specific conventions: where Vane syntax literals are allowed, Untrack for setup reads, and other easy mistakes.", Category: "Best Practices"},
 	{Slug: "security", Title: "Security", Summary: "DangerousInnerHTML, escaping untrusted input, and other Vane security considerations.", Category: "Best Practices"},
 	{Slug: "accessibility", Title: "Accessibility", Summary: "aria-*/role, focus management, live regions.", Category: "Best Practices"},
 	{Slug: "error-boundary", Title: "Handle Errors", Summary: "Catch panics from a subtree without crashing the app.", Category: "Best Practices"},

@@ -54,11 +54,10 @@ func Nav() core.Node {
 
 	return (
 		<header className="nav">
-			{router.Link(router.LinkProps{To: "/", HTMLProps: core.HTMLProps{Class: "nav-brand", OnClick: func(core.MouseEvent) { closeMenu() }}}, "Vane")}
+			{router.Link(router.LinkProps{To: "/", HTMLProps: core.HTMLProps{Class: "nav-brand", OnClick: func(core.MouseEvent) { closeMenu() }}}, Logo(), "Vane")}
 			<nav className="nav-links" aria-label="Section">
-				{router.Link(router.LinkProps{To: "/#reactivity", HTMLProps: core.HTMLProps{Class: "nav-link", OnClick: sectionLink("reactivity")}}, "Reactivity")}
+				{router.Link(router.LinkProps{To: "/#demo", HTMLProps: core.HTMLProps{Class: "nav-link", OnClick: sectionLink("demo")}}, "Demo")}
 				{router.Link(router.LinkProps{To: "/#features", HTMLProps: core.HTMLProps{Class: "nav-link", OnClick: sectionLink("features")}}, "Features")}
-				{router.Link(router.LinkProps{To: "/#examples", HTMLProps: core.HTMLProps{Class: "nav-link", OnClick: sectionLink("examples")}}, "Examples")}
 				{router.Link(router.LinkProps{To: "/docs", HTMLProps: core.HTMLProps{Class: "nav-link"}}, "Documentation")}
 			</nav>
 			<div className="nav-actions">
@@ -90,7 +89,7 @@ func Nav() core.Node {
 			}}
 			{if menuOpen.Get() {
 				<div className="nav-mobile-panel">
-					{router.Link(router.LinkProps{To: "/#reactivity", HTMLProps: core.HTMLProps{Class: "nav-mobile-link", OnClick: func(e core.MouseEvent) { closeMenu(); sectionLink("reactivity")(e) }}}, "Reactivity")}
+					{router.Link(router.LinkProps{To: "/#demo", HTMLProps: core.HTMLProps{Class: "nav-mobile-link", OnClick: func(e core.MouseEvent) { closeMenu(); sectionLink("demo")(e) }}}, "Demo")}
 					{router.Link(router.LinkProps{To: "/#features", HTMLProps: core.HTMLProps{Class: "nav-mobile-link", OnClick: func(e core.MouseEvent) { closeMenu(); sectionLink("features")(e) }}}, "Features")}
 					{router.Link(router.LinkProps{
 						To: "/docs",
@@ -98,8 +97,7 @@ func Nav() core.Node {
 							Class:   "nav-mobile-link",
 							OnClick: func(core.MouseEvent) { closeMenu() },
 						},
-					}, "Docs")}
-					{router.Link(router.LinkProps{To: "/#examples", HTMLProps: core.HTMLProps{Class: "nav-mobile-link", OnClick: func(e core.MouseEvent) { closeMenu(); sectionLink("examples")(e) }}}, "Examples")}
+					}, "Documentation")}
 					<div className="nav-mobile-social">
 						<a
 							className="nav-mobile-icon"

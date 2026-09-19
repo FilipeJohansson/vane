@@ -5,36 +5,66 @@ import (
 	"github.com/filipejohansson/vane/core/router"
 )
 
-func docCardBody(title, desc string) core.Node {
+type learnPanelInfo struct {
+	icon  string
+	title string
+	desc  string
+	cta   string
+	slug  string
+}
+
+var learnPanelsList = []learnPanelInfo{
+	{"graduation-cap", "New to Vane?", "Try our tutorial lessons, step by step.", "Start tutorial", "tutorial"},
+	{"compass", "Want to know more?", "Go through our guides and learn Vane's core concepts.", "Vane concepts", "concepts"},
+	{"library", "Already building?", "Look up any signal, effect, or DOM helper by name.", "API reference", "api-reference"},
+}
+
+func learnPanelInner(p learnPanelInfo) core.Node {
 	return (
-		<>
-			<h3 className="doc-card-title">{title}</h3>
-			<p className="doc-card-desc">{desc}</p>
-		</>
+		<div className="learn-panel-inner">
+			<span className="learn-panel-flare" aria-hidden="true" />
+			<span className="learn-panel-ghost" aria-hidden="true">{Icon(p.icon)}</span>
+			<span className="learn-panel-cta">
+				{p.cta}
+				<span className="learn-panel-arrow" aria-hidden="true">{Icon("arrow-right")}</span>
+			</span>
+			<h3 className="learn-panel-title">{p.title}</h3>
+			<div className="learn-panel-reveal">
+				<p className="learn-panel-desc">{p.desc}</p>
+			</div>
+		</div>
 	)
 }
 
-func docCard(title, desc, slug string) core.Node {
+func learnPanel(p learnPanelInfo) core.Node {
 	return router.Link(router.LinkProps{
-		To:        "/docs/" + slug,
-		HTMLProps: core.HTMLProps{Class: "doc-card"},
-	}, docCardBody(title, desc))
+		To:        "/docs/" + p.slug,
+		HTMLProps: core.HTMLProps{Class: "learn-panel"},
+	}, learnPanelInner(p))
 }
 
 func DocsCards() core.Node {
+	core.Effect(func() func() {
+		RefreshIcons()
+		return nil
+	})
+
+	panels := make([]core.Node, len(learnPanelsList))
+	for i, p := range learnPanelsList {
+		panels[i] = learnPanel(p)
+	}
+
 	return (
-		<section className="section" id="docs">
+		<section className="section" id="learn-more">
 			<div className="section-header">
-				<span className="eyebrow">Documentation</span>
-				<h2 className="section-title">Learn the concepts</h2>
+				<span className="eyebrow">
+					<span className="eyebrow-dot" aria-hidden="true" />
+					Learn more
+				</span>
+				<h2 className="section-title">Want to learn more about Vane?</h2>
 			</div>
-			<div className="docs-grid">
-				{docCard("Signals & Reactivity", "Effect, OnDispose, ComputedOf, Untrack.", "signals")}
-				{docCard("JSX Syntax", "Full prop/event table, inline for/if/switch, reactive lists.", "jsx-syntax")}
-				{docCard("Components", "Functions, children, the controller pattern.", "components")}
-				{docCard("Routing", "Router, params, layouts, ActiveLink.", "routing")}
-				{docCard("Accessibility", "aria-*/role, focus management, live regions.", "accessibility")}
-				{docCard("Global Store", "Package-level signals for shared state.", "store")}
+			<div className="learn-accordion">
+				{panels...}
 			</div>
 		</section>
 	)

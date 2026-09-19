@@ -186,7 +186,7 @@ func Routing() core.Node {
 				<h2 className="docs-h2" id="url-params">URL params</h2>
 				<p className="docs-p">
 					<code>router.Params()</code> returns a reactive signal. Call it during component
-					setup, then read <code>.Get()</code> inside JSX bindings or effects to subscribe.
+					setup, then read <code>.Get()</code> inside Vane syntax bindings or effects to subscribe.
 				</p>
 				{components.CodeBlock("UserPage.vane", paramsSnippet)}
 				{callout("tip", "Tip", "The signal updates in-place when the same route pattern matches with different params - the component is not remounted.")}
@@ -197,7 +197,7 @@ func Routing() core.Node {
 					(e.g. <code>{"?tag=a&tag=b"}</code>) as a reactive signal of{" "}
 					<code>url.Values</code>, the same type{" "}
 					<code>net/http.Request.URL.Query()</code> returns. Call it during component
-					setup, then read <code>.Get()</code> inside JSX bindings or effects to
+					setup, then read <code>.Get()</code> inside Vane syntax bindings or effects to
 					subscribe, same as <code>router.Params()</code>.
 				</p>
 				{components.CodeBlock("SearchResults.vane", querySnippet)}

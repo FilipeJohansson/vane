@@ -44,9 +44,9 @@ func CLIReference() core.Node {
 					},
 				)}
 				<p className="docs-p">
-					<code>vane compile</code> is a diagnostic tool worth knowing about: when JSX
-					produces unexpected behavior or a compiler error references an unfamiliar line
-					number, it prints the exact generated Go code for a single file.
+					<code>vane compile</code> is a diagnostic tool worth knowing about: when your
+					Vane syntax produces unexpected behavior or a compiler error references an
+					unfamiliar line number, it prints the exact generated Go code for a single file.
 				</p>
 
 				<h2 className="docs-h2" id="flags">Flags</h2>

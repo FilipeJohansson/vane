@@ -74,7 +74,7 @@ func Signals() core.Node {
 				{docsHeader(
 					"Core Concepts",
 					"Signals & Reactivity",
-					"core.NewSignal creates reactive state. Each binding in JSX becomes its own Effect - when a signal changes, only that specific binding re-runs, not the whole component.",
+					"core.NewSignal creates reactive state. Each binding in Vane's syntax becomes its own Effect - when a signal changes, only that specific binding re-runs, not the whole component.",
 				)}
 
 				<h2 className="docs-h2" id="creating-signals">Creating signals</h2>

@@ -6,25 +6,31 @@ import (
 )
 
 func CommunityCTA() core.Node {
+	installCmd := "go install github.com/filipejohansson/vane@latest"
+
 	return (
-		<section className="cta-section">
-			<h2 className="cta-title">Built in the open.</h2>
-			<p className="cta-sub">Star it, break it, send a PR.</p>
-			<div className="cta-buttons">
-				<div className="spin-border">
+		<section className="section">
+			<div className="cta-panel">
+				<h2 className="cta-title">Built in the open.</h2>
+				<p className="cta-sub">Star it, break it, send a PR.</p>
+				<div className="cta-buttons">
+					{router.Link(router.LinkProps{
+						To:        "/docs",
+						HTMLProps: core.HTMLProps{Class: "btn btn-primary"},
+					}, "Get Started")}
 					{Button(ButtonProps{
-						Variant: "primary",
+						Variant: "ghost",
 						Href:    githubHref,
 						Target:  "_blank",
 						Rel:     "noopener noreferrer",
-					}, "Star on GitHub")}
+					}, "View on GitHub")}
 				</div>
-				{router.Link(router.LinkProps{
-					To:        "/docs",
-					HTMLProps: core.HTMLProps{Class: "btn btn-ghost"},
-				}, "Read the docs")}
+				<div className="install-row cta-install-row">
+					<code className="install-cmd">{core.DangerousInnerHTML(HighlightCLIHTML(installCmd))}</code>
+					{CopyButton(installCmd, true)}
+				</div>
+				<span className="cta-license">MIT License</span>
 			</div>
-			<span className="cta-license">MIT License</span>
 		</section>
 	)
 }

@@ -21,14 +21,15 @@ var goTokenPattern = regexp.MustCompile(
 		`|\)\s+([A-Za-z_][\w.]*)\s*\{` + // 4: return type
 		`|\b(func)\s+([A-Z]\w*)\s*\(` + // 5: func keyword, 6: component/function decl name
 		`|\bcore\.(NewSignal)\b` + // 7: NewSignal
-		`|\.([A-Z]\w*)\s*\(` + // 8: method/function call, e.g. .Get( / .Set( / http.Get(
-		`|\b(func|return|if|else|for|range|var|const|go|defer|switch|case|default)\b` + // 9: keyword
-		`|</?([a-zA-Z][\w-]*)` + // 10: JSX tag name
-		`|\b([a-zA-Z][\w-]*)=\{` + // 11: JSX prop name
-		`|[(,]\s*([A-Z]\w*)\s*[,)]` + // 12: bare component/value reference, e.g. Route(.., Home, ..)
-		`|>([^<>{}` + "\n" + `]*[^<>{}\s][^<>{}` + "\n" + `]*)[<{]` + // 13: JSX text after '>'
-		`|\}([^<>{}` + "\n" + `]*[^<>{}\s][^<>{}` + "\n" + `]*)<` + // 14: JSX text after '}'
-			`|\b(type)\s+([A-Z]\w*)\b`, // 15: type keyword, 16: declared type name, e.g. "type ButtonProps struct"
+		`|\bcore\.([A-Z]\w*)\b` + // 8: other core.X reference, e.g. core.MouseEvent, core.InputEvent
+		`|\.([A-Z]\w*)\s*\(` + // 9: method/function call, e.g. .Get( / .Set( / http.Get(
+		`|\b(func|return|if|else|for|range|var|const|go|defer|switch|case|default)\b` + // 10: keyword
+		`|</?([a-zA-Z][\w-]*)` + // 11: JSX tag name
+		`|\b([a-zA-Z][\w-]*)=\{` + // 12: JSX prop name
+		`|[(,]\s*([A-Z]\w*)\s*[,)]` + // 13: bare component/value reference, e.g. Route(.., Home, ..)
+		`|>([^<>{}` + "\n" + `]*[^<>{}\s][^<>{}` + "\n" + `]*)[<{]` + // 14: JSX text after '>'
+		`|\}([^<>{}` + "\n" + `]*[^<>{}\s][^<>{}` + "\n" + `]*)<` + // 15: JSX text after '}'
+			`|\b(type)\s+([A-Z]\w*)\b`, // 16: type keyword, 17: declared type name, e.g. "type ButtonProps struct"
 )
 
 type tokenDef struct {
@@ -48,15 +49,16 @@ var tokenDefs = []tokenDef{
 	{5, "tok-kw"},
 	{6, "tok-fn"},
 	{7, "tok-signal"},
-	{8, "tok-call"},
-	{9, "tok-kw"},
-	{10, "tok-tag"},
-	{11, "tok-prop"},
-	{12, "tok-fn"},
-	{13, "tok-text"},
+	{8, "tok-type"},
+	{9, "tok-call"},
+	{10, "tok-kw"},
+	{11, "tok-tag"},
+	{12, "tok-prop"},
+	{13, "tok-fn"},
 	{14, "tok-text"},
-	{15, "tok-kw"},
-	{16, "tok-type"},
+	{15, "tok-text"},
+	{16, "tok-kw"},
+	{17, "tok-type"},
 }
 
 // highlightHTML escapes src for safe HTML insertion and wraps each

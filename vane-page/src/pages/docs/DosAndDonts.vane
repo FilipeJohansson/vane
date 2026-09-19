@@ -96,7 +96,7 @@ func DosAndDonts() core.Node {
 					that look valid but aren't:
 				</p>
 				{components.CodeBlock("snippets.go", dndSyntaxSnippet)}
-				{callout("tip", "Tip", "Full rules, including return nil and the inline for/if/switch forms, are on the JSX Syntax page.")}
+				{callout("tip", "Tip", "Full rules, including return nil and the inline for/if/switch forms, are on the Vane Syntax page.")}
 
 				<h2 className="docs-h2" id="signal-read-timing">Read signals where they'll re-run</h2>
 				<p className="docs-p">

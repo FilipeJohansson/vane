@@ -55,7 +55,7 @@ func VSCodeExtension() core.Node {
 
 				<h2 className="docs-h2" id="what-it-does">What it does</h2>
 				<p className="docs-p">
-					Syntax highlighting for <code>.vane</code> (Go with embedded JSX), and a language
+					Syntax highlighting for <code>.vane</code> (Go with embedded JSX-like syntax), and a language
 					server: <code>vane lsp</code> compiles your <code>.vane</code> file to a hidden{" "}
 					<code>_vane.go</code> file behind the scenes, forwards every request to{" "}
 					<code>gopls</code>, and translates positions both ways. Hover, go-to-definition,

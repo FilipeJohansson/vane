@@ -22,13 +22,21 @@ func searchTriggerButton(ctrl *searchCtrl) core.Node {
 
 func searchResultRow(r docs.SearchResult, onSelect func()) core.Node {
 	return (
-		<li key={r.RoutePath() + "#" + r.AnchorID}>
+		<li key={r.RoutePath() + "#" + r.AnchorID} role="option">
 			<button type="button" className="docs-search-result" onClick={func(core.MouseEvent) { onSelect() }}>
-				<span className="docs-search-result-category">{r.Category}</span>
-				<span className="docs-search-result-title">{r.Title}</span>
-				{if r.Heading != "" {
-					<span className="docs-search-result-sub">{r.Heading}</span>
-				}}
+				<div className="docs-search-result-container">
+					<span className="docs-search-result-category">{r.Category}</span>
+					<div className="docs-search-result-wrapper">
+						<span className="docs-search-result-title docs-search-result-text-nowrap">{r.Title}</span>
+						{if r.Heading != "" {
+							<>
+								<span className="docs-search-result-sub-icon"></span>
+								<span className="docs-search-result-sub docs-search-result-text-nowrap">{r.Heading}</span>
+							</>
+						}}
+					</div>
+				</div>
+				<span className="docs-search-result-select-icon">{components.Icon("corner-down-left")}</span>
 			</button>
 		</li>
 	)
@@ -113,6 +121,11 @@ func searchModal(ctrl *searchCtrl) core.Node {
 							value={ctrl.query.Get()}
 							onInput={func(e core.InputEvent) { ctrl.query.Set(e.Value) }}
 						/>
+						{if ctrl.query.Get() != "" {
+							<button type="reset" className="docs-search-reset" onClick={func(core.MouseEvent) { ctrl.query.Set("") }} aria-label="Reset search">
+								<span className="docs-search-reset-icon" aria-hidden="true">{components.Icon("x")}</span>
+							</button>
+						}}
 						<button type="button" className="docs-search-close" onClick={func(core.MouseEvent) { ctrl.Close() }} aria-label="Close search">Esc</button>
 					</div>
 

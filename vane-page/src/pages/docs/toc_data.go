@@ -132,9 +132,9 @@ var languageSpecTOCItems = []tocItem{
 	{"compiler-errors", "Compiler errors"},
 }
 
-var jsxSyntaxTOCItems = []tocItem{
+var vaneSyntaxTOCItems = []tocItem{
 	{"props-and-events", "Props & events"},
-	{"jsx-rules", "JSX rules"},
+	{"syntax-rules", "Vane syntax rules"},
 	{"return-nil", "Early exits with return nil"},
 	{"inline-control-flow", "Inline control flow"},
 	{"reactive-lists", "Reactive lists"},

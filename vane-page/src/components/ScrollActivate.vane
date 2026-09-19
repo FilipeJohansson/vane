@@ -1,0 +1,46 @@
+package components
+
+import "github.com/filipejohansson/vane/core"
+
+// SetupScrollActivate stands in for :hover on touch devices, which never
+// fire it at all - every hover-triggered animation in Features/DocsCards
+// would otherwise simply never play there. Each of the given element ids
+// gets an "is-active" class added/removed as its own vertical center
+// crosses a band around the viewport's middle while the page scrolls, and
+// every "X:hover" rule this page relies on is written as
+// "X:is(:hover, .is-active)" so the same CSS drives both. A no-op on
+// devices that report real hover support (desktop/mouse) - :hover already
+// does this job there, and firing both would just be redundant work.
+func SetupScrollActivate(ids []string) {
+	hasHover := core.Window().Call("matchMedia", "(hover: hover)").Get("matches").Bool()
+	if hasHover {
+		return
+	}
+
+	core.NextTick(func() {
+		nodes := make([]core.Node, 0, len(ids))
+		for _, id := range ids {
+			if n, ok := core.GetElementByID(id); ok {
+				nodes = append(nodes, n)
+			}
+		}
+
+		update := func() {
+			_, vh := core.Viewport()
+			bandTop, bandBottom := vh*0.35, vh*0.65
+			for _, n := range nodes {
+				r := core.BoundingRect(n)
+				center := r.Top + r.Height/2
+				classList := core.Unwrap(n).Get("classList")
+				if center >= bandTop && center <= bandBottom {
+					classList.Call("add", "is-active")
+				} else {
+					classList.Call("remove", "is-active")
+				}
+			}
+		}
+
+		update()
+		core.OnWindowEvent("scroll", func(core.Event) { update() }, core.ListenerOpts{Passive: true})
+	})
+}

@@ -1,0 +1,10 @@
+.vane-logo {
+  display: inline-flex;
+  width: 22px;
+  height: 22px;
+  transition: transform 0.2s ease;
+}
+
+.vane-logo svg { width: 100%; height: 100%; display: block; }
+
+a:hover > .vane-logo { transform: scale(1.08); }

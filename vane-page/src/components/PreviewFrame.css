@@ -1,0 +1,125 @@
+.preview-frame {
+  background: var(--surface-glass);
+  backdrop-filter: blur(10px);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  box-shadow: var(--shadow-card);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.preview-frame-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.7rem 1rem;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface-2);
+}
+
+.preview-frame-label {
+  flex: 1;
+  text-align: center;
+  font-family: var(--mono);
+  font-size: 0.75rem;
+  color: var(--hint);
+  background: var(--surface-3);
+  border-radius: var(--r-pill);
+  padding: 0.15rem 0.75rem;
+  margin-right: calc(9px * 3 + 0.5rem * 2);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.preview-frame-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 200px;
+  background: var(--bg);
+}
+
+/* Only used where the demo itself has no nav of its own - the router tab
+   has a real, functional one, so a second decorative one there would be
+   redundant. */
+.demo-page-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.65rem 1.25rem;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface-2);
+}
+
+.demo-page-header-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--gradient-brand);
+  flex-shrink: 0;
+}
+
+.demo-page-header-nav {
+  width: 34px;
+  height: 6px;
+  border-radius: var(--r-pill);
+  background: var(--border-2);
+}
+
+.preview-frame-stage {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1.5rem;
+  padding: 2rem;
+}
+
+/* Stretches to fill its grid row - the pre grows with it instead of
+   staying at content height and leaving empty space below. */
+.code-panel {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--surface-glass);
+  backdrop-filter: blur(10px);
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  box-shadow: var(--shadow-card);
+  overflow: hidden;
+}
+
+.code-panel .code-block-pre { flex: 1; }
+
+.code-panel-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.7rem 1rem;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface-2);
+}
+
+.code-panel-filename {
+  font-family: var(--mono);
+  font-size: 0.78rem;
+  color: var(--accent);
+}
+
+.code-panel-copy {
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.code-panel:hover .code-panel-copy,
+.code-panel:focus-within .code-panel-copy {
+  opacity: 1;
+}
+
+@media (max-width: 860px) {
+  .code-panel-copy { opacity: 1; }
+}
