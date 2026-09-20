@@ -146,18 +146,25 @@ func HighlightCLIHTML(cmd string) string {
 	return highlightHTML(cmd, cliTokenPattern, cliTokenDefs)
 }
 
+func codeBlockBar(filename, copyText string) core.Node {
+	return (
+		<div className="code-block-bar">
+			<span className="code-block-dot" />
+			<span className="code-block-dot" />
+			<span className="code-block-dot" />
+			<span className="code-block-filename">{filename}</span>
+			<span className="code-block-copy">{CopyButton(copyText, true)}</span>
+		</div>
+	)
+}
+
 // CodeBlock renders a titled, syntax-highlighted code panel. Shared by the
 // homepage's interactive demos and the docs pages so every snippet on the
 // site looks the same.
 func CodeBlock(filename, snippet string) core.Node {
 	return (
 		<div className="code-block">
-			<div className="code-block-bar">
-				<span className="code-block-dot" />
-				<span className="code-block-dot" />
-				<span className="code-block-dot" />
-				<span className="code-block-filename">{filename}</span>
-			</div>
+			{codeBlockBar(filename, snippet)}
 			<pre className="code-block-pre"><code>{core.DangerousInnerHTML(HighlightGoHTML(snippet))}</code></pre>
 		</div>
 	)
@@ -169,12 +176,7 @@ func CodeBlock(filename, snippet string) core.Node {
 func TerminalBlock(filename, cmd string) core.Node {
 	return (
 		<div className="code-block">
-			<div className="code-block-bar">
-				<span className="code-block-dot" />
-				<span className="code-block-dot" />
-				<span className="code-block-dot" />
-				<span className="code-block-filename">{filename}</span>
-			</div>
+			{codeBlockBar(filename, cmd)}
 			<pre className="code-block-pre"><code>{core.DangerousInnerHTML(HighlightCLIHTML(cmd))}</code></pre>
 		</div>
 	)
@@ -188,12 +190,7 @@ func TerminalBlock(filename, cmd string) core.Node {
 func PlainBlock(filename, content string) core.Node {
 	return (
 		<div className="code-block">
-			<div className="code-block-bar">
-				<span className="code-block-dot" />
-				<span className="code-block-dot" />
-				<span className="code-block-dot" />
-				<span className="code-block-filename">{filename}</span>
-			</div>
+			{codeBlockBar(filename, content)}
 			<pre className="code-block-pre"><code>{content}</code></pre>
 		</div>
 	)

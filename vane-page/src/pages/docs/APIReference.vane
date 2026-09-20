@@ -58,9 +58,14 @@ func APIReference() core.Node {
 		<div className="docs-page">
 			<article className="docs-article">
 				{docsHeader(
-					"API Reference",
+					"Reference",
 					"API Reference",
 					"An index of Vane's public API, organized by concept. Each entry links to its full generated documentation on pkg.go.dev; the guides linked alongside cover how and why to use it.",
+				)}
+				{keyFacts(
+					core.Text("Curated by concept, not alphabetically - each entry links to its real pkg.go.dev documentation."),
+					core.Fragment(core.Text("Links always include "), code("?GOOS=js&GOARCH=wasm"), core.Text(" - godoc hides almost everything in "), code("core"), core.Text(" without it.")),
+					core.Text("Doesn't mark stability tiers - that's a separate, ongoing API audit, not this page's job."),
 				)}
 				<p className="docs-p">
 					See{" "}
@@ -275,7 +280,7 @@ func APIReference() core.Node {
 
 				{pageNav("api-reference")}
 			</article>
-			{toc(items)}
+			{toc(items, "api-reference")}
 		</div>
 	)
 }

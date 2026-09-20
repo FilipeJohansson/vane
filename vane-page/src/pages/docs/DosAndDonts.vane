@@ -87,6 +87,11 @@ func DosAndDonts() core.Node {
 					"Do's and Don'ts",
 					"Where Vane syntax is allowed to appear, reading signals where they'll actually re-run, and wrapping manual component calls in Untrack.",
 				)}
+				{keyFacts(
+					core.Fragment(core.Text("Vane's syntax only compiles inside "), code("return (...)"), core.Text(" - assigning it to a variable is a compile error.")),
+					core.Fragment(core.Text("Read a signal at setup time (not inside a binding) and it won't re-run - wrap it in "), code("core.Untrack"), core.Text(" if that's intentional.")),
+					core.Text("A manual component call outside a binding runs once, at setup, like any other Go function call."),
+				)}
 
 				<h2 className="docs-h2" id="vane-syntax-placement">Where Vane syntax compiles</h2>
 				<p className="docs-p">
@@ -130,7 +135,7 @@ func DosAndDonts() core.Node {
 
 				{pageNav("dos-and-donts")}
 			</article>
-			{toc(items)}
+			{toc(items, "dos-and-donts")}
 		</div>
 	)
 }

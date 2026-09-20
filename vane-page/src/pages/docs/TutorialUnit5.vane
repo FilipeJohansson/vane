@@ -1,0 +1,179 @@
+package docs
+
+import (
+	"github.com/filipejohansson/vane/core"
+
+	"vane-page/src/components"
+)
+
+const tutorialExampleHref = "https://github.com/filipejohansson/vane/tree/master/examples/tutorial-todo"
+
+const tutorialStep5FilterLinkSnippet = `package components
+
+import (
+    "github.com/filipejohansson/vane/core"
+    "github.com/filipejohansson/vane/core/router"
+)
+
+func FilterLink(to, label string) core.Node {
+    return router.ActiveLink(
+        router.ActiveLinkProps{
+            LinkProps: router.LinkProps{
+                To: to,
+                HTMLProps: core.HTMLProps{
+                    Class: "nav-link",
+                },
+            },
+            ActiveClass: "nav-link--active",
+        },
+        label,
+    )
+}`
+
+const tutorialStep5AppSnippet = `func App() core.Node {
+    return (
+        <div className="app">
+            <header className="nav">
+                <span className="nav-brand">Todo App</span>
+                <nav className="nav-links">
+                    {components.FilterLink("/", "All")}
+                    {components.FilterLink("/active", "Active")}
+                    {components.FilterLink("/completed", "Completed")}
+                </nav>
+            </header>
+            <main className="main">
+                {router.Router(
+                    router.Route("/", pages.TodoList, router.WithTitle("All - Todo App")),
+                    router.Route("/active", pages.TodoList, router.WithTitle("Active - Todo App")),
+                    router.Route("/completed", pages.TodoList, router.WithTitle("Completed - Todo App")),
+                )}
+            </main>
+        </div>
+    )
+}`
+
+const tutorialStep5FilterFuncSnippet = `visibleTodos := func(path string) []store.Todo {
+    todos := store.Todos.Get()
+    visible := make([]store.Todo, 0, len(todos))
+    for _, t := range todos {
+        if path == "/active" && t.Done {
+            continue
+        }
+        if path == "/completed" && !t.Done {
+            continue
+        }
+        visible = append(visible, t)
+    }
+    return visible
+}`
+
+const tutorialStep5ForHeaderSnippet = `{for _, t := range visibleTodos(router.Path().Get()) {`
+
+func TutorialUnit5() core.Node {
+	core.Head(func() core.HeadConfig {
+		title := "Unit 5: Filter by Route | Vane Tutorial"
+		description := "Three routes, one page - the URL decides what's visible."
+		url := core.Window().Get("location").Get("origin").String() + "/vane/docs/tutorial-5-filter-routes"
+		return core.HeadConfig{
+			Title:         title,
+			Description:   description,
+			Canonical:     url,
+			OGTitle:       title,
+			OGDescription: description,
+			OGURL:         url,
+		}
+	})
+
+	items := tutorialUnit5TOCItems
+
+	return (
+		<div className="docs-page">
+			<article className="docs-article">
+				{docsHeader(
+					"Tutorial",
+					"Unit 5: Filter by Route",
+					"Three routes, one page - the URL decides what's visible.",
+				)}
+
+				<h2 className="docs-h2" id="filter-link">Add a FilterLink component</h2>
+				<p className="docs-p">
+					Same pattern as the starter's <code>NavLink</code> you deleted back
+					in Unit 2:
+				</p>
+				{components.CodeBlock("src/components/FilterLink.vane", tutorialStep5FilterLinkSnippet)}
+
+				<h2 className="docs-h2" id="three-routes">Wire three routes</h2>
+				<p className="docs-p">
+					All pointing at the same <code>TodoList</code> page — the route
+					decides what's visible, not which component mounts. This replaces{" "}
+					<code>App</code>'s function body only (keep the existing{" "}
+					<code>package</code>/<code>import</code> block, adding an import for{" "}
+					<code>src/components</code> if it isn't there already):
+				</p>
+				{components.CodeBlock("App.vane (excerpt)", tutorialStep5AppSnippet)}
+
+				<h2 className="docs-h2" id="filter-the-data">Filter the data</h2>
+				<p className="docs-p">
+					Then add a <code>visibleTodos</code> closure inside{" "}
+					<code>TodoList</code>, right before the <code>return</code> — filter the
+					data first, then range over the result, rather than skipping items
+					inside the <code>{"{for}"}</code> loop itself:
+				</p>
+				{components.CodeBlock("src/pages/TodoList.vane (add before return)", tutorialStep5FilterFuncSnippet)}
+				<p className="docs-p">
+					And change the <code>{"{for}"}</code>'s range expression to call it. Add{" "}
+					<code>"github.com/filipejohansson/vane/core/router"</code> to{" "}
+					<code>TodoList.vane</code>'s imports too, it isn't there yet:
+				</p>
+				{components.CodeBlock("src/pages/TodoList.vane (change the {for} header)", tutorialStep5ForHeaderSnippet)}
+				<p className="docs-p">
+					<code>router.Path()</code> is itself a signal (see{" "}
+					{tutorialDocLink("routing", "Routing")}), so the <code>{"{for}"}</code>{" "}
+					now has two dependencies instead of one: it re-runs when{" "}
+					<code>Todos</code> changes <em>or</em> when the route changes, whichever
+					happens first. No separate "sync filter state to URL" code needed.
+				</p>
+				{callout("important", "Important", "A keyed {for} loop's body compiles to a per-item callback, not a literal for statement, so continue inside it won't compile. Filter the slice before the {for} instead, like visibleTodos above.")}
+				{callout("tip", "Checkpoint", "Add a few todos, check some of them, then click All / Active / Completed: the list should filter correctly, the active link should highlight, and browser back/forward should move between filters too — it's real routing, not local state.")}
+
+				<h2 className="docs-h2" id="next-steps">What's next</h2>
+				<p className="docs-p">You've now used every core building block:</p>
+				<ul className="docs-list">
+					<li>A <code>Signal</code> holding structured data, read and replaced wholesale on every change.</li>
+					<li>A reactive, keyed list (<code>{"{for}"}</code> + <code>key</code>) that re-runs on any signal it reads.</li>
+					<li>Form events (<code>onInput</code>, <code>onSubmit</code>, <code>onChecked</code>, <code>onClick</code>) driving those signals.</li>
+					<li>A router where the URL is just another signal your rendering logic reads.</li>
+				</ul>
+				<p className="docs-p">
+					The complete, working version of this app lives in the Vane repo at{" "}
+					<a href={tutorialExampleHref} target="_blank" rel="noopener noreferrer">
+						examples/tutorial-todo
+					</a>{" "}
+					— clone it and compare against your own if something doesn't match.
+					From here:
+				</p>
+				<ul className="docs-list">
+					<li>Persist the list with <code>core.LocalStorageGet</code>/<code>core.LocalStorageSet</code> (see the Browser API wrappers in {tutorialDocLink("refs-and-dom", "Refs & DOM")}) so it survives a refresh.</li>
+					<li>Add a "Clear completed" button — one more store function, same pattern as <code>Remove</code>.</li>
+					<li>Read {tutorialDocLink("signals", "Signals & Reactivity")} and {tutorialDocLink("lifecycle", "Lifecycle")} for what's happening under the hood of every <code>Get</code>/<code>Set</code> call you just made.</li>
+					<li>Read {tutorialDocLink("patterns", "Patterns")} for other common UI shapes once you're past the basics.</li>
+				</ul>
+
+				{tutorialCompleteToggle("tutorial-5-filter-routes")}
+
+				{if TutorialUnitDone("tutorial-5-filter-routes") {
+					<div className="docs-tutorial-congrats">
+						<span className="docs-tutorial-congrats-icon" aria-hidden="true">{components.Icon("party-popper")}</span>
+						<div className="docs-tutorial-congrats-content">
+							<h3 className="docs-tutorial-congrats-title">You built a real Vane app!</h3>
+							<p className="docs-tutorial-congrats-body">All 5 units complete. You used signals, events, a reactive keyed list, and routing to build a real app.</p>
+						</div>
+					</div>
+				}}
+
+				{pageNav("tutorial-5-filter-routes")}
+			</article>
+			{toc(items, "tutorial-5-filter-routes")}
+		</div>
+	)
+}

@@ -25,9 +25,14 @@ func CLIReference() core.Node {
 		<div className="docs-page">
 			<article className="docs-article">
 				{docsHeader(
-					"Reference",
+					"CLI",
 					"CLI Reference",
 					"Every vane command and flag: init, run, build, compile, lsp, version.",
+				)}
+				{keyFacts(
+					core.Fragment(code("vane run"), core.Text(" builds once, serves on "), code(":8080"), core.Text(", and hot-reloads on save.")),
+					core.Fragment(code("vane compile <file>"), core.Text(" is a dry-run diagnostic - prints the generated Go for one file to stdout.")),
+					core.Fragment(code("--release"), core.Text(" strips warnings and runs "), code("wasm-opt"), core.Text("; "), code("--tinygo"), core.Text(" swaps the compiler for a much smaller binary.")),
 				)}
 
 				<h2 className="docs-h2" id="commands">Commands</h2>
@@ -63,7 +68,7 @@ func CLIReference() core.Node {
 
 				{pageNav("cli-reference")}
 			</article>
-			{toc(items)}
+			{toc(items, "cli-reference")}
 		</div>
 	)
 }

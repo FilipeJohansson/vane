@@ -67,6 +67,11 @@ func Style() core.Node {
 					"Styles and CSS",
 					"The core.Style struct for reactive inline styles, the static-string escape hatch, and co-located CSS files.",
 				)}
+				{keyFacts(
+					core.Fragment(code("core.Style"), core.Text(" is a typed struct - zero-value fields are skipped, not written as empty CSS.")),
+					core.Fragment(core.Text("Signal reads inside a "), code("core.Style"), core.Text(" literal make the whole style reactive.")),
+					core.Text("Co-located CSS files work like any other stylesheet - no scoping magic, no build-step CSS-in-JS."),
+				)}
 
 				<h2 className="docs-h2" id="the-style-struct">The core.Style struct</h2>
 				<p className="docs-p">
@@ -138,7 +143,7 @@ func Style() core.Node {
 
 				{pageNav("style")}
 			</article>
-			{toc(items)}
+			{toc(items, "style")}
 		</div>
 	)
 }

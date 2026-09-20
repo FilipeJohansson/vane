@@ -27,10 +27,26 @@
 .code-block-dot:nth-child(3) { background: #28c840; }
 
 .code-block-filename {
+  flex: 1;
   margin-left: 0.5rem;
   font-family: var(--mono);
   font-size: 0.78rem;
   color: var(--accent);
+}
+
+.code-block-copy {
+  flex-shrink: 0;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.code-block:hover .code-block-copy,
+.code-block:focus-within .code-block-copy {
+  opacity: 1;
+}
+
+@media (max-width: 860px) {
+  .code-block-copy { opacity: 1; }
 }
 
 .code-block-pre {

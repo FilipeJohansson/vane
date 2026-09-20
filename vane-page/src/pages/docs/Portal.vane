@@ -79,6 +79,11 @@ func Portal() core.Node {
 					"Portal",
 					"Render UI into another part of the DOM without leaving the current component tree.",
 				)}
+				{keyFacts(
+					core.Fragment(code("core.Portal"), core.Text(" renders elsewhere in the DOM while staying in the same reactive component tree.")),
+					core.Text("Escapes overflow:hidden and stacking-context traps - the usual reason for modals, tooltips, and dropdowns."),
+					core.Text("Signals and Effects created inside a portal are disposed exactly like any other component's."),
+				)}
 
 				<h2 className="docs-h2" id="why">Why use a Portal?</h2>
 				<p className="docs-p">
@@ -134,7 +139,7 @@ func Portal() core.Node {
 
 				{pageNav("portal")}
 			</article>
-			{toc(items)}
+			{toc(items, "portal")}
 		</div>
 	)
 }

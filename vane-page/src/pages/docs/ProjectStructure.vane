@@ -116,6 +116,11 @@ func ProjectStructure() core.Node {
 					"Project Structure",
 					"What vane init scaffolds, and where application code, static assets, and co-located styles live.",
 				)}
+				{keyFacts(
+					core.Fragment(code("main.go"), core.Text(" calls "), code("core.Mount"), core.Text(" exactly once - the entire app grows from "), code("App.vane"), core.Text(" from there.")),
+					core.Fragment(core.Text("Generated "), code("_vane.go"), core.Text(" files are gitignored - never edit them, edit the "), code(".vane"), core.Text(" source.")),
+					core.Text("Static assets and index.html live in public/, application code in src/."),
+				)}
 
 				<h2 className="docs-h2" id="the-tree">The scaffolded tree</h2>
 				<p className="docs-p">
@@ -197,7 +202,7 @@ func ProjectStructure() core.Node {
 
 				{pageNav("project-structure")}
 			</article>
-			{toc(items)}
+			{toc(items, "project-structure")}
 		</div>
 	)
 }

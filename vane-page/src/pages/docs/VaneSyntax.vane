@@ -151,6 +151,11 @@ func VaneSyntax() core.Node {
 					"Vane Syntax",
 					"The HTML-like syntax inside .vane files is not JSX, it's Vane's own parser and compiler. This is the full prop/event table plus the rules for where it can and can't appear.",
 				)}
+				{keyFacts(
+					core.Fragment(code("prop={expr}"), core.Text(" is reactive; "), code(`prop="literal"`), core.Text(" is set once, never re-applied.")),
+					core.Fragment(core.Text("It only compiles inside a "), code("return (...)"), core.Text(" statement - assigning it to a variable is a compile error.")),
+					core.Fragment(code("{for}"), core.Text("/"), code("{if}"), core.Text("/"), code("{switch}"), core.Text(" are the only inline control-flow forms.")),
+				)}
 				{callout("tip", "Reference", "Looking for the frozen, compile-guaranteed version of these rules? See ", apiDocLink("language-spec", ".vane Language Spec"), ".")}
 
 				<h2 className="docs-h2" id="props-and-events">Props & events</h2>
@@ -304,7 +309,7 @@ func VaneSyntax() core.Node {
 
 				{pageNav("vane-syntax")}
 			</article>
-			{toc(items)}
+			{toc(items, "vane-syntax")}
 		</div>
 	)
 }

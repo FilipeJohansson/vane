@@ -1,0 +1,133 @@
+package docs
+
+import (
+	"github.com/filipejohansson/vane/core"
+
+	"vane-page/src/components"
+)
+
+const tutorialScaffoldSnippet = `mkdir todo-app && cd todo-app
+vane init github.com/you/todo-app
+vane run`
+
+const tutorialStyleSnippet = `.todo-form {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.todo-form .input {
+  flex: 1;
+  max-width: none;
+}
+
+.todo-add {
+  background: var(--primary);
+  color: var(--bg);
+  border: none;
+  border-radius: 8px;
+  padding: 0.5rem 1rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.todo-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.todo-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.6rem 0.75rem;
+}
+
+.todo-item--done .todo-text {
+  color: var(--hint);
+  text-decoration: line-through;
+}
+
+.todo-text {
+  flex: 1;
+}
+
+.todo-remove {
+  background: none;
+  border: none;
+  color: var(--muted);
+  font-size: 1.1rem;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0.15rem 0.4rem;
+}
+
+.todo-remove:hover {
+  color: var(--text);
+}
+
+.todo-empty {
+  color: var(--hint);
+}`
+
+func TutorialUnit1() core.Node {
+	core.Head(func() core.HeadConfig {
+		title := "Unit 1: Scaffold the Project | Vane Tutorial"
+		description := "Create a new Vane project, confirm the dev server works, and add the tutorial's stylesheet."
+		url := core.Window().Get("location").Get("origin").String() + "/vane/docs/tutorial-1-scaffold"
+		return core.HeadConfig{
+			Title:         title,
+			Description:   description,
+			Canonical:     url,
+			OGTitle:       title,
+			OGDescription: description,
+			OGURL:         url,
+		}
+	})
+
+	items := tutorialUnit1TOCItems
+
+	return (
+		<div className="docs-page">
+			<article className="docs-article">
+				{docsHeader(
+					"Tutorial",
+					"Unit 1: Scaffold the Project",
+					"Create the app, confirm the dev server works, and add the tutorial's stylesheet.",
+				)}
+
+				<h2 className="docs-h2" id="create-the-project">Create the project</h2>
+				<p className="docs-p">
+					Create a new project the same way as any other Vane app:
+				</p>
+				{components.TerminalBlock("Terminal", tutorialScaffoldSnippet)}
+				<p className="docs-p">
+					Open <code>{"http://localhost:8080"}</code>. You should see the
+					default starter page, a name input that greets you back. That
+					confirms the toolchain works end to end before we touch any code.
+				</p>
+				{callout("tip", "Checkpoint", "The starter page renders and the name input updates as you type. If it doesn't, see ", tutorialDocLink("troubleshooting", "Troubleshooting"), " before continuing — every unit after this builds on the same dev server.")}
+
+				<h2 className="docs-h2" id="stylesheet">Add the stylesheet</h2>
+				<p className="docs-p">
+					This tutorial focuses on Vane's behavior, not CSS, but the class
+					names used throughout (<code>todo-form</code>, <code>todo-item</code>,
+					and so on) come from a small stylesheet. Paste this into your
+					scaffolded <code>public/style.css</code> now if you want it to look
+					like a real app instead of unstyled HTML — or skip it and style it
+					yourself later, see {tutorialDocLink("style", "Styles and CSS")}.
+				</p>
+				{components.PlainBlock("public/style.css (append)", tutorialStyleSnippet)}
+
+				{tutorialCompleteToggle("tutorial-1-scaffold")}
+				{pageNav("tutorial-1-scaffold")}
+			</article>
+			{toc(items, "tutorial-1-scaffold")}
+		</div>
+	)
+}

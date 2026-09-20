@@ -34,6 +34,11 @@ var SectionsBySlug = map[string][]tocItem{
 	"style":             styleTOCItems,
 	"troubleshooting":   troubleshootingTOCItems,
 	"tutorial":          tutorialTOCItems,
+	"tutorial-1-scaffold":     tutorialUnit1TOCItems,
+	"tutorial-2-data-model":   tutorialUnit2TOCItems,
+	"tutorial-3-add-todos":    tutorialUnit3TOCItems,
+	"tutorial-4-toggle-remove": tutorialUnit4TOCItems,
+	"tutorial-5-filter-routes": tutorialUnit5TOCItems,
 }
 
 // SearchResult is one match: either a whole page (AnchorID == "") or a

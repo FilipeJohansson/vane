@@ -1,0 +1,105 @@
+package docs
+
+import (
+	"github.com/filipejohansson/vane/core"
+
+	"vane-page/src/components"
+)
+
+const tutorialStep4StoreSnippet = `// Toggle flips the Done state of the todo with the given id.
+func Toggle(id int) {
+    list := Todos.Get()
+    next := make([]Todo, len(list))
+    copy(next, list)
+    for i := range next {
+        if next[i].ID == id {
+            next[i].Done = !next[i].Done
+        }
+    }
+    Todos.Set(next)
+}
+
+// Remove deletes the todo with the given id.
+func Remove(id int) {
+    list := Todos.Get()
+    next := make([]Todo, 0, len(list))
+    for _, t := range list {
+        if t.ID != id {
+            next = append(next, t)
+        }
+    }
+    Todos.Set(next)
+}`
+
+const tutorialStep4ItemSnippet = `{for _, t := range store.Todos.Get() {
+    className := "todo-item"
+    if t.Done {
+        className = "todo-item todo-item--done"
+    }
+    <li key={t.ID} className={className}>
+        <input
+            type="checkbox"
+            checked={t.Done}
+            onChecked={func(e core.CheckEvent) { store.Toggle(t.ID) }}
+        />
+        <span className="todo-text">{t.Text}</span>
+        <button className="todo-remove" onClick={func(e core.MouseEvent) { store.Remove(t.ID) }}>×</button>
+    </li>
+}}`
+
+func TutorialUnit4() core.Node {
+	core.Head(func() core.HeadConfig {
+		title := "Unit 4: Toggle & Remove | Vane Tutorial"
+		description := "A checkbox and a remove button, each driving the store by item ID."
+		url := core.Window().Get("location").Get("origin").String() + "/vane/docs/tutorial-4-toggle-remove"
+		return core.HeadConfig{
+			Title:         title,
+			Description:   description,
+			Canonical:     url,
+			OGTitle:       title,
+			OGDescription: description,
+			OGURL:         url,
+		}
+	})
+
+	items := tutorialUnit4TOCItems
+
+	return (
+		<div className="docs-page">
+			<article className="docs-article">
+				{docsHeader(
+					"Tutorial",
+					"Unit 4: Toggle & Remove",
+					"A checkbox and a remove button, each driving the store by item ID.",
+				)}
+
+				<h2 className="docs-h2" id="store-functions">Two more store functions</h2>
+				<p className="docs-p">
+					Same replace-the-slice-and-Set pattern as <code>Add</code>:
+				</p>
+				{components.CodeBlock("src/store/todos.go (add these)", tutorialStep4StoreSnippet)}
+
+				<h2 className="docs-h2" id="checkbox-and-remove">Checkbox and remove button</h2>
+				<p className="docs-p">
+					Then replace the <code>{"{for}"}</code> loop in <code>TodoList</code>{" "}
+					with this, adding a checkbox and a remove button:
+				</p>
+				{components.CodeBlock("src/pages/TodoList.vane (replace the {for} loop)", tutorialStep4ItemSnippet)}
+				<p className="docs-p">
+					<code>checked={"{t.Done}"}</code> sets the checkbox's live DOM
+					property directly (Vane has no attribute/property translation — see{" "}
+					{tutorialDocLink("security", "Security")}), so it always reflects the
+					current <code>Todo</code> without a separate{" "}
+					<code>defaultChecked</code> concept. <code>onChecked</code> and{" "}
+					<code>onClick</code> each call a store function with the item's own{" "}
+					<code>t.ID</code>, captured per loop iteration.
+				</p>
+				{callout("tip", "Checkpoint", "Checking a todo crosses out its text (a Go if/else picking the className, not a CSS-only trick). The × button removes it. Try adding three, checking the middle one, then removing the first — the checked state should stay on the right item.")}
+
+				{tutorialCompleteToggle("tutorial-4-toggle-remove")}
+				{pageNav("tutorial-4-toggle-remove")}
+			</article>
+			{toc(items, "tutorial-4-toggle-remove")}
+		</div>
+	)
+}

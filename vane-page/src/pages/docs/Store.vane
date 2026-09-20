@@ -107,6 +107,11 @@ func Store() core.Node {
 					"Global Store",
 					"Package-level signals, the idiomatic way to share reactive state across components. No separate store API, just core.NewSignal at package scope.",
 				)}
+				{keyFacts(
+					core.Fragment(core.Text("No separate store API - a package-level "), code("core.NewSignal"), core.Text(" is the whole pattern.")),
+					core.Text("Any component that reads the signal re-runs when it changes, regardless of which file wrote to it."),
+					core.Text("Plain Go visibility rules apply - exported for cross-package access, unexported to keep it package-private."),
+				)}
 
 				<h2 className="docs-h2" id="the-pattern">The pattern</h2>
 				<p className="docs-p">
@@ -179,7 +184,7 @@ func Store() core.Node {
 
 				{pageNav("store")}
 			</article>
-			{toc(items)}
+			{toc(items, "store")}
 		</div>
 	)
 }

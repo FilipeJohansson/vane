@@ -51,6 +51,11 @@ func Security() core.Node {
 					"Security",
 					"Vane's default-safe rendering model, the DangerousInnerHTML escape hatch, and how URL props are handled.",
 				)}
+				{keyFacts(
+					core.Fragment(core.Text("Every "), code("{expr}"), core.Text(" child and prop is structurally safe by default - text never parses as markup.")),
+					core.Fragment(code("core.DangerousInnerHTML"), core.Text(" is the one deliberate, explicitly-named escape hatch - the name is a warning, not a suggestion.")),
+					core.Text("URL props get no automatic sanitization - validate/allowlist untrusted URLs yourself before rendering them."),
+				)}
 
 				<h2 className="docs-h2" id="the-default">The default: structurally safe</h2>
 				<p className="docs-p">
@@ -93,7 +98,7 @@ func Security() core.Node {
 
 				{pageNav("security")}
 			</article>
-			{toc(items)}
+			{toc(items, "security")}
 		</div>
 	)
 }

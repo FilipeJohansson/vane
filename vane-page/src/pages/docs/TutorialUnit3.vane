@@ -1,0 +1,139 @@
+package docs
+
+import (
+	"github.com/filipejohansson/vane/core"
+
+	"vane-page/src/components"
+)
+
+const tutorialStep3StoreSnippet = `//go:build js && wasm
+
+package store
+
+import "github.com/filipejohansson/vane/core"
+
+// Todo is one item in the list.
+type Todo struct {
+    ID   int
+    Text string
+    Done bool
+}
+
+// Todos holds every item in the list, in creation order.
+var Todos = core.NewSignal([]Todo{})
+
+var nextID = 1
+
+// Add appends a new, not-done todo with the given text.
+func Add(text string) {
+    Todos.Set(append(Todos.Get(), Todo{ID: nextID, Text: text}))
+    nextID++
+}`
+
+const tutorialStep3PageSnippet = `package pages
+
+import (
+    "strings"
+
+    "github.com/filipejohansson/vane/core"
+
+    "github.com/you/todo-app/src/store"
+)
+
+func TodoList() core.Node {
+    text := core.NewSignal("")
+
+    addTodo := func() {
+        t := strings.TrimSpace(text.Get())
+        if t == "" {
+            return
+        }
+        store.Add(t)
+        text.Set("")
+    }
+
+    return (
+        <div className="page">
+            <form className="todo-form" onSubmit={func(e core.SubmitEvent) { addTodo() }}>
+                <input
+                    className="input"
+                    placeholder="What needs to be done?"
+                    value={text.Get()}
+                    onInput={func(e core.InputEvent) { text.Set(e.Value) }}
+                />
+                <button className="todo-add" type="submit">Add</button>
+            </form>
+            {if len(store.Todos.Get()) == 0 {
+                <p className="todo-empty">No todos yet.</p>
+            } else {
+                <ul className="todo-list">
+                    {for _, t := range store.Todos.Get() {
+                        <li key={t.ID} className="todo-item">
+                            <span className="todo-text">{t.Text}</span>
+                        </li>
+                    }}
+                </ul>
+            }}
+        </div>
+    )
+}`
+
+func TutorialUnit3() core.Node {
+	core.Head(func() core.HeadConfig {
+		title := "Unit 3: Add New Todos | Vane Tutorial"
+		description := "A controlled form input and a store function that appends to the list."
+		url := core.Window().Get("location").Get("origin").String() + "/vane/docs/tutorial-3-add-todos"
+		return core.HeadConfig{
+			Title:         title,
+			Description:   description,
+			Canonical:     url,
+			OGTitle:       title,
+			OGDescription: description,
+			OGURL:         url,
+		}
+	})
+
+	items := tutorialUnit3TOCItems
+
+	return (
+		<div className="docs-page">
+			<article className="docs-article">
+				{docsHeader(
+					"Tutorial",
+					"Unit 3: Add New Todos",
+					"A controlled form input and a store function that appends to the list.",
+				)}
+
+				<h2 className="docs-h2" id="add-function">Add a store function</h2>
+				<p className="docs-p">
+					Add an <code>Add</code> function to the store:
+				</p>
+				{components.CodeBlock("src/store/todos.go", tutorialStep3StoreSnippet)}
+
+				<h2 className="docs-h2" id="the-form">Add the form</h2>
+				<p className="docs-p">
+					Then add a form to <code>TodoList</code>. <code>text</code> is a
+					local signal for the input's current value — a controlled input,
+					same pattern as {tutorialDocLink("html-forms", "Build HTML Forms")}:
+				</p>
+				{components.CodeBlock("src/pages/TodoList.vane", tutorialStep3PageSnippet)}
+				<p className="docs-p">
+					<code>onSubmit</code> calls <code>preventDefault</code>{" "}
+					automatically (confirmed in <code>core</code>'s source: it's called
+					before your handler runs, every time — see{" "}
+					{tutorialDocLink("vane-syntax", "Vane Syntax")} for the full event
+					table), so pressing Enter in the input or clicking "Add" both submit
+					the form without a page reload. Typing updates <code>text</code>{" "}
+					via <code>onInput</code>; submitting reads it, calls{" "}
+					<code>store.Add</code>, then clears it — three signal reads/writes,
+					no manual DOM manipulation anywhere.
+				</p>
+				{callout("tip", "Checkpoint", "Type something and press Enter (or click Add): it appears in the list and the input clears. Add a second one. Both should render, each keeping its own identity via key.")}
+
+				{tutorialCompleteToggle("tutorial-3-add-todos")}
+				{pageNav("tutorial-3-add-todos")}
+			</article>
+			{toc(items, "tutorial-3-add-todos")}
+		</div>
+	)
+}

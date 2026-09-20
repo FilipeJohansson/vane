@@ -5,10 +5,15 @@ import (
 
 	"github.com/filipejohansson/vane/core"
 	"github.com/filipejohansson/vane/core/router"
+
+	"vane-page/src/components"
 )
+
+const docsSourceBase = "https://github.com/FilipeJohansson/vane/edit/master/vane-page/src/pages/docs/"
 
 // docsHeader is the title block every doc page starts with.
 func docsHeader(eyebrow, title, desc string) core.Node {
+	components.RefreshIcons()
 	return (
 		<header className="docs-header">
 			<span className="docs-eyebrow">{eyebrow}</span>
@@ -18,13 +23,89 @@ func docsHeader(eyebrow, title, desc string) core.Node {
 	)
 }
 
+// calloutIcon matches callout's color-by-kind convention with a glyph:
+// "tip" reads as a helpful aside, "important" as a real warning.
+func calloutIcon(kind string) string {
+	if kind == "important" {
+		return "triangle-alert"
+	}
+	return "lightbulb"
+}
+
 // calloutKind picks the accent color; "tip" (helpful aside) or "important"
 func callout(kind, label string, children ...any) core.Node {
 	return (
 		<div className={"docs-callout docs-callout--" + kind}>
-			<span className="docs-callout-label">{label}</span>
-			<p className="docs-callout-body">{core.Spread(children)...}</p>
+			<span className="docs-callout-icon" aria-hidden="true">{components.Icon(calloutIcon(kind))}</span>
+			<div className="docs-callout-content">
+				<span className="docs-callout-label">{label}</span>
+				<p className="docs-callout-body">{core.Spread(children)...}</p>
+			</div>
 		</div>
+	)
+}
+
+// keyFacts renders the "quick facts" panel most pages open with, right
+// below docsHeader: the handful of things worth knowing before reading the
+// full page, each item pre-built so callers can mix plain text and <code>
+// the same way docsTable cells and callout bodies already do.
+func keyFacts(items ...core.Node) core.Node {
+	rows := make([]core.Node, len(items))
+	for i, it := range items {
+		rows[i] = keyFactItem(it)
+	}
+	return (
+		<div className="docs-keyfacts">
+			<span className="docs-keyfacts-title">
+				<span className="docs-keyfacts-icon" aria-hidden="true">{components.Icon("zap")}</span>
+				Key facts
+			</span>
+			<ul className="docs-keyfacts-list">
+				{rows...}
+			</ul>
+		</div>
+	)
+}
+
+func keyFactItem(content core.Node) core.Node {
+	return (
+		<li className="docs-keyfacts-item">
+			<span className="docs-keyfacts-check" aria-hidden="true">{components.Icon("check")}</span>
+			<span>{content}</span>
+		</li>
+	)
+}
+
+// tutorialCompleteToggle is the "mark this unit complete" checkbox every
+// tutorial unit page ends with, backed by TutorialProgress.
+func tutorialCompleteToggle(slug string) core.Node {
+	done := TutorialUnitDone(slug)
+	cls := "docs-tutorial-check"
+	label := "Mark this unit complete"
+	if done {
+		cls = "docs-tutorial-check docs-tutorial-check--done"
+		label = "Unit complete"
+	}
+	return (
+		<button
+			type="button"
+			className={cls}
+			onClick={func(core.MouseEvent) {
+				ToggleTutorialUnit(slug)
+				// The checkmark glyph (and Unit 5's congrats banner icon)
+				// only enter the DOM once this reactive toggle flips true,
+				// well after any mount-time RefreshIcons call already ran.
+				core.NextTick(func() { components.RefreshIcons() })
+			}}
+			aria-pressed={done}
+		>
+			<span className="docs-tutorial-check-box" aria-hidden="true">
+				{if done {
+					<>{components.Icon("check")}</>
+				}}
+			</span>
+			{label}
+		</button>
 	)
 }
 
@@ -147,6 +228,23 @@ func setupScrollSpy(items []tocItem, active *core.Signal[string]) {
 	core.OnWindowEvent("scroll", func(core.Event) { update() }, core.ListenerOpts{Passive: true})
 }
 
+// tocScrollTopThreshold is how far down the page (in px) the reader has to
+// scroll before the "Scroll to top" action appears.
+const tocScrollTopThreshold = 400.0
+
+func setupTocScrollTop(show *core.Signal[bool]) {
+	update := func() { show.Set(core.ScrollY() > tocScrollTopThreshold) }
+	core.NextTick(update)
+	core.OnWindowEvent("scroll", func(core.Event) { update() }, core.ListenerOpts{Passive: true})
+}
+
+func scrollTopClass(visible bool) string {
+	if visible {
+		return "docs-scrolltop docs-scrolltop--visible"
+	}
+	return "docs-scrolltop"
+}
+
 func tocLink(it tocItem, active *core.Signal[string]) core.Node {
 	return (
 		<li>
@@ -165,19 +263,33 @@ func tocLink(it tocItem, active *core.Signal[string]) core.Node {
 	)
 }
 
-func toc(items []tocItem) core.Node {
+func toc(items []tocItem, slug string) core.Node {
 	active := core.NewSignal("")
+	showScrollTop := core.NewSignal(false)
 	links := make([]core.Node, len(items))
 	for i, it := range items {
 		links[i] = tocLink(it, active)
 	}
+	t, _ := TopicBySlug(slug)
 	return (
-		<aside className="docs-toc" ref={func(el core.Node) { setupScrollSpy(items, active) }}>
-			<span className="docs-toc-title">On this page</span>
-			<ul className="docs-toc-list">
-				{links...}
-			</ul>
-		</aside>
+		<div className="docs-toc-col">
+			<aside className="docs-toc" ref={func(el core.Node) { setupScrollSpy(items, active); setupTocScrollTop(showScrollTop) }}>
+				<span className="docs-toc-title">On this page</span>
+				<ul className="docs-toc-list">
+					{links...}
+				</ul>
+				<div className="docs-toc-actions">
+					<a className="docs-toc-action" href={docsSourceBase + t.File} target="_blank" rel="noopener noreferrer">
+						Edit this page on GitHub
+						<span className="docs-toc-action-icon" aria-hidden="true">{components.Icon("external-link")}</span>
+					</a>
+				</div>
+			</aside>
+			<button type="button" className={scrollTopClass(showScrollTop.Get())} onClick={func(core.MouseEvent) { core.ScrollTo(0, true) }}>
+				Scroll to top
+				<span className="docs-toc-action-icon" aria-hidden="true">{components.Icon("arrow-up")}</span>
+			</button>
+		</div>
 	)
 }
 
@@ -194,13 +306,29 @@ func navCard(dir, slug, title string) core.Node {
 	return router.Link(router.LinkProps{
 		To:        to,
 		HTMLProps: core.HTMLProps{Class: "docs-pagenav-card docs-pagenav-card--" + dir},
-	}, navCardBody(label, title))
+	}, navCardBody(dir, label, title))
 }
 
-func navCardBody(label, title string) core.Node {
+func navCardBody(dir, label, title string) core.Node {
+	arrow := components.Icon("arrow-right")
+	if dir == "prev" {
+		arrow = components.Icon("arrow-left")
+	}
 	return (
 		<>
-			<span className="docs-pagenav-label">{label}</span>
+			<span className="docs-pagenav-label">
+				{if dir == "prev" {
+					<span className="docs-pagenav-arrow" aria-hidden="true">{arrow}</span>
+				} else {
+					<span />
+				}}
+				{label}
+				{if dir == "next" {
+					<span className="docs-pagenav-arrow" aria-hidden="true">{arrow}</span>
+				} else {
+					<span />
+				}}
+			</span>
 			<span className="docs-pagenav-title">{title}</span>
 		</>
 	)
@@ -210,18 +338,19 @@ func navCardBody(label, title string) core.Node {
 // manifest. Either side is omitted when slug is first/last (or unlisted,
 // e.g. the overview index itself, whose slug is "").
 func pageNav(slug string) core.Node {
+	components.RefreshIcons()
 	prev, next, hasPrev, hasNext := PrevNext(slug)
+	cls := "docs-pagenav"
+	if !hasPrev || !hasNext {
+		cls = "docs-pagenav docs-pagenav--single"
+	}
 	return (
-		<div className="docs-pagenav">
+		<div className={cls}>
 			{if hasPrev {
 				<>{navCard("prev", prev.Slug, prev.Title)}</>
-			} else {
-				<span />
 			}}
 			{if hasNext {
 				<>{navCard("next", next.Slug, next.Title)}</>
-			} else {
-				<span />
 			}}
 		</div>
 	)

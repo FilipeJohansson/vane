@@ -49,6 +49,11 @@ func BundleSize() core.Node {
 					"Analyze Bundle Size",
 					"Why the wasm binary is large, and how to inspect and trim it.",
 				)}
+				{keyFacts(
+					core.Text("A Go/WASM app ships its own runtime (scheduler, GC, reflection) - most of that cost is fixed, independent of app size."),
+					core.Text("This is a known, real tradeoff, not an oversight - TinyGo exists as an alternative compiler target for smaller binaries."),
+					core.Fragment(core.Text("Gzip transfer size matters more than raw "), code(".wasm"), core.Text(" size for real-world load time.")),
+				)}
 
 				<h2 className="docs-h2" id="why-its-big">Why the binary is large</h2>
 				<p className="docs-p">
@@ -165,7 +170,7 @@ func BundleSize() core.Node {
 
 				{pageNav("bundle-size")}
 			</article>
-			{toc(items)}
+			{toc(items, "bundle-size")}
 		</div>
 	)
 }

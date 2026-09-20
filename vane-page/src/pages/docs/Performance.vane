@@ -35,6 +35,11 @@ func Performance() core.Node {
 					"Performance",
 					"Vane performance measured against React, Svelte, and Solid",
 				)}
+				{keyFacts(
+					core.Text("Vane wins or ties on partial updates and localized changes - fine-grained reactivity does what it claims."),
+					core.Text("Vane loses badly on building new DOM and payload size - the Go/WASM boundary has a real, visible cost there."),
+					core.Text("Every number is reproducible: clone the repo, run benchmarks/runner/bench.mjs yourself, nothing here needs to be taken on faith."),
+				)}
 
 				<p className="docs-p">
 					Vane's architecture rests on two claims: no virtual DOM, and reactivity
@@ -271,7 +276,7 @@ func Performance() core.Node {
 
 				{pageNav("performance")}
 			</article>
-			{toc(items)}
+			{toc(items, "performance")}
 		</div>
 	)
 }

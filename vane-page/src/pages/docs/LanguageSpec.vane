@@ -29,6 +29,11 @@ func LanguageSpec() core.Node {
 					".vane Language Spec",
 					"The syntax .vane files must follow to compile.",
 				)}
+				{keyFacts(
+					core.Text("Existing valid .vane files keep compiling across future minor/patch releases - this is a compatibility contract, not just a description."),
+					core.Fragment(core.Text("A lowercase tag compiles to an HTML element ("), code("<div>"), core.Text(" → "), code(`core.El("div")`), core.Text("); uppercase is a component call.")),
+					core.Text("Concepts/Vane Syntax/Components teach the language - this page is where you check the exact rule."),
+				)}
 
 				<h2 className="docs-h2" id="scope">What this page covers</h2>
 				<p className="docs-p">
@@ -160,7 +165,7 @@ func LanguageSpec() core.Node {
 
 				{pageNav("language-spec")}
 			</article>
-			{toc(items)}
+			{toc(items, "language-spec")}
 		</div>
 	)
 }
