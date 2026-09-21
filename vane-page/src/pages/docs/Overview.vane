@@ -19,7 +19,7 @@ func scaffoldStep(label, cmd string) core.Node {
 			<span className="docs-scaffold-step-label">{label}</span>
 			<div className="install-row docs-scaffold-cmd-row">
 				<code className="install-cmd">{core.DangerousInnerHTML(components.HighlightCLIHTML(cmd))}</code>
-				{components.CopyButton(cmd)}
+				{components.CopyButton(cmd, true)}
 			</div>
 		</div>
 	)
