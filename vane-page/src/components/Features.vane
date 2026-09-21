@@ -2,6 +2,7 @@ package components
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/filipejohansson/vane/core"
 	"github.com/filipejohansson/vane/core/router"
@@ -43,11 +44,6 @@ func errorBoundaryVisual() core.Node {
 	return (
 		<div className="feature-visual feature-visual--errors">
 			<div className="hazard-stripes" aria-hidden="true">
-				<span className="hazard-stripe" />
-				<span className="hazard-stripe" />
-				<span className="hazard-stripe" />
-				<span className="hazard-stripe" />
-				<span className="hazard-stripe" />
 				<span className="hazard-stripe" />
 				<span className="hazard-stripe" />
 				<span className="hazard-stripe" />
@@ -231,20 +227,33 @@ func docsFeatureVisual() core.Node {
 	)
 }
 
-const storeSVG = `<svg viewBox="0 0 800 120" preserveAspectRatio="none" fill="none" xmlns="http://www.w3.org/2000/svg">
-<circle class="store-dot store-dot--nav" r="4" cx="400" cy="20" />
-<circle class="store-dot store-dot--cart" r="4" cx="400" cy="20" />
-<circle class="store-dot store-dot--profile" r="4" cx="400" cy="20" />
-</svg>`
+const storeCodeSnippet = `name := core.NewSignal("John")`
+const storeCodeSetSnippet = `name.Set("Jane")`
+
+func storeScreen(label string) core.Node {
+	return (
+		<div className="store-screen">
+			<span className="store-screen-label">{label}</span>
+			<span className="store-screen-value">
+				<span className="store-screen-value--before">John</span>
+				<span className="store-screen-value--after">Jane</span>
+			</span>
+		</div>
+	)
+}
 
 func storeVisual() core.Node {
 	return (
 		<div className="feature-visual feature-visual--store">
-			<span className="store-diagram" aria-hidden="true">{core.DangerousInnerHTML(storeSVG)}</span>
-			<span className="store-pill">store.User</span>
-			<span className="store-consumer store-consumer--nav">Nav</span>
-			<span className="store-consumer store-consumer--cart">Cart</span>
-			<span className="store-consumer store-consumer--profile">Profile</span>
+			<div className="store-code-lines">
+				<code className="store-code">{core.DangerousInnerHTML(HighlightGoHTML(storeCodeSnippet))}</code>
+				<code className="store-code store-code--set">{core.DangerousInnerHTML(HighlightGoHTML(storeCodeSetSnippet))}</code>
+			</div>
+			<div className="store-screens">
+				{storeScreen("Nav")}
+				{storeScreen("Cart")}
+				{storeScreen("Profile")}
+			</div>
 		</div>
 	)
 }
@@ -253,25 +262,28 @@ type shippedFeature struct {
 	visual func() core.Node
 	title  string
 	desc   string
-	// size picks a feature-card--* bento variant: "wide" (2 cols), "tall"
-	// (2 rows), "banner" (2 cols, visual beside text instead of above it),
-	// "reverse" (visual below text), or "" for a plain 1x1 card.
+	// size is a space-separated list of feature-card--* modifiers (each
+	// becomes its own class): "w2"/"w3" widen a card to 2 or 3 of the
+	// grid's 3 columns (default, no width modifier, is 1), "tall" doubles
+	// its row span, "banner" puts the visual beside the text instead of
+	// above it, "reverse" puts the visual below the text. Empty is a plain
+	// 1-column, visual-above-text card.
 	size string
 	slug string
 }
 
 var shippedFeatures = []shippedFeature{
-	{routerVisual, "Router & Layouts", "Nested routes, layouts, URL params, hash or path-based navigation.", "wide", "routing"},
-	{portalsVisual, "Portals", "Render into any DOM node outside the component tree - modals, toasts.", "tall", "portal"},
-	{a11yVisual, "Accessibility", "Focus management, aria-* helpers, and live regions built in.", "reverse", "accessibility"},
-	{headVisual, "Head Management", "Reactive title, meta tags, and canonical URLs per route.", "banner", "head"},
-	{errorBoundaryVisual, "Error Boundaries", "Catch render and effect errors before they take down the page.", "", "error-boundary"},
-	{hotReloadVisual, "Hot Reload", "vane run watches your source and updates the browser automatically.", "reverse", "develop-and-build"},
-	{vscodeVisual, "VS Code Extension", "Syntax highlighting, diagnostics, hover, go-to-definition for .vane.", "reverse", "vscode-extension"},
-	{storeVisual, "Global Store", "Package-level signals for shared state.", "wide", "store"},
-	{syntaxVisual, "Vane Syntax", "The HTML-like syntax inside .vane files, compiled by Vane's own parser.", "", "vane-syntax"},
-	{componentsVisual, "Components", "Functions, children, the controller pattern.", "tall", "components"},
 	{signalsVisual, "Signals & Reactivity", "Effect, OnDispose, ComputedOf, Untrack.", "tall", "signals"},
+	{syntaxVisual, "Vane Syntax", "The HTML-like syntax inside .vane files, compiled by Vane's own parser.", "", "vane-syntax"},
+	{a11yVisual, "Accessibility", "Focus management, aria-* helpers, and live regions built in.", "reverse", "accessibility"},
+	{routerVisual, "Router & Layouts", "Nested routes, layouts, URL params, hash or path-based navigation.", "w2 banner", "routing"},
+	{headVisual, "Head Management", "Reactive title, meta tags, and canonical URLs per route.", "banner", "head"},
+	{componentsVisual, "Components", "Functions, children, the controller pattern.", "tall taller right", "components"},
+	{storeVisual, "Global Store", "Package-level signals for shared state.", "w2 banner reverse", "store"},
+	{portalsVisual, "Portals", "Render into any DOM node outside the component tree - modals, toasts.", "tall", "portal"},
+	{hotReloadVisual, "Hot Reload", "vane run watches your source and updates the browser automatically.", "reverse", "develop-and-build"},
+	{errorBoundaryVisual, "Error Boundaries", "Catch render and effect errors before they take down the page.", "banner", "error-boundary"},
+	{vscodeVisual, "VS Code Extension", "Syntax highlighting, diagnostics, hover, go-to-definition for .vane.", "banner reverse", "vscode-extension"},
 }
 
 func shippedFeatureText(f shippedFeature) core.Node {
@@ -285,8 +297,8 @@ func shippedFeatureText(f shippedFeature) core.Node {
 
 func shippedFeatureCard(f shippedFeature, id string) core.Node {
 	cls := "feature-card"
-	if f.size != "" {
-		cls = "feature-card feature-card--" + f.size
+	for _, mod := range strings.Fields(f.size) {
+		cls += " feature-card--" + mod
 	}
 	to := "/docs/" + f.slug
 	if f.slug == "" {

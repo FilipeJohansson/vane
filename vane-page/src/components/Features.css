@@ -3,10 +3,23 @@
     section - each card's shape fits what it's showing. */
 .feature-grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(3, 1fr);
   grid-auto-rows: minmax(135px, auto);
   grid-auto-flow: dense;
   gap: 1.1rem;
+}
+
+/* Documentation CTA lives outside the dense-packed grid entirely, so
+   dense's gap-filling can never pull it in ahead of anything - it's
+   always the last thing on the page, pinned to the right. */
+.feature-grid-footer {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 1.1rem;
+}
+
+.feature-grid-footer .feature-card--docs-cta {
+  width: calc((100% - 2.2rem) / 3);
 }
 
 .feature-card {
@@ -18,37 +31,60 @@
   border-radius: var(--r-lg);
   box-shadow: var(--shadow-card);
   overflow: hidden;
-  grid-column: span 2;
   text-decoration: none;
   transition: border-color 0.2s, transform 0.2s;
 }
 
 .feature-card:is(:hover, .is-active) { border-color: var(--border-2); transform: translateY(-4px); }
 
-.feature-card--wide { grid-column: span 4; }
+.feature-card--w2 { grid-column: span 2; }
+.feature-card--w3 { grid-column: span 3; }
 .feature-card--tall { grid-row: span 2; }
+/* Paired with --tall: same visual/background treatment, taller row span. */
+.feature-card--taller { grid-row: span 3; }
+.feature-card--right { grid-column: 3; }
 
 .feature-card--banner {
-  grid-column: span 4;
   flex-direction: row;
   align-items: stretch;
 }
 
 .feature-card--banner .feature-visual {
-  width: 200px;
+  flex: 1.6;
+  width: auto;
   height: auto;
-  flex-shrink: 0;
   border-bottom: none;
   border-right: 1px solid var(--border);
 }
 
-.feature-card--banner .feature-text { justify-content: center; }
+.feature-card--banner .feature-text {
+  flex: 1;
+  max-width: 220px;
+  justify-content: center;
+}
+
+/* Paired with --banner, --reverse means text-left/visual-right instead of
+   its usual (unpaired) column-reverse meaning - see below. */
+.feature-card--banner.feature-card--reverse {
+  flex-direction: row-reverse;
+}
+
+.feature-card--banner.feature-card--reverse .feature-visual {
+  border-right: none;
+  border-left: 1px solid var(--border);
+}
 
 .feature-card--reverse { flex-direction: column-reverse; }
 
 .feature-card--reverse .feature-visual {
   border-bottom: none;
   border-top: 1px solid var(--border);
+}
+
+.feature-card--reverse:not(.feature-card--banner) .feature-visual {
+  flex: 1;
+  height: auto;
+  min-height: 115px;
 }
 
 .feature-card--tall .feature-visual { flex: 1; height: auto; min-height: 135px; }
@@ -63,7 +99,7 @@
   border-bottom: 1px solid var(--border);
 }
 
-.feature-card--wide .feature-visual {
+.feature-card--w3 .feature-visual {
   background:
     radial-gradient(circle at 50% 20%, var(--accent-soft), transparent 60%),
     var(--surface-2);
@@ -96,16 +132,20 @@
 }
 
 @media (max-width: 960px) {
-  .feature-card, .feature-card--wide { grid-column: span 4; }
-  .feature-card--tall { grid-row: span 1; }
-  .feature-card--tall .feature-visual { height: 135px; flex: none; }
+  .feature-grid { grid-template-columns: repeat(2, 1fr); }
+  .feature-card--w3 { grid-column: span 2; }
+  .feature-card--tall, .feature-card--taller { grid-row: span 1; }
+  .feature-card--tall .feature-visual, .feature-card--taller .feature-visual { height: 135px; flex: none; }
+  .feature-grid-footer .feature-card--docs-cta { width: calc((100% - 1.1rem) / 2); }
+  .feature-card--right { grid-column: 2; }
 }
 
 @media (max-width: 640px) {
   .feature-grid { grid-template-columns: 1fr; }
-  .feature-card, .feature-card--wide, .feature-card--banner { grid-column: span 1; }
+  .feature-card, .feature-card--w2, .feature-card--w3, .feature-card--right { grid-column: span 1; }
   .feature-card--banner { flex-direction: column; }
-  .feature-card--banner .feature-visual { width: 100%; height: 115px; border-right: none; border-bottom: 1px solid var(--border); }
+  .feature-card--banner .feature-visual { width: 100%; min-height: 115px; border-right: none; border-bottom: 1px solid var(--border); }
+  .feature-grid-footer .feature-card--docs-cta { width: 100%; }
 }
 
 .feature-visual--router { flex-wrap: wrap; padding: 0 1.25rem; }
@@ -206,8 +246,8 @@
   position: absolute;
   top: 0;
   bottom: 0;
-  left: -25px;
-  right: -65px;
+  left: -185px;
+  right: -90px;
   display: flex;
   align-items: flex-end;
   justify-content: space-evenly;
@@ -215,7 +255,7 @@
 
 .hazard-stripe {
   width: 10px;
-  height: 200px;
+  height: 230px;
   background: rgba(255, 107, 107, 0.18);
   transform: rotate(30deg) translateY(220%);
   transition: transform 0.3s ease-out;
@@ -602,7 +642,7 @@
   padding: 0.5rem 0.7rem 0;
   overflow: hidden;
   font-family: var(--mono);
-  font-size: .75rem;
+  font-size: .44rem;
   line-height: 1.4;
 }
 
@@ -657,8 +697,8 @@
   position: absolute;
   right: -20px;
   bottom: -20px;
-  width: 140px;
-  height: 140px;
+  width: 200px;
+  height: 200px;
   color: var(--accent);
   opacity: 0.08;
   transition: transform 0.3s ease, opacity 0.3s ease;
@@ -785,88 +825,108 @@
   .component-piece--button { display: none; }
 
   .signal-cloud { transform: scale(0.62); transform-origin: center; }
+
+  .hazard-stripes { left: 0px; right: -80px; }
 }
 
-.feature-visual--store { position: relative; }
-
-.store-diagram { position: absolute; inset: 0; }
-.store-diagram svg { display: block; width: 100%; height: 100%; }
-
-@keyframes dot-travel-nav {
-  0% { opacity: 0; cx: 400px; cy: 20px; }
-  8% { opacity: 1; }
-  60% { opacity: 1; cx: 120px; cy: 100px; }
-  68%, 100% { opacity: 0; cx: 120px; cy: 100px; }
+.feature-visual--store {
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  padding: 1rem 1.25rem;
 }
 
-@keyframes dot-travel-cart {
-  0% { opacity: 0; cx: 400px; cy: 20px; }
-  8% { opacity: 1; }
-  60% { opacity: 1; cx: 400px; cy: 100px; }
-  68%, 100% { opacity: 0; cx: 400px; cy: 100px; }
+.store-code-lines {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.3rem;
 }
 
-@keyframes dot-travel-profile {
-  0% { opacity: 0; cx: 400px; cy: 20px; }
-  8% { opacity: 1; }
-  60% { opacity: 1; cx: 680px; cy: 100px; }
-  68%, 100% { opacity: 0; cx: 680px; cy: 100px; }
-}
-
-.store-dot {
-  fill: var(--accent);
-  opacity: 0;
-  filter: drop-shadow(0 0 3px var(--accent-glow));
-  animation-timing-function: linear;
-  animation-iteration-count: infinite;
-}
-
-.store-dot--nav { animation-name: dot-travel-nav; animation-duration: 2.4s; animation-delay: 0s; }
-.store-dot--cart { animation-name: dot-travel-cart; animation-duration: 2s; animation-delay: 0.6s; }
-.store-dot--profile { animation-name: dot-travel-profile; animation-duration: 2.7s; animation-delay: 1.2s; }
-
-/* Hover/is-active: the exact same travel, just synced (no delay) and
-   sped up across all three at once, instead of a separate thicker
-   "hold solid" line - literally the ambient effect, firing more. */
-.feature-card:is(:hover, .is-active) .store-dot {
-  animation-duration: 1.15s;
-  animation-delay: 0s;
-}
-
-.store-consumer, .store-pill {
-  position: absolute;
-  z-index: 1;
+.store-code {
   font-family: var(--mono);
-  color: var(--muted);
-  background: var(--surface-2);
+  font-size: 0.78rem;
+  white-space: nowrap;
+}
+
+.store-code--set {
+  opacity: 0;
+  transform: translateY(-4px);
+  transition: opacity 0.25s ease, transform 0.25s ease;
+}
+
+.feature-card:is(:hover, .is-active) .store-code--set { opacity: 1; transform: translateY(0); }
+
+.store-screens {
+  display: flex;
+  gap: 0.6rem;
+  width: 100%;
+}
+
+.store-screen {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.3rem;
+  background: var(--surface-3);
   border: 1px solid var(--border-2);
-  transition: color 0.2s ease, border-color 0.2s ease;
-}
-
-.store-consumer {
-  top: 83.3%;
-  font-size: 0.7rem;
   border-radius: var(--r-sm);
-  padding: 0.3rem 0.6rem;
-  transform: translate(-50%, -50%);
+  padding: 0.5rem 0.4rem;
+  transition: border-color 0.2s ease;
 }
 
-.store-consumer--nav { left: 15%; }
-.store-consumer--cart { left: 50%; }
-.store-consumer--profile { left: 85%; }
+.feature-card:is(:hover, .is-active) .store-screen { border-color: var(--accent); }
 
-.store-pill {
-  left: 50%;
-  top: 16.7%;
+.store-screen-label {
+  font-family: var(--mono);
+  font-size: 0.66rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--hint);
+}
+
+.store-screen-value {
+  position: relative;
+  display: inline-block;
   color: var(--text);
   font-size: 0.8rem;
-  border-radius: var(--r-pill);
-  padding: 0.45rem 1rem;
-  transform: translate(-50%, -50%);
+  font-weight: 600;
 }
 
-.feature-card:is(:hover, .is-active) .store-consumer,
-.feature-card:is(:hover, .is-active) .store-pill { color: var(--text); border-color: var(--accent); }
+.store-screen-value--before,
+.store-screen-value--after {
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+.store-screen-value--before { display: block; }
+
+.store-screen-value--after {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  transform: translateY(4px);
+}
+
+.feature-card:is(:hover, .is-active) .store-screen-value--before {
+  opacity: 0;
+  transform: translateY(-4px);
+  transition-delay: 0.1s;
+}
+.feature-card:is(:hover, .is-active) .store-screen-value--after {
+  opacity: 1;
+  transform: translateY(0);
+  transition-delay: 0.1s;
+}
+
+/* Nav/Cart/Profile flip in a quick left-to-right cascade, starting after
+   the .Set(...) line above appears - reads as the call actually
+   propagating out to each consumer, not everything happening at once. */
+.feature-card:is(:hover, .is-active) .store-screen:nth-child(2) .store-screen-value--before,
+.feature-card:is(:hover, .is-active) .store-screen:nth-child(2) .store-screen-value--after { transition-delay: 0.18s; }
+.feature-card:is(:hover, .is-active) .store-screen:nth-child(3) .store-screen-value--before,
+.feature-card:is(:hover, .is-active) .store-screen:nth-child(3) .store-screen-value--after { transition-delay: 0.26s; }
 
 @media (prefers-reduced-motion: reduce) {
   .feature-card, .route-chip, .a11y-chip, .portal-dot, .error-chip,
@@ -874,7 +934,7 @@
   .reload-term-line--idle, .reload-term-line--change, .reload-term-line--done,
   .signal-button, .signal-ring, .signal-chip-wrap, .signal-chip, .signal-chip-value,
   .syntax-mini-code *, .syntax-sidebar-icon, .docs-feature-ghost, .docs-feature-arrow svg, .component-piece, .app-frame,
-  .store-dot, .vscode-ext-icon, .vscode-vane-icon {
+  .store-screen-value--before, .store-screen-value--after, .store-screen, .store-code--set, .vscode-ext-icon, .vscode-vane-icon {
     animation: none !important;
     transition: none !important;
   }
