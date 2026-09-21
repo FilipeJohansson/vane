@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/filipejohansson/vane/core"
-	"github.com/filipejohansson/vane/core/router"
 )
 
 const componentSnippet = `func Greeting() core.Node {
@@ -83,20 +82,13 @@ var featureTabsList = []featureTabInfo{
 
 func featureTabButton(active *core.Signal[string], t featureTabInfo) core.Node {
 	cls := "feature-tab"
-	if active.Get() == t.id {
+	selected := active.Get() == t.id
+	if selected {
 		cls = "feature-tab feature-tab--active"
 	}
-	return (
-		<button
-			key={t.id}
-			className={cls}
-			type="button"
-			role="tab"
-			aria-selected={active.Get() == t.id}
-			onClick={func(core.MouseEvent) { active.Set(t.id) }}
-		>
-			{t.label}
-		</button>
+	return IconButton(
+		IconButtonProps{Key: t.id, Class: cls, Role: "tab", AriaSelected: &selected, OnClick: func(core.MouseEvent) { active.Set(t.id) }},
+		t.label,
 	)
 }
 
@@ -105,10 +97,7 @@ func featurePanelHeader(title, desc, docsSlug string) core.Node {
 		<div className="feature-panel-header">
 			<h3 className="feature-panel-title">{title}</h3>
 			<p className="feature-panel-desc">{desc}</p>
-			{router.Link(router.LinkProps{
-				To:        "/docs/" + docsSlug,
-				HTMLProps: core.HTMLProps{Class: "btn btn-ghost feature-panel-link"},
-			}, "Learn more")}
+			{Button(ButtonProps{Variant: "ghost", Class: "feature-panel-link", To: "/docs/" + docsSlug}, "Learn more")}
 		</div>
 	)
 }
@@ -338,11 +327,7 @@ func routerStopButton(path *core.Signal[string], s routerStop) core.Node {
 	if path.Get() == s.path {
 		cls = "router-demo-stop router-demo-stop--active"
 	}
-	return (
-		<button key={s.path} type="button" className={cls} onClick={func(core.MouseEvent) { path.Set(s.path) }}>
-			{s.label}
-		</button>
-	)
+	return IconButton(IconButtonProps{Key: s.path, Class: cls, OnClick: func(core.MouseEvent) { path.Set(s.path) }}, s.label)
 }
 
 // path is a local signal, not the real router - mocked so the demo stays

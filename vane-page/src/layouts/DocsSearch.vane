@@ -21,13 +21,26 @@ func searchShortcutLabel() string {
 	return "Ctrl K"
 }
 
+func searchTriggerIcon() core.Node {
+	return <span className="docs-search-trigger-icon" aria-hidden="true">{components.Icon("search")}</span>
+}
+
+func searchTriggerLabel() core.Node {
+	return <span className="docs-search-trigger-label">Search docs</span>
+}
+
+func searchResetIcon() core.Node {
+	return <span className="docs-search-reset-icon" aria-hidden="true">{components.Icon("x")}</span>
+}
+
+func searchTriggerKbd() core.Node {
+	return <kbd className="docs-search-kbd">{searchShortcutLabel()}</kbd>
+}
+
 func searchTriggerButton(ctrl *searchCtrl) core.Node {
-	return (
-		<button type="button" className="docs-search-trigger" onClick={func(core.MouseEvent) { ctrl.Open() }} aria-label="Search docs">
-			<span className="docs-search-trigger-icon" aria-hidden="true">{components.Icon("search")}</span>
-			<span className="docs-search-trigger-label">Search docs</span>
-			<kbd className="docs-search-kbd">{searchShortcutLabel()}</kbd>
-		</button>
+	return components.IconButton(
+		components.IconButtonProps{Class: "docs-search-trigger", AriaLabel: "Search docs", OnClick: func(core.MouseEvent) { ctrl.Open() }},
+		searchTriggerIcon(), searchTriggerLabel(), searchTriggerKbd(),
 	)
 }
 
@@ -38,6 +51,27 @@ func searchResultID(i int) string {
 	return fmt.Sprintf("search-result-%d", i)
 }
 
+func searchResultRowContent(r docs.SearchResult) core.Node {
+	return (
+		<div className="docs-search-result-container">
+			<span className="docs-search-result-category">{r.Category}</span>
+			<div className="docs-search-result-wrapper">
+				<span className="docs-search-result-title docs-search-result-text-nowrap">{r.Title}</span>
+				{if r.Heading != "" {
+					<>
+						<span className="docs-search-result-sub-icon"></span>
+						<span className="docs-search-result-sub docs-search-result-text-nowrap">{r.Heading}</span>
+					</>
+				}}
+			</div>
+		</div>
+	)
+}
+
+func searchResultSelectIcon() core.Node {
+	return <span className="docs-search-result-select-icon">{components.Icon("corner-down-left")}</span>
+}
+
 func searchResultRow(r docs.SearchResult, i int, active int, onSelect func()) core.Node {
 	cls := "docs-search-result"
 	if i == active {
@@ -45,21 +79,10 @@ func searchResultRow(r docs.SearchResult, i int, active int, onSelect func()) co
 	}
 	return (
 		<li id={searchResultID(i)} key={r.RoutePath() + "#" + r.AnchorID} role="option" aria-selected={i == active}>
-			<button type="button" className={cls} onClick={func(core.MouseEvent) { onSelect() }}>
-				<div className="docs-search-result-container">
-					<span className="docs-search-result-category">{r.Category}</span>
-					<div className="docs-search-result-wrapper">
-						<span className="docs-search-result-title docs-search-result-text-nowrap">{r.Title}</span>
-						{if r.Heading != "" {
-							<>
-								<span className="docs-search-result-sub-icon"></span>
-								<span className="docs-search-result-sub docs-search-result-text-nowrap">{r.Heading}</span>
-							</>
-						}}
-					</div>
-				</div>
-				<span className="docs-search-result-select-icon">{components.Icon("corner-down-left")}</span>
-			</button>
+			{components.IconButton(
+				components.IconButtonProps{Class: cls, OnClick: func(core.MouseEvent) { onSelect() }},
+				searchResultRowContent(r), searchResultSelectIcon(),
+			)}
 		</li>
 	)
 }
@@ -268,11 +291,12 @@ func searchModal(ctrl *searchCtrl) core.Node {
 							onInput={func(e core.InputEvent) { ctrl.query.Set(e.Value); ctrl.active.Set(0) }}
 						/>
 						{if ctrl.query.Get() != "" {
-							<button type="reset" className="docs-search-reset" onClick={func(core.MouseEvent) { ctrl.query.Set("") }} aria-label="Reset search">
-								<span className="docs-search-reset-icon" aria-hidden="true">{components.Icon("x")}</span>
-							</button>
+							components.IconButton(
+								components.IconButtonProps{Type: "reset", Class: "docs-search-reset", AriaLabel: "Reset search", OnClick: func(core.MouseEvent) { ctrl.query.Set("") }},
+								searchResetIcon(),
+							)
 						}}
-						<button type="button" className="docs-search-close" onClick={func(core.MouseEvent) { ctrl.Close() }} aria-label="Close search">Esc</button>
+						{components.IconButton(components.IconButtonProps{Class: "docs-search-close", AriaLabel: "Close search", OnClick: func(core.MouseEvent) { ctrl.Close() }}, "Esc")}
 					</div>
 
 					{if strings.TrimSpace(ctrl.query.Get()) == "" {

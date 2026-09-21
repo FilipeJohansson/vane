@@ -2,7 +2,6 @@ package components
 
 import (
 	"github.com/filipejohansson/vane/core"
-	"github.com/filipejohansson/vane/core/router"
 )
 
 func CommunityCTA() core.Node {
@@ -14,10 +13,7 @@ func CommunityCTA() core.Node {
 				<h2 className="cta-title">Built in the open.</h2>
 				<p className="cta-sub">Star it, break it, send a PR.</p>
 				<div className="cta-buttons">
-					{router.Link(router.LinkProps{
-						To:        "/docs",
-						HTMLProps: core.HTMLProps{Class: "btn btn-primary"},
-					}, "Get Started")}
+					{Button(ButtonProps{Variant: "primary", To: "/docs"}, "Get Started")}
 					{Button(ButtonProps{
 						Variant: "ghost",
 						Href:    githubHref,

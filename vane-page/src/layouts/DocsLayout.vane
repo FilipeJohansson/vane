@@ -36,6 +36,14 @@ func docsSidebarGroupTitle(category string) string {
 	return fmt.Sprintf("%s (%d/%d)", category, docs.TutorialCompletedCount(), len(docs.TutorialUnitSlugs))
 }
 
+func docsGroupChevron() core.Node {
+	return <span className="docs-nav-group-chevron" aria-hidden="true">{components.Icon("chevron-right")}</span>
+}
+
+func docsGroupTitle(category string) core.Node {
+	return <span className="docs-nav-group-title">{docsSidebarGroupTitle(category)}</span>
+}
+
 // docsSidebarGroup renders one collapsible category: toggle button with a
 // rotating chevron, topic list shown only while open.
 func docsSidebarGroup(category string, open bool, onToggle func(), onNavigate func()) core.Node {
@@ -50,10 +58,10 @@ func docsSidebarGroup(category string, open bool, onToggle func(), onNavigate fu
 	}
 	return (
 		<div className={cls}>
-			<button type="button" className="docs-nav-group-toggle" aria-expanded={open} onClick={func(core.MouseEvent) { onToggle() }}>
-				<span className="docs-nav-group-chevron" aria-hidden="true">{components.Icon("chevron-right")}</span>
-				<span className="docs-nav-group-title">{docsSidebarGroupTitle(category)}</span>
-			</button>
+			{components.IconButton(
+				components.IconButtonProps{Class: "docs-nav-group-toggle", AriaExpanded: &open, OnClick: func(core.MouseEvent) { onToggle() }},
+				docsGroupChevron(), docsGroupTitle(category),
+			)}
 			{if open {
 				<ul className="docs-nav-list">
 					{links...}
@@ -89,13 +97,13 @@ func docsSidebarGroups(activeSection *core.Signal[string], catOverride *core.Sig
 // sectionTab is one entry in the top Tutorial/Guide/CLI/Reference switcher.
 func sectionTab(section string, active string, onSelect func(string)) core.Node {
 	cls := "docs-section-tab"
-	if section == active {
+	selected := section == active
+	if selected {
 		cls = "docs-section-tab docs-section-tab--active"
 	}
-	return (
-		<button type="button" role="tab" aria-selected={section == active} className={cls} onClick={func(core.MouseEvent) { onSelect(section) }}>
-			{section}
-		</button>
+	return components.IconButton(
+		components.IconButtonProps{Role: "tab", AriaSelected: &selected, Class: cls, OnClick: func(core.MouseEvent) { onSelect(section) }},
+		section,
 	)
 }
 
@@ -168,6 +176,17 @@ func toggleClass(open bool) string {
 	return "docs-sidebar-toggle"
 }
 
+func docsSidebarToggleIcon() core.Node {
+	return <span className="docs-sidebar-toggle-icon" aria-hidden="true">{components.Icon("chevron-down")}</span>
+}
+
+func docsSidebarToggleButton(open bool, toggle func()) core.Node {
+	return components.IconButton(
+		components.IconButtonProps{Class: toggleClass(open), AriaExpanded: &open, OnClick: func(core.MouseEvent) { toggle() }},
+		"Browse docs", docsSidebarToggleIcon(),
+	)
+}
+
 // DocsLayout is the persistent shell for the whole /docs section: the
 // sidebar nav stays mounted across sub-navigation, only router.Outlet()'s
 // content swaps.
@@ -228,15 +247,7 @@ func DocsLayout() core.Node {
 			</div>
 			<div className="docs-shell-glow" aria-hidden="true" />
 			<div className="docs-shell">
-				<button
-					type="button"
-					className={toggleClass(sidebarOpen.Get())}
-					aria-expanded={sidebarOpen.Get()}
-					onClick={func(core.MouseEvent) { toggleSidebar() }}
-				>
-					Browse docs
-					<span className="docs-sidebar-toggle-icon" aria-hidden="true">{components.Icon("chevron-down")}</span>
-				</button>
+				{docsSidebarToggleButton(sidebarOpen.Get(), toggleSidebar)}
 				<nav className={sidebarClass(sidebarOpen.Get())} aria-label="Documentation">
 					<div className="docs-sidebar-header">
 						{searchTriggerButton(search)}

@@ -6,7 +6,11 @@ import (
 	"github.com/filipejohansson/vane/core"
 )
 
-// CopyButton copies text to the clipboard and flashes a confirmation
+// CopyButton copies text to the clipboard and flashes a confirmation. Its
+// icon/label swap is written as literal JSX (not routed through IconButton
+// like most other buttons) because that {if copied.Get() {...}} needs to
+// stay reactive on its own - copied is local state IconButton, a plain Go
+// function, has no way to keep live if the swap is computed before the call.
 func CopyButton(text string, asIcon ...bool) core.Node {
 	copied := core.NewSignal(false)
 

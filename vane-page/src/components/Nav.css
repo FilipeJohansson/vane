@@ -94,13 +94,6 @@
 .nav-burger[aria-expanded="true"] .nav-burger-line:nth-child(2) { opacity: 0; }
 .nav-burger[aria-expanded="true"] .nav-burger-line:nth-child(3) { transform: translateY(-7px) rotate(-45deg); }
 
-.nav-mobile-backdrop {
-  position: fixed;
-  inset: 4rem 0 0 0;
-  background: rgba(0, 0, 0, 0.4);
-  z-index: 15;
-}
-
 .nav-mobile-panel {
   position: absolute;
   top: 100%;

@@ -29,18 +29,15 @@ func pillarStepButton(active *core.Signal[int], resetTimer func(), i int) core.N
 	if active.Get() == i {
 		cls = "pillar-step pillar-step--active"
 	}
-	return (
-		<button
-			key={i}
-			type="button"
-			className={cls}
-			aria-label={fmt.Sprintf("Show %s", whyVanePillars[i].title)}
-			onClick={func(core.MouseEvent) {
-				active.Set(i)
-				resetTimer()
-			}}
-		/>
-	)
+	return IconButton(IconButtonProps{
+		Key:       fmt.Sprintf("%d", i),
+		Class:     cls,
+		AriaLabel: fmt.Sprintf("Show %s", whyVanePillars[i].title),
+		OnClick: func(core.MouseEvent) {
+			active.Set(i)
+			resetTimer()
+		},
+	})
 }
 
 func pillarShowcase() core.Node {
@@ -100,9 +97,7 @@ func pillarShowcase() core.Node {
 		<div className="pillar-showcase">
 			{pillarCard(active)}
 			<div className="pillar-nav">
-				<button type="button" className="pillar-nav-arrow" aria-label="Previous" onClick={func(core.MouseEvent) { prev() }}>
-					{Icon("chevron-left")}
-				</button>
+				{IconButton(IconButtonProps{Class: "pillar-nav-arrow", AriaLabel: "Previous", OnClick: func(core.MouseEvent) { prev() }}, Icon("chevron-left"))}
 				<div
 					className="pillar-steps"
 					role="tablist"
@@ -113,9 +108,7 @@ func pillarShowcase() core.Node {
 				>
 					{stepButtons()...}
 				</div>
-				<button type="button" className="pillar-nav-arrow" aria-label="Next" onClick={func(core.MouseEvent) { next() }}>
-					{Icon("chevron-right")}
-				</button>
+				{IconButton(IconButtonProps{Class: "pillar-nav-arrow", AriaLabel: "Next", OnClick: func(core.MouseEvent) { next() }}, Icon("chevron-right"))}
 			</div>
 		</div>
 	)

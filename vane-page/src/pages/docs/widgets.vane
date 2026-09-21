@@ -86,26 +86,29 @@ func tutorialCompleteToggle(slug string) core.Node {
 		cls = "docs-tutorial-check docs-tutorial-check--done"
 		label = "Unit complete"
 	}
-	return (
-		<button
-			type="button"
-			className={cls}
-			onClick={func(core.MouseEvent) {
+	return components.IconButton(
+		components.IconButtonProps{
+			Class:       cls,
+			AriaPressed: &done,
+			OnClick: func(core.MouseEvent) {
 				ToggleTutorialUnit(slug)
 				// The checkmark glyph (and Unit 5's congrats banner icon)
 				// only enter the DOM once this reactive toggle flips true,
 				// well after any mount-time RefreshIcons call already ran.
 				core.NextTick(func() { components.RefreshIcons() })
+			},
+		},
+		tutorialCheckBox(done), label,
+	)
+}
+
+func tutorialCheckBox(done bool) core.Node {
+	return (
+		<span className="docs-tutorial-check-box" aria-hidden="true">
+			{if done {
+				<>{components.Icon("check")}</>
 			}}
-			aria-pressed={done}
-		>
-			<span className="docs-tutorial-check-box" aria-hidden="true">
-				{if done {
-					<>{components.Icon("check")}</>
-				}}
-			</span>
-			{label}
-		</button>
+		</span>
 	)
 }
 
@@ -233,7 +236,20 @@ func setupScrollSpy(items []tocItem, active *core.Signal[string]) {
 const tocScrollTopThreshold = 400.0
 
 func setupTocScrollTop(show *core.Signal[bool]) {
-	update := func() { show.Set(core.ScrollY() > tocScrollTopThreshold) }
+	update := func() {
+		next := core.ScrollY() > tocScrollTopThreshold
+		if next == show.Get() {
+			return
+		}
+		show.Set(next)
+		if next {
+			// A single mount-time RefreshIcons call (see toc below) isn't
+			// reliably late enough for this icon to have settled into the
+			// DOM yet. A real scroll event is - give it another shot here,
+			// the first time the button actually becomes visible.
+			components.RefreshIcons()
+		}
+	}
 	core.NextTick(update)
 	core.OnWindowEvent("scroll", func(core.Event) { update() }, core.ListenerOpts{Passive: true})
 }
@@ -243,6 +259,10 @@ func scrollTopClass(visible bool) string {
 		return "docs-scrolltop docs-scrolltop--visible"
 	}
 	return "docs-scrolltop"
+}
+
+func tocScrollTopIcon() core.Node {
+	return <span className="docs-toc-action-icon" aria-hidden="true">{components.Icon("arrow-up")}</span>
 }
 
 func tocLink(it tocItem, active *core.Signal[string]) core.Node {
@@ -285,10 +305,10 @@ func toc(items []tocItem, slug string) core.Node {
 					</a>
 				</div>
 			</aside>
-			<button type="button" className={scrollTopClass(showScrollTop.Get())} onClick={func(core.MouseEvent) { core.ScrollTo(0, true) }}>
-				Scroll to top
-				<span className="docs-toc-action-icon" aria-hidden="true">{components.Icon("arrow-up")}</span>
-			</button>
+			{components.IconButton(
+				components.IconButtonProps{Class: scrollTopClass(showScrollTop.Get()), OnClick: func(core.MouseEvent) { core.ScrollTo(0, true) }},
+				"Scroll to top", tocScrollTopIcon(),
+			)}
 		</div>
 	)
 }
