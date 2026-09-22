@@ -548,7 +548,14 @@ func TestVaneRunRebuildSkipsGzip(t *testing.T) {
 		return ""
 	}
 
-	builtLine := waitForLine("✓ built", time.Now().Add(30*time.Second))
+	// Generous deadline: under "go test -race ./..." on a loaded/shared CI
+	// runner, the wasm build+link this waits on has been observed taking
+	// well past 30s even though it's ~0.4s of actual build time locally,
+	// -race instruments every package under test, not just this one, so
+	// the whole run competes for CPU with the subprocess this test spawns.
+	const ciTimeout = 90 * time.Second
+
+	builtLine := waitForLine("✓ built", time.Now().Add(ciTimeout))
 	if !strings.Contains(builtLine, "gzip:") {
 		t.Errorf("initial build line missing gzip figure, got: %q", builtLine)
 	}
@@ -558,7 +565,7 @@ func TestVaneRunRebuildSkipsGzip(t *testing.T) {
 	// snapshot runs would just seed the baseline with the new mtime instead
 	// of registering as a change, so wait for the banner it prints once
 	// watching (plus a safety margin) before editing.
-	waitForLine("watching for changes", time.Now().Add(10*time.Second))
+	waitForLine("watching for changes", time.Now().Add(ciTimeout))
 	time.Sleep(1 * time.Second)
 
 	appVane := filepath.Join(appDir, "App.vane")
@@ -567,7 +574,7 @@ func TestVaneRunRebuildSkipsGzip(t *testing.T) {
 		t.Fatalf("touching %s: %v", appVane, err)
 	}
 
-	rebuiltLine := waitForLine("✓ rebuilt", time.Now().Add(30*time.Second))
+	rebuiltLine := waitForLine("✓ rebuilt", time.Now().Add(ciTimeout))
 	if strings.Contains(rebuiltLine, "gzip:") {
 		t.Errorf("rebuild line should not contain a gzip figure, got: %q", rebuiltLine)
 	}
