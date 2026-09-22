@@ -525,6 +525,7 @@ func TestVaneRunRebuildSkipsGzip(t *testing.T) {
 	pr, pw := io.Pipe()
 	cmd.Stdout = pw
 	cmd.Stderr = pw
+	cmd.Env = append(os.Environ(), "NO_COLOR=1") // ANSI codes between "✓" and the verb (main.go's initColors) would break substring matching below
 	if err := cmd.Start(); err != nil {
 		t.Fatalf("starting vane run: %v", err)
 	}
@@ -544,8 +545,7 @@ func TestVaneRunRebuildSkipsGzip(t *testing.T) {
 		close(lines)
 	}()
 
-	// Generous margin for -race CI contention with other packages' parallel subtests.
-	const ciTimeout = 3 * time.Minute
+	const ciTimeout = 60 * time.Second
 
 	var seen []string
 	waitForLine := func(prefix string) string {
