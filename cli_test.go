@@ -1,6 +1,7 @@
 package main_test
 
 import (
+	"bufio"
 	"bytes"
 	"fmt"
 	"go/parser"
@@ -501,6 +502,95 @@ func TestVaneRunServesApp(t *testing.T) {
 	}
 	if !strings.Contains(string(body), `id="root"`) {
 		t.Errorf("response body missing app mount element, got:\n%s", body)
+	}
+}
+
+// TestVaneRunRebuildSkipsGzip starts "vane run" as a real subprocess and
+// streams its output line-by-line: the initial "built" line must carry a
+// "gzip:" figure, the "rebuilt" line after a file touch must not.
+// Uses a blocking channel reader, not a poll loop — polling was observed
+// starving under "go test -race" CI regardless of deadline length.
+func TestVaneRunRebuildSkipsGzip(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping WASM build in short mode")
+	}
+
+	appDir := newProject(t, uniqueName("tst"))
+	pinToLocalVane(t, appDir)
+
+	port := freePort(t)
+
+	cmd := exec.Command(vaneBin, "run", "--port", port)
+	cmd.Dir = appDir
+	pr, pw := io.Pipe()
+	cmd.Stdout = pw
+	cmd.Stderr = pw
+	cmd.Env = append(os.Environ(), "NO_COLOR=1") // ANSI codes between "✓" and the verb (main.go's initColors) would break substring matching below
+	if err := cmd.Start(); err != nil {
+		t.Fatalf("starting vane run: %v", err)
+	}
+	t.Cleanup(func() {
+		_ = cmd.Process.Kill()
+		_ = cmd.Wait()
+		_ = pw.Close()
+	})
+
+	lines := make(chan string, 4096)
+	go func() {
+		sc := bufio.NewScanner(pr)
+		sc.Buffer(make([]byte, 64*1024), 1024*1024) // spinner frames are \r-joined into one long "line" until a real \n
+		for sc.Scan() {
+			lines <- sc.Text()
+		}
+		close(lines)
+	}()
+
+	const ciTimeout = 60 * time.Second
+
+	var seen []string
+	waitForLine := func(prefix string) string {
+		t.Helper()
+		timer := time.NewTimer(ciTimeout)
+		defer timer.Stop()
+		for {
+			select {
+			case line, ok := <-lines:
+				if !ok {
+					t.Fatalf("subprocess output closed before a line containing %q, got:\n%s", prefix, strings.Join(seen, "\n"))
+				}
+				seen = append(seen, line)
+				if strings.Contains(line, prefix) {
+					return line
+				}
+			case <-timer.C:
+				t.Fatalf("timed out waiting for a line containing %q, got:\n%s", prefix, strings.Join(seen, "\n"))
+				return ""
+			}
+		}
+	}
+
+	builtLine := waitForLine("✓ built")
+	if !strings.Contains(builtLine, "gzip:") {
+		t.Errorf("initial build line missing gzip figure, got: %q", builtLine)
+	}
+
+	// hotreload.Watch takes its baseline filesystem snapshot in a goroutine
+	// started right after the initial build; touching the file before that
+	// snapshot runs would just seed the baseline with the new mtime instead
+	// of registering as a change, so wait for the banner it prints once
+	// watching (plus a safety margin) before editing.
+	waitForLine("watching for changes")
+	time.Sleep(1 * time.Second)
+
+	appVane := filepath.Join(appDir, "App.vane")
+	now := time.Now().Add(time.Second)
+	if err := os.Chtimes(appVane, now, now); err != nil {
+		t.Fatalf("touching %s: %v", appVane, err)
+	}
+
+	rebuiltLine := waitForLine("✓ rebuilt")
+	if strings.Contains(rebuiltLine, "gzip:") {
+		t.Errorf("rebuild line should not contain a gzip figure, got: %q", rebuiltLine)
 	}
 }
 
