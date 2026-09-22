@@ -14,6 +14,7 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 )
@@ -502,6 +503,94 @@ func TestVaneRunServesApp(t *testing.T) {
 	if !strings.Contains(string(body), `id="root"`) {
 		t.Errorf("response body missing app mount element, got:\n%s", body)
 	}
+}
+
+// TestVaneRunRebuildSkipsGzip is a regression guard for skipping the
+// full-binary gzip compression-size pass on hot-reload rebuilds (kept only
+// on the initial build): starts "vane run" as a real subprocess, captures
+// its stdout, waits for the initial "built" line (must carry a "gzip:"
+// figure), then touches App.vane and waits for the resulting "rebuilt" line
+// (must NOT carry one).
+func TestVaneRunRebuildSkipsGzip(t *testing.T) {
+	if testing.Short() {
+		t.Skip("skipping WASM build in short mode")
+	}
+
+	appDir := newProject(t, uniqueName("tst"))
+	pinToLocalVane(t, appDir)
+
+	port := freePort(t)
+
+	cmd := exec.Command(vaneBin, "run", "--port", port)
+	cmd.Dir = appDir
+	var out syncBuffer
+	cmd.Stdout = &out
+	cmd.Stderr = &out
+	if err := cmd.Start(); err != nil {
+		t.Fatalf("starting vane run: %v", err)
+	}
+	t.Cleanup(func() {
+		_ = cmd.Process.Kill()
+		_ = cmd.Wait()
+	})
+
+	waitForLine := func(prefix string, deadline time.Time) string {
+		t.Helper()
+		for time.Now().Before(deadline) {
+			for _, line := range strings.Split(out.String(), "\n") {
+				if strings.Contains(line, prefix) {
+					return line
+				}
+			}
+			time.Sleep(100 * time.Millisecond)
+		}
+		t.Fatalf("timed out waiting for a line containing %q, got:\n%s", prefix, out.String())
+		return ""
+	}
+
+	builtLine := waitForLine("✓ built", time.Now().Add(30*time.Second))
+	if !strings.Contains(builtLine, "gzip:") {
+		t.Errorf("initial build line missing gzip figure, got: %q", builtLine)
+	}
+
+	// hotreload.Watch takes its baseline filesystem snapshot in a goroutine
+	// started right after the initial build; touching the file before that
+	// snapshot runs would just seed the baseline with the new mtime instead
+	// of registering as a change, so wait for the banner it prints once
+	// watching (plus a safety margin) before editing.
+	waitForLine("watching for changes", time.Now().Add(10*time.Second))
+	time.Sleep(1 * time.Second)
+
+	appVane := filepath.Join(appDir, "App.vane")
+	now := time.Now().Add(time.Second)
+	if err := os.Chtimes(appVane, now, now); err != nil {
+		t.Fatalf("touching %s: %v", appVane, err)
+	}
+
+	rebuiltLine := waitForLine("✓ rebuilt", time.Now().Add(30*time.Second))
+	if strings.Contains(rebuiltLine, "gzip:") {
+		t.Errorf("rebuild line should not contain a gzip figure, got: %q", rebuiltLine)
+	}
+}
+
+// syncBuffer is a concurrency-safe bytes.Buffer, needed because
+// TestVaneRunRebuildSkipsGzip polls the subprocess's stdout/stderr buffer
+// from the test goroutine while the subprocess writes to it concurrently.
+type syncBuffer struct {
+	mu  sync.Mutex
+	buf bytes.Buffer
+}
+
+func (b *syncBuffer) Write(p []byte) (int, error) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.buf.Write(p)
+}
+
+func (b *syncBuffer) String() string {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return b.buf.String()
 }
 
 // TestVaneBuildTinygoRelease is the --tinygo counterpart to
