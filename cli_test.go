@@ -1,6 +1,7 @@
 package main_test
 
 import (
+	"bufio"
 	"bytes"
 	"fmt"
 	"go/parser"
@@ -14,7 +15,6 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
-	"sync"
 	"testing"
 	"time"
 )
@@ -505,12 +505,11 @@ func TestVaneRunServesApp(t *testing.T) {
 	}
 }
 
-// TestVaneRunRebuildSkipsGzip is a regression guard for skipping the
-// full-binary gzip compression-size pass on hot-reload rebuilds (kept only
-// on the initial build): starts "vane run" as a real subprocess, captures
-// its stdout, waits for the initial "built" line (must carry a "gzip:"
-// figure), then touches App.vane and waits for the resulting "rebuilt" line
-// (must NOT carry one).
+// TestVaneRunRebuildSkipsGzip starts "vane run" as a real subprocess and
+// streams its output line-by-line: the initial "built" line must carry a
+// "gzip:" figure, the "rebuilt" line after a file touch must not.
+// Uses a blocking channel reader, not a poll loop — polling was observed
+// starving under "go test -race" CI regardless of deadline length.
 func TestVaneRunRebuildSkipsGzip(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping WASM build in short mode")
@@ -523,39 +522,54 @@ func TestVaneRunRebuildSkipsGzip(t *testing.T) {
 
 	cmd := exec.Command(vaneBin, "run", "--port", port)
 	cmd.Dir = appDir
-	var out syncBuffer
-	cmd.Stdout = &out
-	cmd.Stderr = &out
+	pr, pw := io.Pipe()
+	cmd.Stdout = pw
+	cmd.Stderr = pw
 	if err := cmd.Start(); err != nil {
 		t.Fatalf("starting vane run: %v", err)
 	}
 	t.Cleanup(func() {
 		_ = cmd.Process.Kill()
 		_ = cmd.Wait()
+		_ = pw.Close()
 	})
 
-	waitForLine := func(prefix string, deadline time.Time) string {
+	lines := make(chan string, 4096)
+	go func() {
+		sc := bufio.NewScanner(pr)
+		sc.Buffer(make([]byte, 64*1024), 1024*1024) // spinner frames are \r-joined into one long "line" until a real \n
+		for sc.Scan() {
+			lines <- sc.Text()
+		}
+		close(lines)
+	}()
+
+	// Generous margin for -race CI contention with other packages' parallel subtests.
+	const ciTimeout = 3 * time.Minute
+
+	var seen []string
+	waitForLine := func(prefix string) string {
 		t.Helper()
-		for time.Now().Before(deadline) {
-			for _, line := range strings.Split(out.String(), "\n") {
+		timer := time.NewTimer(ciTimeout)
+		defer timer.Stop()
+		for {
+			select {
+			case line, ok := <-lines:
+				if !ok {
+					t.Fatalf("subprocess output closed before a line containing %q, got:\n%s", prefix, strings.Join(seen, "\n"))
+				}
+				seen = append(seen, line)
 				if strings.Contains(line, prefix) {
 					return line
 				}
+			case <-timer.C:
+				t.Fatalf("timed out waiting for a line containing %q, got:\n%s", prefix, strings.Join(seen, "\n"))
+				return ""
 			}
-			time.Sleep(100 * time.Millisecond)
 		}
-		t.Fatalf("timed out waiting for a line containing %q, got:\n%s", prefix, out.String())
-		return ""
 	}
 
-	// Generous deadline: under "go test -race ./..." on a loaded/shared CI
-	// runner, the wasm build+link this waits on has been observed taking
-	// well past 30s even though it's ~0.4s of actual build time locally,
-	// -race instruments every package under test, not just this one, so
-	// the whole run competes for CPU with the subprocess this test spawns.
-	const ciTimeout = 90 * time.Second
-
-	builtLine := waitForLine("✓ built", time.Now().Add(ciTimeout))
+	builtLine := waitForLine("✓ built")
 	if !strings.Contains(builtLine, "gzip:") {
 		t.Errorf("initial build line missing gzip figure, got: %q", builtLine)
 	}
@@ -565,7 +579,7 @@ func TestVaneRunRebuildSkipsGzip(t *testing.T) {
 	// snapshot runs would just seed the baseline with the new mtime instead
 	// of registering as a change, so wait for the banner it prints once
 	// watching (plus a safety margin) before editing.
-	waitForLine("watching for changes", time.Now().Add(ciTimeout))
+	waitForLine("watching for changes")
 	time.Sleep(1 * time.Second)
 
 	appVane := filepath.Join(appDir, "App.vane")
@@ -574,30 +588,10 @@ func TestVaneRunRebuildSkipsGzip(t *testing.T) {
 		t.Fatalf("touching %s: %v", appVane, err)
 	}
 
-	rebuiltLine := waitForLine("✓ rebuilt", time.Now().Add(ciTimeout))
+	rebuiltLine := waitForLine("✓ rebuilt")
 	if strings.Contains(rebuiltLine, "gzip:") {
 		t.Errorf("rebuild line should not contain a gzip figure, got: %q", rebuiltLine)
 	}
-}
-
-// syncBuffer is a concurrency-safe bytes.Buffer, needed because
-// TestVaneRunRebuildSkipsGzip polls the subprocess's stdout/stderr buffer
-// from the test goroutine while the subprocess writes to it concurrently.
-type syncBuffer struct {
-	mu  sync.Mutex
-	buf bytes.Buffer
-}
-
-func (b *syncBuffer) Write(p []byte) (int, error) {
-	b.mu.Lock()
-	defer b.mu.Unlock()
-	return b.buf.Write(p)
-}
-
-func (b *syncBuffer) String() string {
-	b.mu.Lock()
-	defer b.mu.Unlock()
-	return b.buf.String()
 }
 
 // TestVaneBuildTinygoRelease is the --tinygo counterpart to
