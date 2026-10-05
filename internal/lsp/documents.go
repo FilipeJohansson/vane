@@ -21,6 +21,7 @@ type docStore struct {
 	docs       map[string]*document // keyed by vane URI
 	gens       map[string]int64     // vane URI -> generation, bumped on every set()
 	goVersions map[string]int       // vane URI -> next version number for a synthetic message to the virtual _vane.go document
+	open       map[string]bool      // vane URI -> true while the editor has the document open (didOpen without didClose)
 
 	// hover/goplsIn support the async keyed-{for} type resolution pass (see
 	// keyedfor.go): hover resolves a range variable's type via gopls, and
@@ -36,7 +37,38 @@ func newDocStore() *docStore {
 		docs:       make(map[string]*document),
 		gens:       make(map[string]int64),
 		goVersions: make(map[string]int),
+		open:       make(map[string]bool),
 	}
+}
+
+// setOpen records whether the editor currently has vaneURI open. While it
+// does, the editor's buffer (kept current by didChange) is the source of truth
+// for the document, not the file on disk, which can be older.
+func (s *docStore) setOpen(vaneURI string, open bool) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	norm := normalizeFileURI(vaneURI)
+	if open {
+		s.open[norm] = true
+	} else {
+		delete(s.open, norm)
+	}
+}
+
+func (s *docStore) isOpen(vaneURI string) bool {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.open[normalizeFileURI(vaneURI)]
+}
+
+// text returns the in-memory source of vaneURI, as last set by didOpen or
+// didChange.
+func (s *docStore) text(vaneURI string) (string, bool) {
+	d, ok := s.get(vaneURI)
+	if !ok {
+		return "", false
+	}
+	return strings.Join(d.vaneLines, "\n"), true
 }
 
 // nextGoVersion returns the next version number to use for a synthetic
@@ -140,12 +172,15 @@ func isVaneURI(uri string) bool {
 	return strings.HasSuffix(uri, ".vane")
 }
 
+// pathToFileURI builds a percent-encoded file:// URI, so a path containing a
+// space or other reserved character matches the URI form VS Code and gopls use
+// for the same file.
 func pathToFileURI(path string) string {
 	path = filepath.ToSlash(path)
 	if len(path) >= 2 && path[1] == ':' {
-		return "file:///" + path
+		path = "/" + path
 	}
-	return "file://" + path
+	return (&url.URL{Scheme: "file", Path: path}).String()
 }
 
 func uriToPath(uri string) string {

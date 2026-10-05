@@ -2,7 +2,7 @@
 
 This extension uses [Semantic Versioning](https://semver.org/) (`MAJOR.MINOR.PATCH`).
 
-**Status: pre-v1.0.0**, currently `0.1.0`. The guarantees below take effect at the extension's own
+**Status: pre-v1.0.0**, the guarantees below take effect at the extension's own
 `v1.0.0`. Until then, any release may include breaking changes, in a minor or even a patch version.
 
 ## Pre-1.0.0 (current)
