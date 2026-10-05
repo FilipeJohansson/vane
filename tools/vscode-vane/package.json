@@ -2,7 +2,7 @@
   "name": "vscode-vane",
   "displayName": "Vane",
   "description": "Syntax highlighting and language server for .vane files (Go + JSX)",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "publisher": "FilipeJohansson",
   "repository": {
     "type": "git",
@@ -71,7 +71,7 @@
     ]
   },
   "scripts": {
-    "test": "node test/grammar.test.js && node test/gopls.test.js",
+    "test": "node test/grammar.test.js && node test/gopls.test.js && node test/binpath.test.js",
     "build": "esbuild extension.js --bundle --minify --platform=node --target=node18 --format=cjs --external:vscode --outfile=dist/extension.js",
     "package": "pnpm run build && vsce package --no-dependencies"
   },
