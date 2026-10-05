@@ -642,6 +642,7 @@ func handleDidOpen(msg Message, goplsIn io.Writer, store *docStore) bool {
 		return true
 	}
 	store.set(uri, p.Text, goContent, sm)
+	store.setOpen(uri, true)
 	writeToDisk(uri, goContent)
 
 	// The _vane.go file exists on disk (written by precompileWorkspace or above),
@@ -678,19 +679,34 @@ func handleDidChange(msg Message, goplsIn io.Writer, store *docStore) bool {
 	}
 
 	text := m.Params.ContentChanges[0].Text
+	compiled := text // what the generated Go below was built from
 	goContent, sm, err := store.compile(uri, text)
+	if err != nil {
+		// Code that is still being typed often does not compile (an unclosed
+		// bracket swallows the rest of the file). Retry with the open brackets
+		// of the edited line closed, so completion and hover keep working
+		// instead of running against the last version that compiled.
+		if prev, ok := store.text(uri); ok {
+			if repaired, ok := repairEditedLine(prev, text); ok {
+				if g, s, rerr := store.compile(uri, repaired); rerr == nil {
+					goContent, sm, err, compiled = g, s, nil, repaired
+				}
+			}
+		}
+	}
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "[vane lsp] compile error for %s: %v\n", uri, err)
 		return true
 	}
 	store.set(uri, text, goContent, sm)
+	store.setOpen(uri, true)
 	writeToDisk(uri, goContent)
 
 	synthetic := buildDidChange(virtualURI(uri), stripLineDirectives(goContent), store.nextGoVersion(uri))
 	if err := WriteMessage(goplsIn, synthetic); err != nil {
 		fmt.Fprintf(os.Stderr, "[vane lsp] send virtual didChange error: %v\n", err)
 	}
-	store.scheduleKeyedForResolve(uri, text, stripLineDirectives(goContent), sm)
+	store.scheduleKeyedForResolve(uri, compiled, stripLineDirectives(goContent), sm)
 	return true
 }
 
@@ -705,7 +721,21 @@ func handleDidClose(msg Message, goplsIn io.Writer, store *docStore) bool {
 		return false
 	}
 
-	store.delete(m.Params.TextDocument.URI)
+	store.setOpen(uri, false)
+	// Closing discards any unsaved edit, so the document goes back to what is
+	// on disk: the store entry (still needed to translate navigation into
+	// closed files) and the generated _vane.go gopls reads once its overlay
+	// is closed both have to be rebuilt from the saved source.
+	if src, err := os.ReadFile(uriToPath(uri)); err == nil { // #nosec G304 -- path comes from the local editor's own LSP messages over stdio, same trust boundary as the user running it
+		if goContent, sm, cerr := store.compile(uri, string(src)); cerr == nil {
+			store.set(uri, string(src), goContent, sm)
+			writeToDisk(uri, goContent)
+		} else {
+			store.delete(uri)
+		}
+	} else {
+		store.delete(uri)
+	}
 	synthetic := buildDidClose(virtualURI(m.Params.TextDocument.URI))
 	if err := WriteMessage(goplsIn, synthetic); err != nil {
 		fmt.Fprintf(os.Stderr, "[vane lsp] send virtual didClose error: %v\n", err)
@@ -813,23 +843,23 @@ func stripExecuteCommandProvider(msg Message) Message {
 
 	// Force full-document sync (change=1) instead of incremental (change=2).
 	// The vane proxy needs the complete .vane content on every didChange to recompile;
-	// incremental deltas cannot be compiled standalone.
-	type syncOpts struct {
-		Change int `json:"change"`
-	}
-	var syncVal syncOpts
+	// incremental deltas cannot be compiled standalone. openClose is forced on too, and
+	// every other field gopls advertised is kept: the proxy needs didOpen/didClose to
+	// track which documents the editor has open.
 	if raw, ok := resp.Result.Capabilities["textDocumentSync"]; ok {
-		// textDocumentSync may be a number or an object.
+		// textDocumentSync may be a bare TextDocumentSyncKind number (which carries no
+		// openClose flag) or an options object.
+		opts := map[string]json.RawMessage{}
 		var num int
-		if json.Unmarshal(raw, &num) == nil {
-			if num != 1 {
-				resp.Result.Capabilities["textDocumentSync"] = json.RawMessage(`1`)
+		if json.Unmarshal(raw, &num) != nil {
+			if json.Unmarshal(raw, &opts) != nil {
+				opts = map[string]json.RawMessage{}
 			}
-		} else if json.Unmarshal(raw, &syncVal) == nil {
-			syncVal.Change = 1
-			if b, err2 := json.Marshal(syncVal); err2 == nil {
-				resp.Result.Capabilities["textDocumentSync"] = json.RawMessage(b)
-			}
+		}
+		opts["openClose"] = json.RawMessage(`true`)
+		opts["change"] = json.RawMessage(`1`)
+		if b, err2 := json.Marshal(opts); err2 == nil {
+			resp.Result.Capabilities["textDocumentSync"] = json.RawMessage(b)
 		}
 	}
 
@@ -1037,9 +1067,11 @@ func mapColumn(doc *document, vaneLine, vaneCol, goLine, gc int) (int, int) {
 	// cursor.
 	var ident string
 	extra := 0 // bytes to add after ident's own match, for a trigger char between ident and cursor
+	vaneLineText := ""
+	byteCol := 0
 	if vaneLine >= 0 && vaneLine < len(doc.vaneLines) {
-		vaneLineText := doc.vaneLines[vaneLine]
-		byteCol := utf16ToByte(vaneLineText, vaneCol)
+		vaneLineText = doc.vaneLines[vaneLine]
+		byteCol = utf16ToByte(vaneLineText, vaneCol)
 		ident = identAt(vaneLineText, byteCol)
 		if ident == "" && byteCol > 0 && vaneLineText[byteCol-1] == '.' {
 			// Cursor right after a bare "." with nothing typed yet - the live
@@ -1068,12 +1100,24 @@ func mapColumn(doc *document, vaneLine, vaneCol, goLine, gc int) (int, int) {
 			return 0, false
 		}
 		if ident != "" {
+			// Prefer the occurrence whose following source text matches too, so
+			// `value={value.Get()}` picks the variable, not the "value" attribute
+			// name that also appears in the generated line.
+			if extra == 0 {
+				if col := findIdentWithContext(s, vaneLineText, identPrefixStart(vaneLineText, byteCol), ident); col >= 0 {
+					return byteToUTF16(s, col), true
+				}
+			}
 			// gc is itself a UTF-16 column (from VaneToGo, or the previous
 			// tryLine call), so it must be converted to a byte offset before
 			// seeding findIdentInLine's byte-indexed search too.
 			if col := findIdentInLine(s, ident, utf16ToByte(s, gc)); col >= 0 {
 				return byteToUTF16(s, col+extra), true
 			}
+		} else if col, ok := findTextBeforeCursor(s, vaneLineText, byteCol); ok {
+			// No identifier at the cursor (blank space, e.g. between the braces
+			// of `Props{ | }`): anchor on the source text just before it instead.
+			return byteToUTF16(s, col), true
 		}
 		return 0, false
 	}
@@ -1114,6 +1158,57 @@ func mapColumn(doc *document, vaneLine, vaneCol, goLine, gc int) (int, int) {
 		gc = 0
 	}
 	return goLine, gc
+}
+
+// findIdentWithContext finds the whole-word occurrence of ident in goLine that
+// is followed by the same source text as the identifier at identStart in
+// vaneLine (up to 40 bytes, at least one byte past the identifier), returning
+// its byte offset or -1. The longest matching context wins, so it
+// disambiguates an identifier that occurs more than once in a generated line.
+func findIdentWithContext(goLine, vaneLine string, identStart int, ident string) int {
+	if ident == "" || identStart < 0 || identStart+len(ident) > len(vaneLine) {
+		return -1
+	}
+	for w := min(len(vaneLine)-identStart, 40); w > len(ident); w-- {
+		window := vaneLine[identStart : identStart+w]
+		for from := 0; from < len(goLine); {
+			idx := strings.Index(goLine[from:], window)
+			if idx < 0 {
+				break
+			}
+			idx += from
+			if idx == 0 || !isIdentByte(goLine[idx-1]) {
+				return idx
+			}
+			from = idx + 1
+		}
+	}
+	return -1
+}
+
+// findTextBeforeCursor locates, in goLine, the text that sits immediately
+// before the cursor in the .vane source and returns the byte offset in goLine
+// just past it. Generated Go wraps expressions in code that has no .vane
+// counterpart (e.g. `core.DynChild(_vane1, func() any { return <expr> })`), so
+// a column offset from the line start lands inside that wrapper; the
+// expression text itself is copied verbatim, which makes it a reliable anchor.
+// The longest window (up to 40 bytes) of the text before the cursor that
+// occurs in goLine wins.
+func findTextBeforeCursor(goLine, vaneLine string, vaneByteCol int) (int, bool) {
+	if vaneByteCol <= 0 || vaneByteCol > len(vaneLine) {
+		return 0, false
+	}
+	prefix := vaneLine[:vaneByteCol]
+	for w := min(len(prefix), 40); w >= 4; w-- {
+		window := prefix[len(prefix)-w:]
+		if strings.TrimSpace(window) == "" {
+			continue
+		}
+		if idx := strings.Index(goLine, window); idx >= 0 {
+			return idx + w, true
+		}
+	}
+	return 0, false
 }
 
 // clampRangeOrder returns (el, ec) unless it precedes (sl, sc), in which case
@@ -2202,8 +2297,15 @@ func translateResponsePos(msg Message, store *docStore) Message {
 		return msg
 	}
 
+	// A range inside a .vane file that can't be translated (document closed or
+	// unknown, or position outside the source map) is dropped: forwarding it
+	// would hand the editor go-coordinates as if they were vane-coordinates.
 	translateRange := func(uri string, r lspRange) (lspRange, bool, bool) {
-		return translateGoRangeToVane(uri, r, store)
+		tr, ok, drop := translateGoRangeToVane(uri, r, store)
+		if !ok {
+			drop = true
+		}
+		return tr, ok, drop
 	}
 
 	nullResp := func() Message {
@@ -2339,10 +2441,19 @@ func handleWatchedFilesChange(msg Message, goplsIn io.Writer, store *docStore) {
 
 	compileAndWrite := func(uri string) {
 		vanePath := uriToPath(uri)
-		src, err := os.ReadFile(vanePath) // #nosec G304 -- vanePath comes from the local editor's own LSP messages over stdio, same trust boundary as the user running it
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "[vane lsp] watchedFiles: read error for %s: %v\n", vanePath, err)
-			return
+		// An open document's buffer (kept current by didChange) is newer than
+		// the file on disk whenever it holds an unsaved edit, so compile the
+		// buffer, never the disk content.
+		var src []byte
+		if text, ok := store.text(uri); ok && store.isOpen(uri) {
+			src = []byte(text)
+		} else {
+			var err error
+			src, err = os.ReadFile(vanePath) // #nosec G304 -- vanePath comes from the local editor's own LSP messages over stdio, same trust boundary as the user running it
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "[vane lsp] watchedFiles: read error for %s: %v\n", vanePath, err)
+				return
+			}
 		}
 		goContent, sm, err := store.compile(uri, string(src))
 		if err != nil {
