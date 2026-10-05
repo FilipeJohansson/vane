@@ -1212,6 +1212,7 @@ func isVaneTagStart(c byte) bool {
 func (s *scanner) handleReturn(nilSugar string) (string, bool, error) {
 	returnPos := s.pos
 	s.pos += len("return")
+	afterReturn := s.pos
 	s.skipWS()
 
 	isVaneStart := func() bool {
@@ -1265,7 +1266,11 @@ func (s *scanner) handleReturn(nilSugar string) (string, bool, error) {
 		return "return " + nilSugar, false, nil
 	}
 
-	return "return ", false, nil
+	// A plain return: leave whatever follows it, newlines included, exactly as
+	// written. Skipping it would glue the next line onto the return (`return
+	// }`, `return case x:`) and shift every later line of the generated Go.
+	s.pos = afterReturn
+	return "return", false, nil
 }
 
 func (s *scanner) readUntilStatementEnd() string {
