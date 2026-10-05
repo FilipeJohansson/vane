@@ -10,8 +10,8 @@ func TestPathToFileURI_PercentEncodesSpaces(t *testing.T) {
 	tests := []struct {
 		name, path, want string
 	}{
-		{"windows drive with spaces", `D:\Users\John Doe\OneDrive - Company\Home.vane`, "file:///D:/Users/John%20Doe/OneDrive%20-%20Company/Home.vane"},
-		{"windows drive no spaces", `D:\proj\Home.vane`, "file:///D:/proj/Home.vane"},
+		{"windows drive with spaces", "D:/Users/John Doe/OneDrive - Company/Home.vane", "file:///D:/Users/John%20Doe/OneDrive%20-%20Company/Home.vane"},
+		{"windows drive no spaces", "D:/proj/Home.vane", "file:///D:/proj/Home.vane"},
 		{"unix with spaces", "/home/john doe/proj/Home.vane", "file:///home/john%20doe/proj/Home.vane"},
 	}
 	for _, tt := range tests {
@@ -27,7 +27,7 @@ func TestPathToFileURI_PercentEncodesSpaces(t *testing.T) {
 // sends for that file, or lookups for unopened documents miss.
 func TestPathToFileURI_MatchesEditorURIKey(t *testing.T) {
 	const editorURI = "file:///d%3A/Users/John%20Doe/Home.vane"
-	got := normalizeFileURI(pathToFileURI(`D:\Users\John Doe\Home.vane`))
+	got := normalizeFileURI(pathToFileURI("D:/Users/John Doe/Home.vane"))
 	if want := normalizeFileURI(editorURI); got != want {
 		t.Errorf("store key %q != editor key %q", got, want)
 	}
