@@ -10,7 +10,7 @@ const vscodeInstallSnippet = `git clone https://github.com/filipejohansson/vane
 cd vane/tools/vscode-vane
 pnpm install
 pnpm run package
-code --install-extension vscode-vane-0.1.1.vsix`
+code --install-extension vscode-vane-<version>.vsix`
 
 const vscodeConfigDefaultsSnippet = `"contributes": {
   "configurationDefaults": {
