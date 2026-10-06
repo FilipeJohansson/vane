@@ -483,7 +483,10 @@ func buildWasm(dir, gcflags, sourceURLBase string, rebuild, release, skipOptimiz
 		}
 	}
 
-	compressSize, _ := compressWasmSize(wasmOut) // not a problem if compress fail, skips err check - it's just info
+	var compressSize int64
+	if !rebuild {
+		compressSize, _ = compressWasmSize(wasmOut) // not a problem if compress fail, skips err check - it's just info
+	}
 
 	sizeStr := ""
 	if info, statErr := os.Stat(wasmOut); statErr == nil { // #nosec G703 -- wasmOut is inside the selected project directory

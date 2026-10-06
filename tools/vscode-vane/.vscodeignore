@@ -8,6 +8,7 @@ node_modules/
 extension.js
 linemap.js
 gopls.js
+binpath.js
 */out/
 .vscode-test/
 *.vsix

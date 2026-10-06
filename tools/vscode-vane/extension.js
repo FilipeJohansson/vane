@@ -7,11 +7,13 @@ const { execSync } = require('child_process');
 const path = require('path');
 const fs = require('fs');
 const { checkGoplsPresent } = require('./gopls');
+const { firstPathLine } = require('./binpath');
 
 const GO_EXTENSION_ID = 'golang.go';
 
 let client;
 let output;
+let vaneWatcher;
 
 // Files the redirect listener should skip once, because the user just asked
 // (via vane.openGeneratedGoFile) to view the generated file directly.
@@ -40,7 +42,7 @@ function resolveVaneBin() {
   // Fall back to PATH.
   try {
     const result = execSync(process.platform === 'win32' ? 'where vane' : 'which vane', { encoding: 'utf8' });
-    return result.trim().split('\n')[0];
+    return firstPathLine(result) || 'vane';
   } catch (_) {
     return 'vane';
   }
@@ -55,10 +57,13 @@ function makeClient() {
     transport: TransportKind.stdio,
   };
 
+  if (vaneWatcher) vaneWatcher.dispose();
+  vaneWatcher = workspace.createFileSystemWatcher('**/*.vane');
+
   const clientOptions = {
     documentSelector: [{ scheme: 'file', language: 'vane' }],
     synchronize: {
-      fileEvents: workspace.createFileSystemWatcher('**/*.vane'),
+      fileEvents: vaneWatcher,
     },
   };
 
@@ -246,6 +251,10 @@ async function maybeRedirectVaneGoFile(file, editor) {
 }
 
 function deactivate() {
+  if (vaneWatcher) {
+    vaneWatcher.dispose();
+    vaneWatcher = undefined;
+  }
   if (client) {
     return client.stop();
   }
