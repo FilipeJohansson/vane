@@ -29,9 +29,11 @@ textarea.input {
 }
 
 .success-card {
-  background: var(--surface);
+  background: var(--surface-glass);
+  backdrop-filter: blur(10px);
   border: 1px solid var(--border);
-  border-radius: 12px;
+  border-radius: var(--r-md);
+  box-shadow: var(--shadow-lift);
   padding: 2.5rem 2rem;
   text-align: center;
   display: flex;
@@ -70,7 +72,7 @@ textarea.input {
 }
 
 .not-found a {
-  color: var(--primary);
+  color: var(--accent);
   font-weight: 600;
   text-decoration: none;
 }
