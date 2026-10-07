@@ -141,8 +141,8 @@ func Components() core.Node {
 					"Components are plain Go functions returning core.Node. Vane's syntax is compiled into direct DOM operations before the Go compiler ever sees your code.",
 				)}
 				{keyFacts(
-					core.Fragment(core.Text("A component is a plain Go function returning "), code("core.Node"), core.Text(" - no class, no special syntax.")),
-					core.Text("Components execute once when mounted - never called again to update the UI."),
+					core.Fragment(core.Text("A component is a plain Go function returning "), code("core.Node"), core.Text(", with no class or special syntax.")),
+					core.Text("A component runs once on mount and is not called again to update the UI."),
 					core.Fragment(core.Text("Called like any other Go function from inside "), code("{expr}"), core.Text(" - Vane tags are HTML elements only.")),
 				)}
 				{callout("tip", "Reference", "For the compiler's exact component-vs-element rule, see ", apiDocLink("language-spec", ".vane Language Spec"), ".")}

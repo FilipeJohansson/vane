@@ -85,7 +85,7 @@ func RefsAndDOM() core.Node {
 					"Capturing real DOM nodes with ref, window-level events and geometry reads, the core.Unwrap escape hatch, and NextTick for code that needs the element actually attached to the page.",
 				)}
 				{keyFacts(
-					core.Fragment(code("ref={&myVar}"), core.Text(" assigns synchronously the moment the element is created - safe to read in later callbacks.")),
+					core.Fragment(code("ref={&myVar}"), core.Text(" is assigned as soon as the element is created, so it's safe to read in later callbacks.")),
 					core.Fragment(code("core.Unwrap"), core.Text(" is the escape hatch to the underlying "), code("js.Value"), core.Text(" for any browser API Vane doesn't wrap yet.")),
 					core.Fragment(code("core.NextTick"), core.Text(" defers until the element is actually attached to the document - needed before geometry reads.")),
 				)}

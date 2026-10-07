@@ -94,9 +94,9 @@ func LucideIcons() core.Node {
 					"Vane has no icon library of its own. This site wires up Lucide the same way any plain JS-interop library works: a global script tag plus a couple of syscall/js calls, no Go-native port required.",
 				)}
 				{keyFacts(
-					core.Text("No Go-native port needed - a global <script> tag plus a couple of syscall/js calls is the whole integration."),
+					core.Text("Integration is a global <script> tag plus a couple of syscall/js calls."),
 					core.Fragment(core.Text("Icons that mount after the initial page load (modals, dynamic lists) need their own "), code("lucide.createIcons()"), core.Text(" call.")),
-					core.Text("This pattern generalizes to any plain JS library, not just Lucide specifically."),
+					core.Text("The same pattern works for any plain JS library."),
 				)}
 
 				<h2 className="docs-h2" id="load-the-script">Load the script</h2>

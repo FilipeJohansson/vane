@@ -78,7 +78,7 @@ func Signals() core.Node {
 				)}
 				{keyFacts(
 					core.Fragment(code("Get()"), core.Text("/"), code("Set()"), core.Text(" on a "), code("core.NewSignal"), core.Text(" - reads inside a binding or "), code("core.Effect"), core.Text(" are auto-tracked.")),
-					core.Text("Only the specific binding that reads a changed signal updates - never the whole component."),
+					core.Text("Only the bindings that read a changed signal update, not the whole component."),
 					core.Fragment(code("core.OnDispose"), core.Text(" cleans up non-reactive resources (timers, goroutines) on unmount.")),
 				)}
 

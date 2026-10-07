@@ -63,9 +63,9 @@ func APIReference() core.Node {
 					"An index of Vane's public API, organized by concept. Each entry links to its full generated documentation on pkg.go.dev; the guides linked alongside cover how and why to use it.",
 				)}
 				{keyFacts(
-					core.Text("Curated by concept, not alphabetically - each entry links to its real pkg.go.dev documentation."),
+					core.Text("Grouped by concept - each entry links to its pkg.go.dev documentation."),
 					core.Fragment(core.Text("Links always include "), code("?GOOS=js&GOARCH=wasm"), core.Text(" - godoc hides almost everything in "), code("core"), core.Text(" without it.")),
-					core.Text("Doesn't mark stability tiers - that's a separate, ongoing API audit, not this page's job."),
+					core.Text("Stability tiers (stable/experimental) aren't marked yet."),
 				)}
 				<p className="docs-p">
 					See{" "}

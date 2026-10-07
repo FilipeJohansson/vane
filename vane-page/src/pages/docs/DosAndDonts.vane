@@ -90,7 +90,7 @@ func DosAndDonts() core.Node {
 				{keyFacts(
 					core.Fragment(core.Text("Vane's syntax only compiles inside "), code("return (...)"), core.Text(" - assigning it to a variable is a compile error.")),
 					core.Fragment(core.Text("Read a signal at setup time (not inside a binding) and it won't re-run - wrap it in "), code("core.Untrack"), core.Text(" if that's intentional.")),
-					core.Text("A manual component call outside a binding runs once, at setup, like any other Go function call."),
+					core.Text("A component called outside a binding runs once, at setup, like any Go function call."),
 				)}
 
 				<h2 className="docs-h2" id="vane-syntax-placement">Where Vane syntax compiles</h2>

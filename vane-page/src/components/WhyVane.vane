@@ -16,8 +16,8 @@ type whyVanePillar struct {
 }
 
 var whyVanePillars = []whyVanePillar{
-	{"Go-native", "Write your whole frontend in Go. No JS, no TS, no second toolchain to learn."},
-	{"No Virtual DOM", "Updates hit the real DOM directly. No diffing pass, no wasted re-renders."},
+	{"Go-native", "Write your whole frontend in Go. No JavaScript or TypeScript toolchain."},
+	{"No Virtual DOM", "Updates go straight to the DOM, with no diffing pass."},
 	{"Fine-grained reactivity", "Only the exact value that changed updates, never the whole component."},
 	{"Type-safe", "Your components, state, and data stay inside Go's type system end to end."},
 }

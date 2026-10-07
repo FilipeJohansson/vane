@@ -143,9 +143,9 @@ func HTMLForms() core.Node {
 					"Vane has no form library. Inputs are controlled with a signal and value/onInput like any other reactive binding, validation is a core.Effect deriving an error signal, and submit is a plain onClick or onSubmit handler.",
 				)}
 				{keyFacts(
-					core.Text("No form library needed - a controlled input is just a signal plus value/onInput, same as any other binding."),
+					core.Text("No form library needed. A controlled input is a signal plus value/onInput, like any other binding."),
 					core.Fragment(code("value={expr}"), core.Text(" is cursor-preserving - setting it to the value the DOM already holds skips the write.")),
-					core.Fragment(core.Text("Validation is a plain "), code("core.Effect"), core.Text(" deriving an error signal, not a special form-validation API.")),
+					core.Fragment(core.Text("Validation is a plain "), code("core.Effect"), core.Text(" that derives an error signal. There is no form-validation API.")),
 				)}
 
 				<h2 className="docs-h2" id="controlled-inputs">Controlled inputs</h2>

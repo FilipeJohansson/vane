@@ -142,9 +142,9 @@ func Patterns() core.Node {
 					"Practical recipes for problems that come up once an app grows past the basics covered elsewhere in these docs.",
 				)}
 				{keyFacts(
-					core.Text("One signal per field, not one signal wrapping a whole struct - keeps bindings subscribed to only what they read."),
-					core.Text("A plain struct whose fields are each their own signal behaves exactly like separate variables."),
-					core.Text("These are recipes for real problems seen once an app grows, not a checklist to apply everywhere upfront."),
+					core.Text("Use one signal per field rather than one signal wrapping a struct, so bindings subscribe only to what they read."),
+					core.Text("A struct whose fields are each a signal behaves like separate variables."),
+					core.Text("Apply these when an app needs them. They aren't a checklist for every app."),
 				)}
 
 				<h2 className="docs-h2" id="fine-grained-signals">Fine-grained signals</h2>

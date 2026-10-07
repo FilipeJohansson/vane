@@ -70,7 +70,7 @@ func Style() core.Node {
 				{keyFacts(
 					core.Fragment(code("core.Style"), core.Text(" is a typed struct - zero-value fields are skipped, not written as empty CSS.")),
 					core.Fragment(core.Text("Signal reads inside a "), code("core.Style"), core.Text(" literal make the whole style reactive.")),
-					core.Text("Co-located CSS files work like any other stylesheet - no scoping magic, no build-step CSS-in-JS."),
+					core.Text("Co-located CSS files are ordinary stylesheets, with no scoping or CSS-in-JS build step."),
 				)}
 
 				<h2 className="docs-h2" id="the-style-struct">The core.Style struct</h2>

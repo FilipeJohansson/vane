@@ -36,9 +36,9 @@ func Performance() core.Node {
 					"Vane performance measured against React, Svelte, and Solid",
 				)}
 				{keyFacts(
-					core.Text("Vane wins or ties on partial updates and localized changes - fine-grained reactivity does what it claims."),
-					core.Text("Vane loses badly on building new DOM and payload size - the Go/WASM boundary has a real, visible cost there."),
-					core.Text("Every number is reproducible: clone the repo, run benchmarks/runner/bench.mjs yourself, nothing here needs to be taken on faith."),
+					core.Text("Vane wins or ties on partial updates and localized changes."),
+					core.Text("Vane is slower at building new DOM and has a larger payload, because of the Go/WASM boundary."),
+					core.Text("Every number is reproducible: clone the repo and run benchmarks/runner/bench.mjs."),
 				)}
 
 				<p className="docs-p">

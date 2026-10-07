@@ -87,9 +87,9 @@ func DataFetching() core.Node {
 					"A goroutine calling net/http directly, and a signal to carry the result back. No fetch wrapper, no async library, no special signal type.",
 				)}
 				{keyFacts(
-					core.Fragment(core.Text("Plain "), code("go func()"), core.Text(" + "), code("net/http"), core.Text(" - no fetch wrapper, no async library, no special signal type.")),
-					core.Text("The goroutine writes its result into an ordinary signal; the UI just reads that signal like any other."),
-					core.Text("Guard against writing to a signal after the component unmounted - check the same cleanup patterns as any other async work."),
+					core.Fragment(core.Text("Plain "), code("go func()"), core.Text(" + "), code("net/http"), core.Text(". No fetch wrapper, async library, or special signal type is needed.")),
+					core.Text("The goroutine writes its result into an ordinary signal, and the UI reads it like any other."),
+					core.Text("Don't write to a signal after the component unmounts. Use the same cleanup patterns as for any other async work."),
 				)}
 
 				<h2 className="docs-h2" id="fetch-with-goroutine-and-signal">Fetch with a goroutine and a signal</h2>

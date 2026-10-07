@@ -45,8 +45,8 @@ func Lifecycle() core.Node {
 					"The execution model for components, Effects, cleanup, and route disposal in Vane.",
 				)}
 				{keyFacts(
-					core.Text("A component function runs exactly once on mount - never again just because a signal changed."),
-					core.Text("Each Effect's cleanup runs before its own next re-run, and again on unmount - never on someone else's."),
+					core.Text("A component function runs once on mount, not again when a signal changes."),
+					core.Text("An Effect's cleanup runs before its next re-run and on unmount."),
 					core.Text("Navigating away disposes the previous route's whole scope - signals, Effects, and listeners it created."),
 				)}
 

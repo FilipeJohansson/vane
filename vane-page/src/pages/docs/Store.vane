@@ -108,7 +108,7 @@ func Store() core.Node {
 					"Package-level signals, the idiomatic way to share reactive state across components. No separate store API, just core.NewSignal at package scope.",
 				)}
 				{keyFacts(
-					core.Fragment(core.Text("No separate store API - a package-level "), code("core.NewSignal"), core.Text(" is the whole pattern.")),
+					core.Fragment(core.Text("There is no separate store API. A package-level "), code("core.NewSignal"), core.Text(" is the whole pattern.")),
 					core.Text("Any component that reads the signal re-runs when it changes, regardless of which file wrote to it."),
 					core.Text("Plain Go visibility rules apply - exported for cross-package access, unexported to keep it package-private."),
 				)}

@@ -150,7 +150,7 @@ func signalsPanel() core.Node {
 			<div className="feature-panel-preview-col">
 				{featurePanelHeader(
 					"Signals: Fine-Grained Reactivity",
-					"Click the button below. Only count updates. The mount id never changes, because this pane never re-renders as a whole, it never did in the first place.",
+					"Click the button below. Only count updates; the mount id stays the same because this pane never re-renders as a whole.",
 					"signals",
 				)}
 				<div className="preview-frame">
@@ -274,7 +274,7 @@ func dataFetchingPanel() core.Node {
 			<div className="feature-panel-preview-col">
 				{featurePanelHeader(
 					"Data Fetching: Real Go, net/http",
-					"No fetch wrapper, no async library. A goroutine calls net/http directly from WASM and sets a signal when it resolves. This is a real, live request to GitHub's Zen API.",
+					"No fetch wrapper, no async library. A goroutine calls net/http directly from WASM and sets a signal when it resolves. The request below is live, to GitHub's Zen API.",
 					"data-fetching",
 				)}
 				<div className="preview-frame">
@@ -389,7 +389,7 @@ func FeatureTabs() core.Node {
 					<span className="eyebrow-dot" aria-hidden="true" />
 					Interactive
 				</span>
-				<h2 className="section-title">Click it. It's real.</h2>
+				<h2 className="section-title">Try it live.</h2>
 			</div>
 			<div className="feature-tabs">
 				<div className="feature-tab-list" role="tablist">
