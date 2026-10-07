@@ -6,8 +6,12 @@ import (
 	"github.com/filipejohansson/vane/core"
 )
 
-// CopyButton copies text to the clipboard and flashes a confirmation
-func CopyButton(text string) core.Node {
+// CopyButton copies text to the clipboard and flashes a confirmation. Its
+// icon/label swap is written as literal JSX (not routed through IconButton
+// like most other buttons) because that {if copied.Get() {...}} needs to
+// stay reactive on its own - copied is local state IconButton, a plain Go
+// function, has no way to keep live if the swap is computed before the call.
+func CopyButton(text string, asIcon ...bool) core.Node {
 	copied := core.NewSignal(false)
 
 	onClick := func(core.MouseEvent) {
@@ -19,12 +23,26 @@ func CopyButton(text string) core.Node {
 		}()
 	}
 
+	core.Effect(func() func() {
+		copied.Get()
+		RefreshIcons()
+		return nil
+	})
+
 	return (
 		<button className="copy-btn" type="button" aria-label="Copy command to clipboard" onClick={onClick}>
-			{if copied.Get() {
-				<span>Copied</span>
+			{if len(asIcon) > 0 && asIcon[0] {
+				{if copied.Get() {
+					<span className="copy-icon" aria-hidden="true">{Icon("check")}</span>
+				} else {
+					<span className="copy-icon" aria-hidden="true">{Icon("copy")}</span>
+				}}
 			} else {
-				<span>Copy</span>
+				{if copied.Get() {
+					<span>Copied</span>
+				} else {
+					<span>Copy</span>
+				}}
 			}}
 		</button>
 	)

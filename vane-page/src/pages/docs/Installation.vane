@@ -41,6 +41,11 @@ func Installation() core.Node {
 					"Installation",
 					"Install the CLI, scaffold a new project, and get the dev server running.",
 				)}
+				{pageSummary(
+					core.Fragment(core.Text("Needs "), code("Go 1.25+"), core.Text(" - no extra runtime install for the normal, non-TinyGo path.")),
+					core.Fragment(code("vane init"), core.Text(" scaffolds a whole project: "), code("go.mod"), core.Text(", "), code("App.vane"), core.Text(", starter components, and more.")),
+					core.Fragment(code("vane run"), core.Text(" builds and serves with hot-reload in one command.")),
+				)}
 
 				<h2 className="docs-h2" id="prerequisites">Prerequisites</h2>
 				<p className="docs-p">
@@ -124,7 +129,7 @@ func Installation() core.Node {
 
 				{pageNav("installation")}
 			</article>
-			{toc(items)}
+			{toc(items, "installation")}
 		</div>
 	)
 }

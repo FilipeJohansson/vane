@@ -44,6 +44,11 @@ func Lifecycle() core.Node {
 					"Lifecycle",
 					"The execution model for components, Effects, cleanup, and route disposal in Vane.",
 				)}
+				{pageSummary(
+					core.Text("A component function runs once on mount, not again when a signal changes."),
+					core.Text("An Effect's cleanup runs before its next re-run and on unmount."),
+					core.Text("Navigating away disposes the previous route's whole scope - signals, Effects, and listeners it created."),
+				)}
 
 				<h2 className="docs-h2" id="mount">Mount and setup</h2>
 				<p className="docs-p">
@@ -126,7 +131,7 @@ func Lifecycle() core.Node {
 
 				{pageNav("lifecycle")}
 			</article>
-			{toc(items)}
+			{toc(items, "lifecycle")}
 		</div>
 	)
 }

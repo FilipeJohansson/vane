@@ -4,37 +4,41 @@
   justify-content: space-between;
   gap: 1.5rem;
   padding: 0 1.5rem;
-  height: 3.5rem;
+  height: 4rem;
   border-bottom: 1px solid var(--border);
   position: sticky;
   top: 0;
-  background: color-mix(in srgb, var(--bg) 88%, transparent);
-  backdrop-filter: blur(8px);
+  background: color-mix(in srgb, var(--bg) 78%, transparent);
+  backdrop-filter: blur(14px);
   z-index: 20;
 }
 
 .nav-brand {
-  font-weight: 700;
-  font-size: 1.15rem;
-  color: var(--accent);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 800;
+  font-size: 1.2rem;
+  color: var(--text);
   text-decoration: none;
-  letter-spacing: -0.01em;
-  font-family: var(--mono);
+  letter-spacing: -0.02em;
 }
 
 .nav-links {
   display: flex;
   gap: 0.25rem;
-  flex: 1;
-  justify-content: center;
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
 }
 
 .nav-link {
   color: var(--muted);
   text-decoration: none;
   font-size: 0.9rem;
-  padding: 0.4rem 0.8rem;
-  border-radius: 6px;
+  font-weight: 500;
+  padding: 0.5rem 0.9rem;
+  border-radius: var(--r-pill);
   transition: color 0.15s, background 0.15s;
 }
 
@@ -53,9 +57,10 @@
   color: var(--muted);
   text-decoration: none;
   font-size: 0.85rem;
-  padding: 0.4rem 0.7rem;
+  font-weight: 500;
+  padding: 0.5rem 0.9rem;
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: var(--r-pill);
   transition: color 0.15s, border-color 0.15s;
 }
 
@@ -71,7 +76,7 @@
   gap: 5px;
   width: 2.1rem;
   height: 2.1rem;
-  border-radius: 6px;
+  border-radius: var(--r-sm);
   border: 1px solid var(--border);
   background: var(--surface);
   cursor: pointer;
@@ -88,13 +93,6 @@
 .nav-burger[aria-expanded="true"] .nav-burger-line:nth-child(1) { transform: translateY(7px) rotate(45deg); }
 .nav-burger[aria-expanded="true"] .nav-burger-line:nth-child(2) { opacity: 0; }
 .nav-burger[aria-expanded="true"] .nav-burger-line:nth-child(3) { transform: translateY(-7px) rotate(-45deg); }
-
-.nav-mobile-backdrop {
-  position: fixed;
-  inset: 3.5rem 0 0 0;
-  background: rgba(0, 0, 0, 0.4);
-  z-index: 15;
-}
 
 .nav-mobile-panel {
   position: absolute;
@@ -132,7 +130,7 @@
   height: 2.25rem;
   color: var(--muted);
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: var(--r-sm);
   transition: color 0.15s, border-color 0.15s;
 }
 

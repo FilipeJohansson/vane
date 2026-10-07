@@ -79,6 +79,11 @@ func HandleErrors() core.Node {
 					"Handle Errors",
 					"core.Try as an error boundary, exactly what panic it catches, and what happens to panics it doesn't.",
 				)}
+				{pageSummary(
+					core.Fragment(code("core.Try"), core.Text(" is a plain "), code("defer"), core.Text("/"), code("recover"), core.Text(" around one function call.")),
+					core.Text("It only catches panics raised during that call, not panics from Effects that fire later."),
+					core.Text("A panic outside any Try still takes down the app, as in any Go program."),
+				)}
 
 				<h2 className="docs-h2" id="basic-usage">Basic usage</h2>
 				<p className="docs-p">
@@ -132,7 +137,7 @@ func HandleErrors() core.Node {
 
 				{pageNav("error-boundary")}
 			</article>
-			{toc(items)}
+			{toc(items, "error-boundary")}
 		</div>
 	)
 }

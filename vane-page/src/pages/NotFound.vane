@@ -2,7 +2,6 @@ package pages
 
 import (
 	"github.com/filipejohansson/vane/core"
-	"github.com/filipejohansson/vane/core/router"
 
 	"vane-page/src/components"
 )
@@ -30,14 +29,8 @@ func NotFound() core.Node {
 					This page doesn't exist, or it moved somewhere we haven't charted yet.
 				</p>
 				<div className="notfound-actions">
-					{router.Link(router.LinkProps{
-						To:        "/",
-						HTMLProps: core.HTMLProps{Class: "btn btn-primary"},
-					}, "Back home")}
-					{components.Button(components.ButtonProps{
-						Variant: "ghost",
-						Href:    "/docs",
-					}, "Read the docs")}
+					{components.Button(components.ButtonProps{Variant: "primary", To: "/"}, "Back home")}
+					{components.Button(components.ButtonProps{Variant: "ghost", To: "/docs"}, "Read the docs")}
 				</div>
 			</div>
 		</section>

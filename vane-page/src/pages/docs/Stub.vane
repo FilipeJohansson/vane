@@ -3,6 +3,8 @@ package docs
 import (
 	"github.com/filipejohansson/vane/core"
 	"github.com/filipejohansson/vane/core/router"
+
+	"vane-page/src/components"
 )
 
 // Stub covers every manifest topic that doesn't have a hand-written page yet.
@@ -66,10 +68,7 @@ func NotFound() core.Node {
 	return (
 		<div className="docs-article">
 			{docsHeader("Documentation", "Page not found", "That doc page doesn't exist.")}
-			{router.Link(router.LinkProps{
-				To:        "/docs",
-				HTMLProps: core.HTMLProps{Class: "btn btn-primary"},
-			}, "Back to docs")}
+			{components.Button(components.ButtonProps{Variant: "primary", To: "/docs"}, "Back to docs")}
 		</div>
 	)
 }

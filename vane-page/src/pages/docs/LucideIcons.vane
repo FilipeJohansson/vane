@@ -93,6 +93,11 @@ func LucideIcons() core.Node {
 					"Add Lucide Icons",
 					"Vane has no icon library of its own. This site wires up Lucide the same way any plain JS-interop library works: a global script tag plus a couple of syscall/js calls, no Go-native port required.",
 				)}
+				{pageSummary(
+					core.Text("Integration is a global <script> tag plus a couple of syscall/js calls."),
+					core.Fragment(core.Text("Icons that mount after the initial page load (modals, dynamic lists) need their own "), code("lucide.createIcons()"), core.Text(" call.")),
+					core.Text("The same pattern works for any plain JS library."),
+				)}
 
 				<h2 className="docs-h2" id="load-the-script">Load the script</h2>
 				<p className="docs-p">
@@ -140,7 +145,7 @@ func LucideIcons() core.Node {
 
 				{pageNav("lucide-icons")}
 			</article>
-			{toc(items)}
+			{toc(items, "lucide-icons")}
 		</div>
 	)
 }

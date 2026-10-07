@@ -1,6 +1,7 @@
 package layouts
 
 import (
+	"fmt"
 	"strings"
 
 	"github.com/filipejohansson/vane/core"
@@ -10,26 +11,137 @@ import (
 	"vane-page/src/pages/docs"
 )
 
+// searchShortcutLabel is the display-only hint text: the actual shortcut
+// already answers to both Ctrl+K and Cmd+K (setupSearchShortcut), this just
+// shows whichever one matches the reader's OS.
+func searchShortcutLabel() string {
+	if isMac() {
+		return "⌘K"
+	}
+	return "Ctrl K"
+}
+
+func searchTriggerIcon() core.Node {
+	return <span className="docs-search-trigger-icon" aria-hidden="true">{components.Icon("search")}</span>
+}
+
+func searchTriggerLabel() core.Node {
+	return <span className="docs-search-trigger-label">Search docs</span>
+}
+
+func searchResetIcon() core.Node {
+	return <span className="docs-search-reset-icon" aria-hidden="true">{components.Icon("x")}</span>
+}
+
+func searchTriggerKbd() core.Node {
+	return <kbd className="docs-search-kbd">{searchShortcutLabel()}</kbd>
+}
+
 func searchTriggerButton(ctrl *searchCtrl) core.Node {
-	return (
-		<button type="button" className="docs-search-trigger" onClick={func(core.MouseEvent) { ctrl.Open() }} aria-label="Search docs">
-			<span className="docs-search-trigger-icon" aria-hidden="true">{components.Icon("search")}</span>
-			<span className="docs-search-trigger-label">Search docs</span>
-			<kbd className="docs-search-kbd">Ctrl K</kbd>
-		</button>
+	return components.IconButton(
+		components.IconButtonProps{Class: "docs-search-trigger", AriaLabel: "Search docs", OnClick: func(core.MouseEvent) { ctrl.Open() }},
+		searchTriggerIcon(), searchTriggerLabel(), searchTriggerKbd(),
 	)
 }
 
-func searchResultRow(r docs.SearchResult, onSelect func()) core.Node {
+// searchResultID is the DOM id given to each result row, stable across
+// re-renders since it's purely a function of flat index - arrow-key
+// navigation uses it to scroll the newly active row into view.
+func searchResultID(i int) string {
+	return fmt.Sprintf("search-result-%d", i)
+}
+
+func searchResultRowContent(r docs.SearchResult) core.Node {
 	return (
-		<li key={r.RoutePath() + "#" + r.AnchorID}>
-			<button type="button" className="docs-search-result" onClick={func(core.MouseEvent) { onSelect() }}>
-				<span className="docs-search-result-category">{r.Category}</span>
-				<span className="docs-search-result-title">{r.Title}</span>
+		<div className="docs-search-result-container">
+			<span className="docs-search-result-category">{r.Category}</span>
+			<div className="docs-search-result-wrapper">
+				<span className="docs-search-result-title docs-search-result-text-nowrap">{r.Title}</span>
 				{if r.Heading != "" {
-					<span className="docs-search-result-sub">{r.Heading}</span>
+					<>
+						<span className="docs-search-result-sub-icon"></span>
+						<span className="docs-search-result-sub docs-search-result-text-nowrap">{r.Heading}</span>
+					</>
 				}}
-			</button>
+			</div>
+		</div>
+	)
+}
+
+func searchResultSelectIcon() core.Node {
+	return <span className="docs-search-result-select-icon">{components.Icon("corner-down-left")}</span>
+}
+
+func searchResultRow(r docs.SearchResult, i int, active int, onSelect func()) core.Node {
+	cls := "docs-search-result"
+	if i == active {
+		cls = "docs-search-result docs-search-result--active"
+	}
+	return (
+		<li id={searchResultID(i)} key={r.RoutePath() + "#" + r.AnchorID} role="option" aria-selected={i == active}>
+			{components.IconButton(
+				components.IconButtonProps{Class: cls, OnClick: func(core.MouseEvent) { onSelect() }},
+				searchResultRowContent(r), searchResultSelectIcon(),
+			)}
+		</li>
+	)
+}
+
+// searchResultGroup is every result under one Section header (Tutorial /
+// Guide / CLI / Reference), shown once above everything found inside it.
+type searchResultGroup struct {
+	section string
+	results []docs.SearchResult
+}
+
+// groupResultsBySection buckets results by their Section, preserving both
+// each result's relative rank within its group and the order sections first
+// appear in - Search's own title/heading/summary ranking still decides
+// what's first within a group, grouping only decides which group comes
+// first.
+func groupResultsBySection(results []docs.SearchResult) []searchResultGroup {
+	var order []string
+	byName := map[string]*searchResultGroup{}
+	for _, r := range results {
+		sec := docs.SectionOf(r.Category)
+		g, ok := byName[sec]
+		if !ok {
+			g = &searchResultGroup{section: sec}
+			byName[sec] = g
+			order = append(order, sec)
+		}
+		g.results = append(g.results, r)
+	}
+	groups := make([]searchResultGroup, len(order))
+	for i, sec := range order {
+		groups[i] = *byName[sec]
+	}
+	return groups
+}
+
+// flattenGroups re-linearizes grouped results back into the exact order
+// they're rendered in, so a single flat "active" index (arrow-key nav) maps
+// onto the right row regardless of grouping.
+func flattenGroups(groups []searchResultGroup) []docs.SearchResult {
+	var out []docs.SearchResult
+	for _, g := range groups {
+		out = append(out, g.results...)
+	}
+	return out
+}
+
+func searchResultGroupNode(g searchResultGroup, startIndex int, active int, onSelect func(docs.SearchResult) func()) core.Node {
+	rows := make([]core.Node, len(g.results))
+	for i, r := range g.results {
+		idx := startIndex + i
+		rows[i] = searchResultRow(r, idx, active, onSelect(r))
+	}
+	return (
+		<li className="docs-search-group">
+			<span className="docs-search-group-label">{g.section}</span>
+			<ul className="docs-search-group-list">
+				{rows...}
+			</ul>
 		</li>
 	)
 }
@@ -52,7 +164,16 @@ func searchModal(ctrl *searchCtrl) core.Node {
 		// panel re-asks Lucide each time it reopens.
 		components.RefreshIcons()
 
-		results := docs.Search(ctrl.query.Get())
+		groups := groupResultsBySection(docs.Search(ctrl.query.Get()))
+		results := flattenGroups(groups)
+
+		active := ctrl.active.Get()
+		if active >= len(results) {
+			active = len(results) - 1
+		}
+		if active < 0 {
+			active = 0
+		}
 
 		selectResult := func(r docs.SearchResult) func() {
 			return func() {
@@ -65,9 +186,53 @@ func searchModal(ctrl *searchCtrl) core.Node {
 			}
 		}
 
-		rows := make([]core.Node, len(results))
-		for i, r := range results {
-			rows[i] = searchResultRow(r, selectResult(r))
+		scrollActiveIntoView := func(i int) {
+			// Deferred: active.Set below rebuilds the whole results list, which
+			// would instantly undo a synchronous scroll here.
+			core.NextTick(func() {
+				container, ok := core.GetElementByID("docs-search-results")
+				if !ok {
+					return
+				}
+				el, ok := core.GetElementByID(searchResultID(i))
+				if !ok {
+					return
+				}
+				// Nudge scrollTop by the overflow amount only, not
+				// core.ScrollIntoView (block:"start" always top-aligns).
+				cr := core.BoundingRect(container)
+				er := core.BoundingRect(el)
+				raw := core.Unwrap(container)
+				current := raw.Get("scrollTop").Float()
+				switch {
+				case er.Top < cr.Top:
+					raw.Set("scrollTop", current-(cr.Top-er.Top))
+				case er.Bottom > cr.Bottom:
+					raw.Set("scrollTop", current+(er.Bottom-cr.Bottom))
+				}
+			})
+		}
+
+		moveActive := func(delta int) {
+			if len(results) == 0 {
+				return
+			}
+			next := ctrl.active.Get() + delta
+			switch {
+			case next < 0:
+				next = 0
+			case next >= len(results):
+				next = len(results) - 1
+			}
+			ctrl.active.Set(next)
+			scrollActiveIntoView(next)
+		}
+
+		groupNodes := make([]core.Node, len(groups))
+		start := 0
+		for i, g := range groups {
+			groupNodes[i] = searchResultGroupNode(g, start, active, selectResult)
+			start += len(g.results)
 		}
 
 		return (
@@ -96,8 +261,20 @@ func searchModal(ctrl *searchCtrl) core.Node {
 					role="dialog" aria-modal="true" aria-label="Search docs"
 					className="docs-search-dialog"
 					onKeyDown={func(e core.KeyEvent) {
-						if e.Key == "Escape" {
+						switch e.Key {
+						case "Escape":
 							ctrl.Close()
+						case "ArrowDown":
+							e.PreventDefault()
+							moveActive(1)
+						case "ArrowUp":
+							e.PreventDefault()
+							moveActive(-1)
+						case "Enter":
+							if active >= 0 && active < len(results) {
+								e.PreventDefault()
+								selectResult(results[active])()
+							}
 						}
 					}}
 				>
@@ -111,9 +288,15 @@ func searchModal(ctrl *searchCtrl) core.Node {
 							placeholder="Search docs..."
 							aria-label="Search docs"
 							value={ctrl.query.Get()}
-							onInput={func(e core.InputEvent) { ctrl.query.Set(e.Value) }}
+							onInput={func(e core.InputEvent) { ctrl.query.Set(e.Value); ctrl.active.Set(0) }}
 						/>
-						<button type="button" className="docs-search-close" onClick={func(core.MouseEvent) { ctrl.Close() }} aria-label="Close search">Esc</button>
+						{if ctrl.query.Get() != "" {
+							components.IconButton(
+								components.IconButtonProps{Type: "reset", Class: "docs-search-reset", AriaLabel: "Reset search", OnClick: func(core.MouseEvent) { ctrl.query.Set("") }},
+								searchResetIcon(),
+							)
+						}}
+						{components.IconButton(components.IconButtonProps{Class: "docs-search-close", AriaLabel: "Close search", OnClick: func(core.MouseEvent) { ctrl.Close() }}, "Esc")}
 					</div>
 
 					{if strings.TrimSpace(ctrl.query.Get()) == "" {
@@ -121,8 +304,8 @@ func searchModal(ctrl *searchCtrl) core.Node {
 					} else if len(results) == 0 {
 						<p className="docs-search-hint">No results for "{ctrl.query.Get()}".</p>
 					} else {
-						<ul className="docs-search-results">
-							{rows...}
+						<ul id="docs-search-results" className="docs-search-results">
+							{groupNodes...}
 						</ul>
 					}}
 				</div>

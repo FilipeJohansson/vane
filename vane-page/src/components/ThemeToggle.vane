@@ -46,6 +46,9 @@ func ThemeToggle() core.Node {
 		}
 	}
 
+	// Icon swap written as literal JSX (not routed through IconButton like
+	// most other buttons), same reason as CopyButton: needs to stay
+	// reactive to store.Theme on its own.
 	return (
 		<button className="theme-toggle" type="button" aria-label="Toggle color theme" onClick={func(core.MouseEvent) { toggle() }}>
 			{if store.Theme.Get() == "dark" {

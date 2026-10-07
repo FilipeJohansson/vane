@@ -58,9 +58,14 @@ func APIReference() core.Node {
 		<div className="docs-page">
 			<article className="docs-article">
 				{docsHeader(
-					"API Reference",
+					"Reference",
 					"API Reference",
 					"An index of Vane's public API, organized by concept. Each entry links to its full generated documentation on pkg.go.dev; the guides linked alongside cover how and why to use it.",
+				)}
+				{pageSummary(
+					core.Text("Grouped by concept - each entry links to its pkg.go.dev documentation."),
+					core.Fragment(core.Text("Links always include "), code("?GOOS=js&GOARCH=wasm"), core.Text(" - godoc hides almost everything in "), code("core"), core.Text(" without it.")),
+					core.Text("Stability tiers (stable/experimental) aren't marked yet."),
 				)}
 				<p className="docs-p">
 					See{" "}
@@ -129,7 +134,7 @@ func APIReference() core.Node {
 				<p className="docs-p">
 					The primitives the compiler emits for <code>{"{expr}"}</code>,{" "}
 					<code>{"{slice...}"}</code>, and reactive props/styles — see{" "}
-					{apiDocLink("jsx-syntax", "JSX Syntax")} for the source-level syntax
+					{apiDocLink("vane-syntax", "Vane Syntax")} for the source-level syntax
 					these correspond to.
 				</p>
 				{docsTable(
@@ -173,11 +178,11 @@ func APIReference() core.Node {
 
 				<h2 className="docs-h2" id="events">Events</h2>
 				<p className="docs-p">
-					Every <code>On*</code> JSX prop (<code>onClick</code>,{" "}
+					Every <code>On*</code> prop (<code>onClick</code>,{" "}
 					<code>onInput</code>, <code>onSubmit</code>, and the rest) is
-					documented as a table in {apiDocLink("jsx-syntax", "JSX Syntax")},
+					documented as a table in {apiDocLink("vane-syntax", "Vane Syntax")},
 					with its handler signature — not repeated here. The event types
-					those handlers receive, and the few events with no JSX prop
+					those handlers receive, and the few events with no prop
 					(window-level listeners), are:
 				</p>
 				{docsTable(
@@ -191,7 +196,7 @@ func APIReference() core.Node {
 						apiRow(corePkgURL, "SubmitEvent", "SubmitEvent", "onSubmit — preventDefault is already called before your handler runs."),
 						apiRow(corePkgURL, "TouchEvent", "TouchEvent", "Touch events: every active TouchPoint."),
 						apiRow(corePkgURL, "ListenerOpts", "ListenerOpts", "Configures OnWindowEvent (e.g. Passive)."),
-						apiRow(corePkgURL, "OnWindowEvent", "OnWindowEvent", "Attaches to a window-level event with no per-element JSX prop."),
+						apiRow(corePkgURL, "OnWindowEvent", "OnWindowEvent", "Attaches to a window-level event with no per-element prop."),
 						apiRow(corePkgURL, "OnWindowKeyDown", "OnWindowKeyDown", "Global keyboard shortcuts (Ctrl/Cmd+K and friends)."),
 						apiRow(corePkgURL, "OnWindowMouseMove", "OnWindowMouseMove", "Tracks the pointer across the whole viewport, not one element."),
 					},
@@ -275,7 +280,7 @@ func APIReference() core.Node {
 
 				{pageNav("api-reference")}
 			</article>
-			{toc(items)}
+			{toc(items, "api-reference")}
 		</div>
 	)
 }

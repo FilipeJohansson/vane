@@ -72,9 +72,14 @@ func Signals() core.Node {
 		<div className="docs-page">
 			<article className="docs-article">
 				{docsHeader(
-					"Core Concepts",
+					"Start a New Project",
 					"Signals & Reactivity",
-					"core.NewSignal creates reactive state. Each binding in JSX becomes its own Effect - when a signal changes, only that specific binding re-runs, not the whole component.",
+					"core.NewSignal creates reactive state. Each binding in Vane's syntax becomes its own Effect - when a signal changes, only that specific binding re-runs, not the whole component.",
+				)}
+				{pageSummary(
+					core.Fragment(code("Get()"), core.Text("/"), code("Set()"), core.Text(" on a "), code("core.NewSignal"), core.Text(" - reads inside a binding or "), code("core.Effect"), core.Text(" are auto-tracked.")),
+					core.Text("Only the bindings that read a changed signal update, not the whole component."),
+					core.Fragment(code("core.OnDispose"), core.Text(" cleans up non-reactive resources (timers, goroutines) on unmount.")),
 				)}
 
 				<h2 className="docs-h2" id="creating-signals">Creating signals</h2>
@@ -121,7 +126,7 @@ func Signals() core.Node {
 
 				{pageNav("signals")}
 			</article>
-			{toc(items)}
+			{toc(items, "signals")}
 		</div>
 	)
 }

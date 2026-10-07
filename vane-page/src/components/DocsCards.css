@@ -1,38 +1,153 @@
-.docs-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 1.1rem;
+.learn-accordion {
+  display: flex;
+  height: 420px;
+  width: 100vw;
+  position: relative;
+  left: 50%;
+  right: 50%;
+  margin-left: -50vw;
+  margin-right: -50vw;
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
 }
 
-.doc-card {
-  display: block;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  padding: 1.4rem;
+.learn-panel {
+  position: relative;
+  display: flex;
+  flex: 1 1 0%;
+  min-width: 160px;
+  border-right: 1px solid var(--border);
+  background: transparent;
   text-decoration: none;
-  transition: border-color 0.15s, transform 0.15s;
+  transition: flex-grow 0.55s cubic-bezier(0.65, 0, 0.35, 1);
 }
 
-.doc-card:hover { border-color: var(--accent); transform: translateY(-2px); }
+.learn-panel:last-child { border-right: none; }
 
-.doc-card-title {
-  font-size: 1rem;
-  font-weight: 700;
-  margin-bottom: 0.4rem;
+.learn-accordion:hover .learn-panel { flex-grow: 0; }
+.learn-accordion:hover .learn-panel:hover { flex-grow: 5; }
+
+.learn-panel-inner {
+  position: relative;
+  width: 100%;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  padding: 2.5rem 2rem;
+}
+
+.learn-panel-flare {
+  position: absolute;
+  z-index: 0;
+  inset: 0;
+  background: radial-gradient(circle at 100% 50%, var(--accent-glow), transparent 60%);
+  opacity: 0;
+  transform: scaleX(0);
+  transform-origin: right center;
+  transition: opacity 0.5s, transform 0.55s cubic-bezier(0.65, 0, 0.35, 1);
+  pointer-events: none;
+}
+
+.learn-panel:hover .learn-panel-flare { opacity: 0.4; transform: scaleX(1); }
+
+.learn-panel-ghost {
+  position: absolute;
+  z-index: 0;
+  left: -28px;
+  bottom: -28px;
+  width: 230px;
+  height: 230px;
+  color: var(--accent);
+  opacity: 0.055;
+  pointer-events: none;
+}
+
+.learn-panel-ghost svg { width: 100%; height: 100%; }
+
+.learn-panel-title {
+  position: relative;
+  z-index: 1;
+  max-width: 8.5rem;
+  font-size: 1.4rem;
+  font-weight: 500;
+  line-height: 1.25;
+  letter-spacing: -0.005em;
   color: var(--text);
 }
 
-.doc-card-desc {
+.learn-panel-reveal {
+  position: relative;
+  z-index: 1;
+  margin-top: auto;
+  max-width: 320px;
+  opacity: 0;
+  transform: translateY(10px);
+  transition: opacity 0.3s, transform 0.3s;
+}
+
+.learn-panel:hover .learn-panel-reveal {
+  opacity: 1;
+  transform: translateY(0);
+  transition-delay: 0.2s;
+}
+
+.learn-panel-desc {
   color: var(--muted);
-  font-size: 0.85rem;
-  line-height: 1.5;
+  font-size: 0.92rem;
+  line-height: 1.6;
+  margin-bottom: 1rem;
 }
 
-@media (max-width: 860px) {
-  .docs-grid { grid-template-columns: repeat(2, 1fr); }
+.learn-panel-cta {
+  position: absolute;
+  z-index: 1;
+  top: 2.5rem;
+  right: 2rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  color: var(--accent);
+  font-size: 1.05rem;
+  font-weight: 600;
+  white-space: nowrap;
+  opacity: 0;
+  transform: translateX(8px);
+  transition: opacity 0.3s, transform 0.3s;
 }
 
-@media (max-width: 560px) {
-  .docs-grid { grid-template-columns: 1fr; }
+.learn-panel:hover .learn-panel-cta {
+  opacity: 1;
+  transform: translateX(0);
+  transition-delay: 0.2s;
+}
+
+.learn-panel-arrow svg { width: 15px; height: 15px; }
+
+/* Touch devices have no hover, so the expand/reveal mechanic above never
+   triggers - description and CTA would stay permanently hidden. Below the
+   breakpoint, drop the whole interaction: stack plain, static rows with
+   the reveal always shown, no flex-grow tug-of-war left to depend on a
+   hover that won't come. */
+@media (max-width: 720px) {
+  .learn-accordion { flex-direction: column; height: auto; }
+  .learn-panel,
+  .learn-accordion:hover .learn-panel,
+  .learn-accordion:hover .learn-panel:hover {
+    flex-grow: 1;
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+    min-height: 150px;
+  }
+  .learn-panel:last-child { border-bottom: none; }
+  .learn-panel-title { max-width: none; }
+  .learn-panel-reveal { opacity: 1; transform: none; max-width: none; margin-top: 0.75rem; }
+  .learn-panel-cta { opacity: 1; transform: none; top: 1.75rem; right: 1.5rem; font-size: 0.95rem; }
+  .learn-panel-flare { opacity: 0.4; transform: scaleX(1); }
+  .learn-panel-inner { padding: 1.75rem 1.5rem; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .learn-panel, .learn-panel-reveal, .learn-panel-flare, .learn-panel-cta {
+    transition: none !important;
+  }
 }

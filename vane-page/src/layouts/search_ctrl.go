@@ -15,16 +15,22 @@ import (
 // searchCtrl, shared by the trigger button, the global Ctrl/Cmd+K shortcut,
 // and the modal itself.
 type searchCtrl struct {
-	open  *core.Signal[bool]
-	query *core.Signal[string]
+	open   *core.Signal[bool]
+	query  *core.Signal[string]
+	active *core.Signal[int]
 }
 
 func newSearchCtrl() *searchCtrl {
-	return &searchCtrl{open: core.NewSignal(false), query: core.NewSignal("")}
+	return &searchCtrl{open: core.NewSignal(false), query: core.NewSignal(""), active: core.NewSignal(0)}
 }
 
-func (s *searchCtrl) Open()  { s.query.Set(""); s.open.Set(true) }
+func (s *searchCtrl) Open()  { s.query.Set(""); s.active.Set(0); s.open.Set(true) }
 func (s *searchCtrl) Close() { s.open.Set(false) }
+
+func isMac() bool {
+	platform := core.Window().Get("navigator").Get("platform").String()
+	return strings.Contains(platform, "Mac") || strings.Contains(platform, "iPhone") || strings.Contains(platform, "iPad")
+}
 
 // setupSearchShortcut opens ctrl on Ctrl+K / Cmd+K from anywhere in the docs
 // section.

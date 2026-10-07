@@ -43,6 +43,11 @@ func Concepts() core.Node {
 					"Concepts",
 					"Understanding these ideas first will make the rest of the documentation much easier to follow.",
 				)}
+				{pageSummary(
+					core.Text("Components run once. Reactive updates come from signals, not from calling the function again."),
+					core.Fragment(core.Text("Vane compiles "), code(".vane"), core.Text(" to ordinary Go before "), code("go build"), core.Text(" runs. There is no virtual DOM or diffing.")),
+					core.Fragment(core.Text("The app has one root: "), code("core.Mount()"), core.Text(", called once.")),
+				)}
 				{callout("tip", "Reference", "For the exact syntax rules behind these ideas, see ", apiDocLink("language-spec", ".vane Language Spec"), ".")}
 
 				<h2 className="docs-h2" id="vane-syntax">Vane syntax, not JSX</h2>
@@ -133,7 +138,7 @@ func Concepts() core.Node {
 					[][]core.Node{
 						{core.Text("Run code once"), core.Text("Function body")},
 						{core.Text("React to state changes"), code("core.Effect")},
-						{core.Text("Update the DOM"), core.Text("JSX bindings")},
+						{core.Text("Update the DOM"), core.Text("Vane syntax bindings")},
 						{core.Text("Clean up on unmount"), code("core.OnDispose")},
 						{core.Text("Clean up before an Effect runs again"), core.Fragment(core.Text("Return a cleanup function from "), code("core.Effect"))},
 					},
@@ -141,7 +146,7 @@ func Concepts() core.Node {
 
 				{pageNav("concepts")}
 			</article>
-			{toc(items)}
+			{toc(items, "concepts")}
 		</div>
 	)
 }

@@ -2,7 +2,7 @@ package layouts
 
 import (
 	"fmt"
-	"time"
+	"strings"
 
 	"github.com/filipejohansson/vane/core"
 	"github.com/filipejohansson/vane/core/router"
@@ -27,33 +27,116 @@ func docsSidebarLink(t docs.Topic, onNavigate func()) core.Node {
 	)
 }
 
-func docsSidebarGroup(category string, onNavigate func()) core.Node {
+// docsSidebarGroupTitle appends a live "(done/total)" fraction to the
+// Tutorial category.
+func docsSidebarGroupTitle(category string) string {
+	if category != "Tutorial" {
+		return category
+	}
+	return fmt.Sprintf("%s (%d/%d)", category, docs.TutorialCompletedCount(), len(docs.TutorialUnitSlugs))
+}
+
+func docsGroupChevron() core.Node {
+	return <span className="docs-nav-group-chevron" aria-hidden="true">{components.Icon("chevron-right")}</span>
+}
+
+func docsGroupTitle(category string) core.Node {
+	return <span className="docs-nav-group-title">{docsSidebarGroupTitle(category)}</span>
+}
+
+// docsSidebarGroup renders one collapsible category: toggle button with a
+// rotating chevron, topic list shown only while open.
+func docsSidebarGroup(category string, open bool, onToggle func(), onNavigate func()) core.Node {
 	topics := docs.TopicsIn(category)
 	links := make([]core.Node, len(topics))
 	for i, t := range topics {
 		links[i] = docsSidebarLink(t, onNavigate)
 	}
+	cls := "docs-nav-group"
+	if open {
+		cls = "docs-nav-group docs-nav-group--open"
+	}
 	return (
-		<div className="docs-nav-group">
-			<span className="docs-nav-group-title">{category}</span>
-			<ul className="docs-nav-list">
-				{links...}
-			</ul>
+		<div className={cls}>
+			{components.IconButton(
+				components.IconButtonProps{Class: "docs-nav-group-toggle", AriaExpanded: &open, OnClick: func(core.MouseEvent) { onToggle() }},
+				docsGroupChevron(), docsGroupTitle(category),
+			)}
+			{if open {
+				<ul className="docs-nav-list">
+					{links...}
+				</ul>
+			} else {
+				<span />
+			}}
 		</div>
 	)
 }
 
-// backToTopThreshold is how far down the page (in px) the reader has to
-// scroll before the back-to-top button appears.
-const backToTopThreshold = 400.0
+// docsSidebarGroups renders every Category in the active Section as its own
+// accordion group. Open/closed is derived (open iff current page's category,
+// unless overridden), never synced via an Effect Set - an earlier version
+// did that and hung on cold boot even with the read Untracked.
+func docsSidebarGroups(activeSection *core.Signal[string], catOverride *core.Signal[map[string]bool], onToggle func(string), onNavigate func()) core.Node {
+	components.RefreshIcons()
+	currentCat := categoryOfPath(router.Path().Get())
+	cats := docs.CategoriesIn(activeSection.Get())
+	overrides := catOverride.Get()
+	nodes := make([]core.Node, len(cats))
+	for i, c := range cats {
+		cat := c
+		open := cat == currentCat
+		if v, ok := overrides[cat]; ok {
+			open = v
+		}
+		nodes[i] = docsSidebarGroup(cat, open, func() { onToggle(cat) }, onNavigate)
+	}
+	return core.Fragment(nodes...)
+}
+
+// sectionTab is one entry in the top Tutorial/Guide/CLI/Reference switcher.
+func sectionTab(section string, active string, onSelect func(string)) core.Node {
+	cls := "docs-section-tab"
+	selected := section == active
+	if selected {
+		cls = "docs-section-tab docs-section-tab--active"
+	}
+	return components.IconButton(
+		components.IconButtonProps{Role: "tab", AriaSelected: &selected, Class: cls, OnClick: func(core.MouseEvent) { onSelect(section) }},
+		section,
+	)
+}
+
+func sectionTabs(active *core.Signal[string], onSelect func(string)) core.Node {
+	cur := active.Get()
+	tabs := make([]core.Node, len(docs.Sections))
+	for i, s := range docs.Sections {
+		tabs[i] = sectionTab(s, cur, onSelect)
+	}
+	return (
+		<div className="docs-section-tabs" role="tablist" aria-label="Documentation sections">
+			{tabs...}
+		</div>
+	)
+}
+
+// categoryOfPath resolves the manifest Category for whatever /docs/<slug>
+// path is currently loaded, defaulting to the overview's own category for
+// anything unrecognized (e.g. mid-navigation transients).
+func categoryOfPath(path string) string {
+	slug := strings.TrimPrefix(strings.TrimPrefix(path, "/docs"), "/")
+	if t, ok := docs.TopicBySlug(slug); ok {
+		return t.Category
+	}
+	return "Getting Started"
+}
 
 // setupReadingProgress watches window scroll and reports how far down the
-// page the user has scrolled, as a 0-100 percentage, and whether the
-// back-to-top button should show. Called once from a ref callback:
-// DocsLayout is a router.Layout shell, it stays mounted across /docs
-// sub-navigation, so this listener (and the state it tracks) lives for the
-// whole docs session instead of being torn down per page.
-func setupReadingProgress(progress *core.Signal[float64], showBackToTop *core.Signal[bool]) {
+// page the user has scrolled, as a 0-100 percentage. Called once from a ref
+// callback: DocsLayout is a router.Layout shell, it stays mounted across
+// /docs sub-navigation, so this listener lives for the whole docs session
+// instead of being torn down per page.
+func setupReadingProgress(progress *core.Signal[float64]) {
 	update := func() {
 		scrollTop := core.ScrollY()
 		scrollHeight, clientHeight := core.DocumentHeight()
@@ -69,7 +152,6 @@ func setupReadingProgress(progress *core.Signal[float64], showBackToTop *core.Si
 			}
 		}
 		progress.Set(pct)
-		showBackToTop.Set(scrollTop > backToTopThreshold)
 	}
 
 	// Deferred a tick for the same reason as setupScrollSpy in widgets.vane:
@@ -94,26 +176,15 @@ func toggleClass(open bool) string {
 	return "docs-sidebar-toggle"
 }
 
-func backToTopClass(visible bool) string {
-	if visible {
-		return "docs-backtotop docs-backtotop--visible"
-	}
-	return "docs-backtotop"
+func docsSidebarToggleIcon() core.Node {
+	return <span className="docs-sidebar-toggle-icon" aria-hidden="true">{components.Icon("chevron-down")}</span>
 }
 
-func backToTopIconClass(spinning bool) string {
-	if spinning {
-		return "docs-backtotop-icon docs-backtotop-icon--spin"
-	}
-	return "docs-backtotop-icon"
-}
-
-// backToTopTabIndex keeps the hidden (opacity:0) button out of tab order.
-func backToTopTabIndex(visible bool) int {
-	if visible {
-		return 0
-	}
-	return -1
+func docsSidebarToggleButton(open bool, toggle func()) core.Node {
+	return components.IconButton(
+		components.IconButtonProps{Class: toggleClass(open), AriaExpanded: &open, OnClick: func(core.MouseEvent) { toggle() }},
+		"Browse docs", docsSidebarToggleIcon(),
+	)
 }
 
 // DocsLayout is the persistent shell for the whole /docs section: the
@@ -121,7 +192,6 @@ func backToTopTabIndex(visible bool) int {
 // content swaps.
 func DocsLayout() core.Node {
 	progress := core.NewSignal(0.0)
-	showBackToTop := core.NewSignal(false)
 	// Mobile-only collapsed panel, see docs-sidebar-toggle/--closed in
 	// DocsLayout.css. On desktop the toggle button is display:none and
 	// docs-sidebar--closed has no effect, so this signal is inert there.
@@ -129,21 +199,38 @@ func DocsLayout() core.Node {
 	toggleSidebar := func() { sidebarOpen.Set(!sidebarOpen.Get()) }
 	closeSidebar := func() { sidebarOpen.Set(false) }
 
-	backToTopSpinning := core.NewSignal(false)
-	scrollToTop := func() {
-		backToTopSpinning.Set(true)
-		core.ScrollTo(0, true)
-		go func() {
-			time.Sleep(300 * time.Millisecond)
-			backToTopSpinning.Set(false)
-		}()
+	activeSection := core.NewSignal("Guide")
+	// catOverride holds only EXPLICIT user toggles, keyed by category. A
+	// category absent from this map uses its derived default (open iff it's
+	// the current page's category - see docsSidebarGroups); toggling flips
+	// away from whatever that effective state currently is.
+	catOverride := core.NewSignal(map[string]bool{})
+	toggleCat := func(cat string) {
+		effective := cat == categoryOfPath(router.Path().Get())
+		m := catOverride.Get()
+		if v, ok := m[cat]; ok {
+			effective = v
+		}
+		next := make(map[string]bool, len(m)+1)
+		for k, v := range m {
+			next[k] = v
+		}
+		next[cat] = !effective
+		catOverride.Set(next)
 	}
+	selectSection := func(s string) { activeSection.Set(s) }
 
-	cats := docs.Categories()
-	groups := make([]core.Node, len(cats))
-	for i, c := range cats {
-		groups[i] = docsSidebarGroup(c, closeSidebar)
-	}
+	// Keeps the section tabs in sync with real navigation (sidebar link
+	// clicks, search result picks, browser back/forward) - independent of
+	// selectSection above, which only fires on a direct tab click and never
+	// touches the route. The accordion groups don't need an equivalent
+	// effect: docsSidebarGroups derives open/closed from router.Path()
+	// itself wherever it's read, reactively, with no signal Set in between.
+	core.Effect(func() func() {
+		cat := categoryOfPath(router.Path().Get())
+		activeSection.Set(docs.SectionOf(cat))
+		return nil
+	})
 
 	search := newSearchCtrl()
 	setupSearchShortcut(search)
@@ -155,37 +242,26 @@ func DocsLayout() core.Node {
 
 	return (
 		<>
-			<div className="docs-progress-track" ref={func(el core.Node) { setupReadingProgress(progress, showBackToTop) }}>
+			<div className="docs-progress-track" ref={func(el core.Node) { setupReadingProgress(progress) }}>
 				<div className="docs-progress-fill" style={core.Style{Width: fmt.Sprintf("%.2f%%", progress.Get())}} />
 			</div>
+			<div className="docs-shell-glow" aria-hidden="true" />
 			<div className="docs-shell">
-				<button
-					type="button"
-					className={toggleClass(sidebarOpen.Get())}
-					aria-expanded={sidebarOpen.Get()}
-					onClick={func(core.MouseEvent) { toggleSidebar() }}
-				>
-					Browse docs
-					<span className="docs-sidebar-toggle-icon" aria-hidden="true">{components.Icon("chevron-down")}</span>
-				</button>
+				{docsSidebarToggleButton(sidebarOpen.Get(), toggleSidebar)}
 				<nav className={sidebarClass(sidebarOpen.Get())} aria-label="Documentation">
-					{searchTriggerButton(search)}
-					{groups...}
+					<div className="docs-sidebar-header">
+						{searchTriggerButton(search)}
+						{sectionTabs(activeSection, selectSection)}
+					</div>
+					<div className="docs-sidebar-scroll">
+						{docsSidebarGroups(activeSection, catOverride, toggleCat, closeSidebar)}
+					</div>
 				</nav>
 				<div className="docs-content-area">
 					{router.Outlet()}
 				</div>
 			</div>
 			{searchModal(search)}
-			<button
-				type="button"
-				className={backToTopClass(showBackToTop.Get())}
-				aria-label="Back to top"
-				tabIndex={backToTopTabIndex(showBackToTop.Get())}
-				onClick={func(core.MouseEvent) { scrollToTop() }}
-			>
-				<span className={backToTopIconClass(backToTopSpinning.Get())} aria-hidden="true">{components.Icon("arrow-up")}</span>
-			</button>
 			<div id="modal-root"></div>
 		</>
 	)

@@ -124,6 +124,11 @@ func Lists() core.Node {
 					"Lists",
 					"Three ways to render a list in Vane, what each one actually costs, and when to reach for which.",
 				)}
+				{pageSummary(
+					core.Fragment(code("{for}"), core.Text(" + "), code("key"), core.Text(" is the recommended default. Unchanged items are not rebuilt.")),
+					core.Fragment(core.Text("Without a "), code("key"), core.Text(", the whole list rebuilds on every change. That's fine for small lists that rarely change.")),
+					core.Fragment(code("core.List[T]"), core.Text(" skips list reconciliation for field-level updates.")),
+				)}
 
 				<h2 className="docs-h2" id="the-basics">The basics</h2>
 				<p className="docs-p">
@@ -131,7 +136,7 @@ func Lists() core.Node {
 					that re-runs when the data it reads changes - a plain slice built once
 					at mount never updates, since the component function itself doesn't
 					re-run. Vane has two constructs for this: a native{" "}
-					<code>{"{for}"}</code> loop directly in JSX, or a separate function
+					<code>{"{for}"}</code> loop directly in your markup, or a separate function
 					returning <code>[]core.Node</code> spread with{" "}
 					<code>{"{items()...}"}</code>. <code>{"{for}"}</code> is the one to
 					reach for by default - see below for why.
@@ -187,7 +192,7 @@ func Lists() core.Node {
 					whose data genuinely changed get rebuilt, and only the keys that
 					actually moved get repositioned.
 				</p>
-				{callout("tip", "Tip", "This is the recommended default for most reactive lists. See JSX Syntax for the full {for} syntax.")}
+				{callout("tip", "Tip", "This is the recommended default for most reactive lists. See Vane Syntax for the full {for} syntax.")}
 
 				<h2 className="docs-h2" id="items-spread"><code>{"{items()...}"}</code>: when you need raw nodes</h2>
 				<p className="docs-p">
@@ -257,7 +262,7 @@ func Lists() core.Node {
 
 				{pageNav("lists")}
 			</article>
-			{toc(items)}
+			{toc(items, "lists")}
 		</div>
 	)
 }

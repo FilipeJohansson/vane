@@ -9,6 +9,17 @@ const githubSVG = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" st
 
 const githubHref = "https://github.com/filipejohansson/vane"
 
+func navBurgerLine() core.Node {
+	return <span className="nav-burger-line" />
+}
+
+func navBurger(open bool, toggle func()) core.Node {
+	return IconButton(
+		IconButtonProps{Class: "nav-burger", AriaLabel: "Toggle menu", AriaExpanded: &open, OnClick: func(core.MouseEvent) { toggle() }},
+		navBurgerLine(), navBurgerLine(), navBurgerLine(),
+	)
+}
+
 // sectionLink returns an onClick handler for a nav link to a section (id)
 // that only exists on the home page. href="/#id" already gets same-page
 // anchor scrolling right for free once on "/" (see PathLocation's click
@@ -52,13 +63,30 @@ func Nav() core.Node {
 		return nil
 	})
 
+	// A click anywhere outside the panel (and not on the burger itself,
+	// which already toggles) closes it. Window-level, so it also catches a
+	// click on the page content behind the panel, not just a dedicated
+	// backdrop element.
+	core.OnWindowEvent("click", func(e core.Event) {
+		if !menuOpen.Get() {
+			return
+		}
+		target := core.Unwrap(e.Target())
+		if !target.Call("closest", ".nav-mobile-panel").IsNull() {
+			return
+		}
+		if !target.Call("closest", ".nav-burger").IsNull() {
+			return
+		}
+		closeMenu()
+	}, core.ListenerOpts{})
+
 	return (
 		<header className="nav">
-			{router.Link(router.LinkProps{To: "/", HTMLProps: core.HTMLProps{Class: "nav-brand", OnClick: func(core.MouseEvent) { closeMenu() }}}, "Vane")}
+			{router.Link(router.LinkProps{To: "/", HTMLProps: core.HTMLProps{Class: "nav-brand", OnClick: func(core.MouseEvent) { closeMenu() }}}, Logo(), "Vane")}
 			<nav className="nav-links" aria-label="Section">
-				{router.Link(router.LinkProps{To: "/#reactivity", HTMLProps: core.HTMLProps{Class: "nav-link", OnClick: sectionLink("reactivity")}}, "Reactivity")}
+				{router.Link(router.LinkProps{To: "/#demo", HTMLProps: core.HTMLProps{Class: "nav-link", OnClick: sectionLink("demo")}}, "Demo")}
 				{router.Link(router.LinkProps{To: "/#features", HTMLProps: core.HTMLProps{Class: "nav-link", OnClick: sectionLink("features")}}, "Features")}
-				{router.Link(router.LinkProps{To: "/#examples", HTMLProps: core.HTMLProps{Class: "nav-link", OnClick: sectionLink("examples")}}, "Examples")}
 				{router.Link(router.LinkProps{To: "/docs", HTMLProps: core.HTMLProps{Class: "nav-link"}}, "Documentation")}
 			</nav>
 			<div className="nav-actions">
@@ -73,24 +101,11 @@ func Nav() core.Node {
 					<span>GitHub</span>
 				</a>
 				{ThemeToggle()}
-				<button
-					className="nav-burger"
-					type="button"
-					aria-label="Toggle menu"
-					aria-expanded={menuOpen.Get()}
-					onClick={func(core.MouseEvent) { toggleMenu() }}
-				>
-					<span className="nav-burger-line" />
-					<span className="nav-burger-line" />
-					<span className="nav-burger-line" />
-				</button>
+				{navBurger(menuOpen.Get(), toggleMenu)}
 			</div>
 			{if menuOpen.Get() {
-				<div className="nav-mobile-backdrop" onClick={func(core.MouseEvent) { closeMenu() }} />
-			}}
-			{if menuOpen.Get() {
 				<div className="nav-mobile-panel">
-					{router.Link(router.LinkProps{To: "/#reactivity", HTMLProps: core.HTMLProps{Class: "nav-mobile-link", OnClick: func(e core.MouseEvent) { closeMenu(); sectionLink("reactivity")(e) }}}, "Reactivity")}
+					{router.Link(router.LinkProps{To: "/#demo", HTMLProps: core.HTMLProps{Class: "nav-mobile-link", OnClick: func(e core.MouseEvent) { closeMenu(); sectionLink("demo")(e) }}}, "Demo")}
 					{router.Link(router.LinkProps{To: "/#features", HTMLProps: core.HTMLProps{Class: "nav-mobile-link", OnClick: func(e core.MouseEvent) { closeMenu(); sectionLink("features")(e) }}}, "Features")}
 					{router.Link(router.LinkProps{
 						To: "/docs",
@@ -98,8 +113,7 @@ func Nav() core.Node {
 							Class:   "nav-mobile-link",
 							OnClick: func(core.MouseEvent) { closeMenu() },
 						},
-					}, "Docs")}
-					{router.Link(router.LinkProps{To: "/#examples", HTMLProps: core.HTMLProps{Class: "nav-mobile-link", OnClick: func(e core.MouseEvent) { closeMenu(); sectionLink("examples")(e) }}}, "Examples")}
+					}, "Documentation")}
 					<div className="nav-mobile-social">
 						<a
 							className="nav-mobile-icon"
@@ -111,12 +125,11 @@ func Nav() core.Node {
 							{core.DangerousInnerHTML(githubSVG)}
 						</a>
 					</div>
-					{router.Link(router.LinkProps{
-						To: "/docs",
-						HTMLProps: core.HTMLProps{
-							Class:   "btn btn-primary nav-mobile-docs",
-							OnClick: func(core.MouseEvent) { closeMenu() },
-						},
+					{Button(ButtonProps{
+						Variant: "primary",
+						Class:   "nav-mobile-docs",
+						To:      "/docs",
+						OnClick: func(core.MouseEvent) { closeMenu() },
 					}, Icon("book-open"), "Read the docs")}
 				</div>
 			}}

@@ -63,6 +63,11 @@ func Head() core.Node {
 					"Head Management",
 					"core.Head updates document.title and meta tags reactively, scoped so nested components never clobber each other.",
 				)}
+				{pageSummary(
+					core.Fragment(code("core.Head"), core.Text(" updates "), code("document.title"), core.Text(" and meta tags reactively, per route.")),
+					core.Text("Nested components each set their own Head config without clobbering an ancestor's."),
+					core.Text("Runs as a real Effect - signal reads inside it keep the title/meta in sync automatically."),
+				)}
 
 				<h2 className="docs-h2" id="basic-usage">Basic usage</h2>
 				<p className="docs-p">
@@ -124,7 +129,7 @@ func Head() core.Node {
 
 				{pageNav("head")}
 			</article>
-			{toc(items)}
+			{toc(items, "head")}
 		</div>
 	)
 }

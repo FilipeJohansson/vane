@@ -132,9 +132,9 @@ var languageSpecTOCItems = []tocItem{
 	{"compiler-errors", "Compiler errors"},
 }
 
-var jsxSyntaxTOCItems = []tocItem{
+var vaneSyntaxTOCItems = []tocItem{
 	{"props-and-events", "Props & events"},
-	{"jsx-rules", "JSX rules"},
+	{"syntax-rules", "Vane syntax rules"},
 	{"return-nil", "Early exits with return nil"},
 	{"inline-control-flow", "Inline control flow"},
 	{"reactive-lists", "Reactive lists"},
@@ -248,11 +248,33 @@ var troubleshootingTOCItems = []tocItem{
 
 var tutorialTOCItems = []tocItem{
 	{"prerequisites", "Before you begin"},
-	{"step-1-scaffold-the-project", "Step 1: Scaffold the project"},
-	{"step-2-render-the-list", "Step 2: Render the list"},
-	{"step-3-add-new-todos", "Step 3: Add new todos"},
-	{"step-4-toggle-and-remove", "Step 4: Toggle and remove"},
-	{"step-5-filter-by-route", "Step 5: Filter by route"},
+	{"units", "What you'll build"},
+}
+
+var tutorialUnit1TOCItems = []tocItem{
+	{"create-the-project", "Create the project"},
+	{"stylesheet", "Add the stylesheet"},
+}
+
+var tutorialUnit2TOCItems = []tocItem{
+	{"model-the-data", "Model the data"},
+	{"render-the-list", "Render the list"},
+}
+
+var tutorialUnit3TOCItems = []tocItem{
+	{"add-function", "Add a store function"},
+	{"the-form", "Add the form"},
+}
+
+var tutorialUnit4TOCItems = []tocItem{
+	{"store-functions", "Two more store functions"},
+	{"checkbox-and-remove", "Checkbox and remove button"},
+}
+
+var tutorialUnit5TOCItems = []tocItem{
+	{"filter-link", "Add a FilterLink component"},
+	{"three-routes", "Wire three routes"},
+	{"filter-the-data", "Filter the data"},
 	{"next-steps", "What's next"},
 }
 

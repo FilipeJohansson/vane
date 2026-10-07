@@ -7,9 +7,16 @@ import (
 
 func Home() core.Node {
 	core.Head(func() core.HeadConfig {
+		title := "Vane — Frontend development, the Go way."
+		description := "A Go-native frontend framework with fine-grained reactivity, direct DOM updates, and JSX-like syntax."
+		url := core.Window().Get("location").Get("origin").String() + "/vane"
 		return core.HeadConfig{
-			Title:       "Vane | Go web apps",
-			Description: "Vane compiles Go + JSX to WebAssembly. No virtual DOM, no diffing: fine-grained reactivity, direct DOM updates.",
+			Title:         title,
+			Description:   description,
+			Canonical:     url,
+			OGTitle:       title,
+			OGDescription: description,
+			OGURL:         url,
 		}
 	})
 
@@ -18,9 +25,7 @@ func Home() core.Node {
 			{components.Hero()}
 			{components.FeatureTabs()}
 			{components.Features()}
-			{components.Proof()}
 			{components.DocsCards()}
-			{components.Examples()}
 			{components.CommunityCTA()}
 		</>
 	)

@@ -19,7 +19,7 @@ func scaffoldStep(label, cmd string) core.Node {
 			<span className="docs-scaffold-step-label">{label}</span>
 			<div className="install-row docs-scaffold-cmd-row">
 				<code className="install-cmd">{core.DangerousInnerHTML(components.HighlightCLIHTML(cmd))}</code>
-				{components.CopyButton(cmd)}
+				{components.CopyButton(cmd, true)}
 			</div>
 		</div>
 	)
@@ -64,7 +64,7 @@ func highlightCard(t Topic) core.Node {
 func Overview() core.Node {
 	core.Head(func() core.HeadConfig {
 		title := "Docs | Vane"
-		description := "Documentation for Vane: signals, components, JSX syntax, routing, and more."
+		description := "Documentation for Vane: signals, components, Vane syntax, routing, and more."
 		url := core.Window().Get("location").Get("origin").String() + "/vane/docs"
 		return core.HeadConfig{
 			Title:         title,
@@ -77,7 +77,7 @@ func Overview() core.Node {
 	})
 
 	componentsTopic, _ := TopicBySlug("components")
-	jsxTopic, _ := TopicBySlug("jsx-syntax")
+	vaneSyntaxTopic, _ := TopicBySlug("vane-syntax")
 	routingTopic, _ := TopicBySlug("routing")
 	storeTopic, _ := TopicBySlug("store")
 
@@ -111,7 +111,7 @@ func Overview() core.Node {
 				<h2 className="docs-overview-section-title">Learn the fundamentals</h2>
 				<div className="docs-card-grid">
 					{highlightCard(componentsTopic)}
-					{highlightCard(jsxTopic)}
+					{highlightCard(vaneSyntaxTopic)}
 					{highlightCard(routingTopic)}
 					{highlightCard(storeTopic)}
 				</div>

@@ -92,7 +92,7 @@ const formsFieldSnippet = `type FieldProps struct {
 }
 
 // Field takes the backing signal directly (not its resolved value) so the
-// <input>'s value binding stays scoped to this component's own JSX attribute.
+// <input>'s value binding stays scoped to this component's own attribute.
 // Reading value.Get() at the call site instead would make the parent's
 // {Field(...)} slot re-run on every keystroke, rebuilding the input and
 // dropping focus/cursor position.
@@ -142,6 +142,11 @@ func HTMLForms() core.Node {
 					"Build HTML Forms",
 					"Vane has no form library. Inputs are controlled with a signal and value/onInput like any other reactive binding, validation is a core.Effect deriving an error signal, and submit is a plain onClick or onSubmit handler.",
 				)}
+				{pageSummary(
+					core.Text("No form library needed. A controlled input is a signal plus value/onInput, like any other binding."),
+					core.Fragment(code("value={expr}"), core.Text(" is cursor-preserving - setting it to the value the DOM already holds skips the write.")),
+					core.Fragment(core.Text("Validation is a plain "), code("core.Effect"), core.Text(" that derives an error signal. There is no form-validation API.")),
+				)}
 
 				<h2 className="docs-h2" id="controlled-inputs">Controlled inputs</h2>
 				<p className="docs-p">
@@ -150,7 +155,7 @@ func HTMLForms() core.Node {
 					it's the same <code>value={"{expr}"}</code> binding any other element uses:
 				</p>
 				{components.CodeBlock("input.go", formsControlledSnippet)}
-				{callout("tip", "Tip", "value is cursor-preserving: setting it to the string the DOM already holds skips the write instead of resetting the cursor/selection, so typing doesn't fight the reactive update. See JSX Syntax for the full prop table.")}
+				{callout("tip", "Tip", "value is cursor-preserving: setting it to the string the DOM already holds skips the write instead of resetting the cursor/selection, so typing doesn't fight the reactive update. See Vane Syntax for the full prop table.")}
 
 				<h2 className="docs-h2" id="skip-signals">Skip signals when you don't need live values</h2>
 				<p className="docs-p">
@@ -204,7 +209,7 @@ func HTMLForms() core.Node {
 
 				{pageNav("html-forms")}
 			</article>
-			{toc(items)}
+			{toc(items, "html-forms")}
 		</div>
 	)
 }

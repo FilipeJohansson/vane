@@ -1,0 +1,135 @@
+package docs
+
+import (
+	"github.com/filipejohansson/vane/core"
+
+	"vane-page/src/components"
+)
+
+const tutorialStep2StoreSnippet = `//go:build js && wasm
+
+package store
+
+import "github.com/filipejohansson/vane/core"
+
+// Todo is one item in the list.
+type Todo struct {
+    ID   int
+    Text string
+    Done bool
+}
+
+// Todos holds every item in the list, in creation order.
+var Todos = core.NewSignal([]Todo{})`
+
+const tutorialStep2PageSnippet = `package pages
+
+import (
+    "github.com/filipejohansson/vane/core"
+
+    "github.com/you/todo-app/src/store"
+)
+
+func TodoList() core.Node {
+    return (
+        <div className="page">
+            {if len(store.Todos.Get()) == 0 {
+                <p className="todo-empty">No todos yet.</p>
+            } else {
+                <ul className="todo-list">
+                    {for _, t := range store.Todos.Get() {
+                        <li key={t.ID} className="todo-item">
+                            <span className="todo-text">{t.Text}</span>
+                        </li>
+                    }}
+                </ul>
+            }}
+        </div>
+    )
+}`
+
+const tutorialStep2AppSnippet = `func App() core.Node {
+    return (
+        <div className="app">
+            <header className="nav">
+                <span className="nav-brand">Todo App</span>
+            </header>
+            <main className="main">
+                {router.Router(
+                    router.Route("/", pages.TodoList, router.WithTitle("Todo List")),
+                )}
+            </main>
+        </div>
+    )
+}`
+
+func TutorialUnit2() core.Node {
+	core.Head(func() core.HeadConfig {
+		title := "Unit 2: Model the Data & Render the List | Vane Tutorial"
+		description := "A signal-backed Todo store and a reactive, keyed list."
+		url := core.Window().Get("location").Get("origin").String() + "/vane/docs/tutorial-2-data-model"
+		return core.HeadConfig{
+			Title:         title,
+			Description:   description,
+			Canonical:     url,
+			OGTitle:       title,
+			OGDescription: description,
+			OGURL:         url,
+		}
+	})
+
+	items := tutorialUnit2TOCItems
+
+	return (
+		<div className="docs-page">
+			<article className="docs-article">
+				{docsHeader(
+					"Tutorial",
+					"Unit 2: Model the Data & Render the List",
+					"A signal-backed Todo store and a reactive, keyed list.",
+				)}
+
+				<h2 className="docs-h2" id="model-the-data">Model the data</h2>
+				<p className="docs-p">
+					Every todo needs an identity (for keyed list updates), text, and a
+					done flag. Replace <code>src/store/user.go</code> with{" "}
+					<code>src/store/todos.go</code>:
+				</p>
+				{components.CodeBlock("src/store/todos.go", tutorialStep2StoreSnippet)}
+				<p className="docs-p">
+					<code>Todos</code> is a <code>core.Signal[[]Todo]</code>: the
+					whole slice, held as one value. There's no per-item signal and no
+					diffing — every <code>{"{expr}"}</code> reads it fresh on each
+					reactive re-run.
+				</p>
+
+				<h2 className="docs-h2" id="render-the-list">Render the list</h2>
+				<p className="docs-p">
+					<code>src/pages/Home.vane</code> and <code>src/pages/About.vane</code>{" "}
+					both read the old <code>store.Name</code>, which no longer exists —
+					delete both files, along with <code>src/components/NavLink.vane</code>{" "}
+					(the nav below doesn't need it). Replace what's left with{" "}
+					<code>src/pages/TodoList.vane</code>:
+				</p>
+				{components.CodeBlock("src/pages/TodoList.vane", tutorialStep2PageSnippet)}
+				<p className="docs-p">
+					The inline <code>{"{if ... } else { ... }"}</code> picks between the
+					empty message and the list — see {tutorialDocLink("vane-syntax", "Vane Syntax")}{" "}
+					for the full inline control-flow syntax. <code>{"{for}"}</code> is a
+					reactive loop: it re-runs whenever a signal it reads changes (here,{" "}
+					<code>Todos</code>), and <code>key={"{t.ID}"}</code> lets Vane move
+					existing DOM nodes instead of tearing the whole list down on every
+					change - see {tutorialDocLink("lists", "Lists")} for the full picture on
+					list performance once the basics here feel comfortable. Wire it into{" "}
+					<code>App.vane</code>, trimmed to one route for now:
+				</p>
+				{components.CodeBlock("App.vane (excerpt)", tutorialStep2AppSnippet)}
+				{callout("tip", "Checkpoint", "The page renders \"No todos yet.\" — that's correct, Todos starts empty. Check the browser console: no errors means the store, the list rendering, and the route are all wired correctly before we add any interactivity.")}
+
+				{tutorialCompleteToggle("tutorial-2-data-model")}
+				{pageNav("tutorial-2-data-model")}
+			</article>
+			{toc(items, "tutorial-2-data-model")}
+		</div>
+	)
+}

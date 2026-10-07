@@ -67,6 +67,11 @@ func Style() core.Node {
 					"Styles and CSS",
 					"The core.Style struct for reactive inline styles, the static-string escape hatch, and co-located CSS files.",
 				)}
+				{pageSummary(
+					core.Fragment(code("core.Style"), core.Text(" is a typed struct - zero-value fields are skipped, not written as empty CSS.")),
+					core.Fragment(core.Text("Signal reads inside a "), code("core.Style"), core.Text(" literal make the whole style reactive.")),
+					core.Text("Co-located CSS files are ordinary stylesheets, with no scoping or CSS-in-JS build step."),
+				)}
 
 				<h2 className="docs-h2" id="the-style-struct">The core.Style struct</h2>
 				<p className="docs-p">
@@ -94,7 +99,7 @@ func Style() core.Node {
 				<p className="docs-p">
 					Signal reads inside the struct literal make the style reactive: any signal
 					read while building the <code>core.Style</code> value re-runs the whole thing
-					whenever that signal changes, the same way any other JSX expression binding
+					whenever that signal changes, the same way any other expression binding
 					works. Compute a field with an inline, immediately-called function when it
 					depends on a signal:
 				</p>
@@ -138,7 +143,7 @@ func Style() core.Node {
 
 				{pageNav("style")}
 			</article>
-			{toc(items)}
+			{toc(items, "style")}
 		</div>
 	)
 }

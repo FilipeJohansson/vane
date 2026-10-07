@@ -1,0 +1,15 @@
+package components
+
+import "github.com/filipejohansson/vane/core"
+
+func CodePanel(filename, snippet string) core.Node {
+	return (
+		<div className="code-panel">
+			<div className="code-panel-bar">
+				<span className="code-panel-filename">{filename}</span>
+				<span className="code-panel-copy">{CopyButton(snippet, true)}</span>
+			</div>
+			<pre className="code-block-pre"><code>{core.DangerousInnerHTML(HighlightGoHTML(snippet))}</code></pre>
+		</div>
+	)
+}

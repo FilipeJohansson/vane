@@ -1,0 +1,56 @@
+package components
+
+import (
+	"strconv"
+
+	"github.com/filipejohansson/vane/core"
+)
+
+type IconButtonProps struct {
+	Type         string // default "button"
+	Class        string
+	Role         string // e.g. "tab"
+	Key          string // list reconciliation key
+	AriaLabel    string // omitted when empty
+	AriaExpanded *bool  // nil omits the attribute
+	AriaSelected *bool  // nil omits the attribute
+	AriaPressed  *bool  // nil omits the attribute
+	OnClick      func(core.MouseEvent)
+}
+
+// IconButton is every <button> that isn't a .btn-styled CTA/link (see
+// Button). children are static per call - a button whose content must stay
+// reactive to its own local signal (CopyButton, ThemeToggle) can't go
+// through here and writes its own literal JSX instead.
+func IconButton(p IconButtonProps, children ...any) core.Node {
+	t := p.Type
+	if t == "" {
+		t = "button"
+	}
+
+	extra := map[string]string{"type": t}
+	if p.AriaLabel != "" {
+		extra["aria-label"] = p.AriaLabel
+	}
+	if p.AriaExpanded != nil {
+		extra["aria-expanded"] = strconv.FormatBool(*p.AriaExpanded)
+	}
+	if p.AriaSelected != nil {
+		extra["aria-selected"] = strconv.FormatBool(*p.AriaSelected)
+	}
+	if p.AriaPressed != nil {
+		extra["aria-pressed"] = strconv.FormatBool(*p.AriaPressed)
+	}
+
+	btn := core.ElWithProps("button", core.HTMLProps{
+		Class:   p.Class,
+		Role:    p.Role,
+		OnClick: p.OnClick,
+		Extra:   extra,
+	}, core.Spread(children)...)
+
+	if p.Key != "" {
+		core.Unwrap(btn).Set("key", p.Key)
+	}
+	return btn
+}

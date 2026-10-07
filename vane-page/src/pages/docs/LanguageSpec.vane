@@ -29,6 +29,11 @@ func LanguageSpec() core.Node {
 					".vane Language Spec",
 					"The syntax .vane files must follow to compile.",
 				)}
+				{pageSummary(
+					core.Text("Valid .vane files keep compiling across minor and patch releases."),
+					core.Fragment(core.Text("A lowercase tag compiles to an HTML element ("), code("<div>"), core.Text(" → "), code(`core.El("div")`), core.Text("); uppercase is a component call.")),
+					core.Text("For a gentler introduction, see Concepts, Vane Syntax, and Components."),
+				)}
 
 				<h2 className="docs-h2" id="scope">What this page covers</h2>
 				<p className="docs-p">
@@ -36,7 +41,7 @@ func LanguageSpec() core.Node {
 					what compiles, what doesn't, and how ambiguous cases resolve. Existing valid{" "}
 					<code>.vane</code> files keep compiling across future minor and patch releases,
 					so anything documented here can be relied on to keep working.{" "}
-					{apiDocLink("concepts", "Concepts")}, {apiDocLink("jsx-syntax", "JSX Syntax")},
+					{apiDocLink("concepts", "Concepts")}, {apiDocLink("vane-syntax", "Vane Syntax")},
 					and {apiDocLink("components", "Components")} stay the place to learn the
 					language; this page is the place to check the exact rule.
 				</p>
@@ -48,7 +53,7 @@ func LanguageSpec() core.Node {
 					and explicitly closed (<code>{"<div></div>"}</code>) forms are both accepted;
 					void elements such as <code>{"<input/>"}</code> don't require children either
 					way. The full static/reactive prop and event tables live on{" "}
-					{apiDocLink("jsx-syntax", "JSX Syntax")}.
+					{apiDocLink("vane-syntax", "Vane Syntax")}.
 				</p>
 
 				<h2 className="docs-h2" id="components">Components</h2>
@@ -110,7 +115,7 @@ func LanguageSpec() core.Node {
 						one-time spread, not a tracked <code>DynList</code>.</li>
 				</ul>
 				<p className="docs-p">
-					See {apiDocLink("jsx-syntax", "JSX Syntax")}'s "Reactive lists" section for the
+					See {apiDocLink("vane-syntax", "Vane Syntax")}'s "Reactive lists" section for the
 					full <code>{"{items()...}"}</code> walkthrough, including <code>key</code>, or{" "}
 					{apiDocLink("lists", "Lists")} for how to write lists, every pattern
 					available, and the real difference between them.
@@ -124,7 +129,7 @@ func LanguageSpec() core.Node {
 					treated as an implicit <code>{"{true}"}</code> expression. <code>{"key={expr}"}</code>{" "}
 					and <code>{"ref={...}"}</code> are compiler-recognized special props, not passed
 					through as DOM attributes. The full prop/event name table is on{" "}
-					{apiDocLink("jsx-syntax", "JSX Syntax")}; how those HTML/JSX-style names map onto
+					{apiDocLink("vane-syntax", "Vane Syntax")}; how those HTML/JSX-style names map onto
 					real DOM properties (and the <code>Extra</code> escape hatch for names with no
 					dedicated field) is on {apiDocLink("components", "Components")}'s{" "}
 					<code>HTMLProps</code> section.
@@ -133,19 +138,19 @@ func LanguageSpec() core.Node {
 				<h2 className="docs-h2" id="control-flow">Inline control flow</h2>
 				<p className="docs-p">
 					<code>{"{for ...}"}</code>, <code>{"{if ...}"}</code>, and{" "}
-					<code>{"{switch ...}"}</code> may appear directly as JSX children, each compiled
+					<code>{"{switch ...}"}</code> may appear directly as children, each compiled
 					to a reactive binding that reruns only when a signal it reads changes. Full
-					syntax and constraints (one JSX element per branch or iteration, wrapping
+					syntax and constraints (one element per branch or iteration, wrapping
 					multiple nodes in a fragment, <code>key</code> for keyed loops) are covered on{" "}
-					{apiDocLink("jsx-syntax", "JSX Syntax")} rather than restated here.
+					{apiDocLink("vane-syntax", "Vane Syntax")} rather than restated here.
 				</p>
 
 				<h2 className="docs-h2" id="where-it-compiles">Where .vane syntax compiles</h2>
 				<p className="docs-p">
-					JSX only compiles inside a <code>return (...)</code> statement. Assigning it to
+					Vane's syntax only compiles inside a <code>return (...)</code> statement. Assigning it to
 					a variable, or leaving a <code>func() core.Node {"{ ... }"}</code> literal
 					uncalled, are both compile errors — the exact patterns and their fixes are
-					covered on {apiDocLink("jsx-syntax", "JSX Syntax")}'s "JSX rules" section.
+					covered on {apiDocLink("vane-syntax", "Vane Syntax")}'s "Vane syntax rules" section.
 				</p>
 
 				<h2 className="docs-h2" id="compiler-errors">Compiler errors</h2>
@@ -160,7 +165,7 @@ func LanguageSpec() core.Node {
 
 				{pageNav("language-spec")}
 			</article>
-			{toc(items)}
+			{toc(items, "language-spec")}
 		</div>
 	)
 }

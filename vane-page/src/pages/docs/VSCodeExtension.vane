@@ -10,7 +10,7 @@ const vscodeInstallSnippet = `git clone https://github.com/filipejohansson/vane
 cd vane/tools/vscode-vane
 pnpm install
 pnpm run package
-code --install-extension vscode-vane-0.1.0.vsix`
+code --install-extension vscode-vane-<version>.vsix`
 
 const vscodeConfigDefaultsSnippet = `"contributes": {
   "configurationDefaults": {
@@ -37,6 +37,11 @@ func VSCodeExtension() core.Node {
 					"VS Code Extension",
 					"Syntax highlighting and a real language server for .vane files, plus the workspace settings it manages for you.",
 				)}
+				{pageSummary(
+					core.Fragment(code("vane lsp"), core.Text(" compiles your "), code(".vane"), core.Text(" file to a hidden "), code("_vane.go"), core.Text(" and forwards every request to real "), code("gopls"), core.Text(".")),
+					core.Text("Hover, go-to-definition, autocomplete, quick fixes, and diagnostics all work against your .vane source directly."),
+					core.Fragment(core.Text("Ctrl/Cmd+click into generated code redirects you back to the matching "), code(".vane"), core.Text(" line.")),
+				)}
 
 				<h2 className="docs-h2" id="install">Install</h2>
 				<p className="docs-p">
@@ -55,7 +60,7 @@ func VSCodeExtension() core.Node {
 
 				<h2 className="docs-h2" id="what-it-does">What it does</h2>
 				<p className="docs-p">
-					Syntax highlighting for <code>.vane</code> (Go with embedded JSX), and a language
+					Syntax highlighting for <code>.vane</code> (Go with embedded JSX-like syntax), and a language
 					server: <code>vane lsp</code> compiles your <code>.vane</code> file to a hidden{" "}
 					<code>_vane.go</code> file behind the scenes, forwards every request to{" "}
 					<code>gopls</code>, and translates positions both ways. Hover, go-to-definition,
@@ -119,7 +124,7 @@ func VSCodeExtension() core.Node {
 
 				{pageNav("vscode-extension")}
 			</article>
-			{toc(items)}
+			{toc(items, "vscode-extension")}
 		</div>
 	)
 }
