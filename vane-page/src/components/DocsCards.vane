@@ -57,10 +57,6 @@ func DocsCards() core.Node {
 	return (
 		<section className="section" id="learn-more">
 			<div className="section-header">
-				<span className="eyebrow">
-					<span className="eyebrow-dot" aria-hidden="true" />
-					Learn more
-				</span>
 				<h2 className="section-title">Want to learn more about Vane?</h2>
 			</div>
 			<div className="learn-accordion">

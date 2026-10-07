@@ -328,10 +328,6 @@ func Features() core.Node {
 	return (
 		<section className="section" id="features">
 			<div className="section-header">
-				<span className="eyebrow">
-					<span className="eyebrow-dot" aria-hidden="true" />
-					Batteries included
-				</span>
 				<h2 className="section-title">Everything you need for a real app</h2>
 			</div>
 			<div className="feature-grid">

@@ -385,10 +385,6 @@ func FeatureTabs() core.Node {
 	return (
 		<section className="section" id="demo">
 			<div className="section-header">
-				<span className="eyebrow">
-					<span className="eyebrow-dot" aria-hidden="true" />
-					Interactive
-				</span>
 				<h2 className="section-title">Try it live.</h2>
 			</div>
 			<div className="feature-tabs">
