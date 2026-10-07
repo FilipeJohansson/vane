@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - Fix language server sync, completion and navigation bugs (#42)
+- *(deps)* Bump brace-expansion and devalue in lockfiles (#43)
 
 ## [0.6.1] - 2026-09-22
 
