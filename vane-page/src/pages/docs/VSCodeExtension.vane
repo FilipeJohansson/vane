@@ -37,7 +37,7 @@ func VSCodeExtension() core.Node {
 					"VS Code Extension",
 					"Syntax highlighting and a real language server for .vane files, plus the workspace settings it manages for you.",
 				)}
-				{keyFacts(
+				{pageSummary(
 					core.Fragment(code("vane lsp"), core.Text(" compiles your "), code(".vane"), core.Text(" file to a hidden "), code("_vane.go"), core.Text(" and forwards every request to real "), code("gopls"), core.Text(".")),
 					core.Text("Hover, go-to-definition, autocomplete, quick fixes, and diagnostics all work against your .vane source directly."),
 					core.Fragment(core.Text("Ctrl/Cmd+click into generated code redirects you back to the matching "), code(".vane"), core.Text(" line.")),

@@ -81,7 +81,7 @@ func Troubleshooting() core.Node {
 					"Troubleshooting",
 					"Known gotchas, what actually happens under the hood when they hit, and how to tell from the browser console.",
 				)}
-				{keyFacts(
+				{pageSummary(
 					core.Fragment(core.Text("An "), code("Effect"), core.Text(" that "), code("Set"), core.Text("s the signal it reads reschedules itself forever - wrap the read in "), code("core.Untrack"), core.Text(" if that's intentional.")),
 					core.Text("A watchdog caps runaway effects at 10,000 runs per flush and logs a warning instead of hanging."),
 					core.Text("Most of these problems log a console warning. Check the console first."),

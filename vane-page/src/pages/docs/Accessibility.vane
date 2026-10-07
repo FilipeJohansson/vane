@@ -94,7 +94,7 @@ func Accessibility() core.Node {
 					"Accessibility",
 					"aria-*/role/tabIndex as ordinary props, core.Focus and core.FocusTrap for keyboard focus, and core.Announce for live regions.",
 				)}
-				{keyFacts(
+				{pageSummary(
 					core.Fragment(code("aria-*"), core.Text(", "), code("role"), core.Text(", and "), code("tabIndex"), core.Text(" are ordinary reactive props - no special ARIA API.")),
 					core.Fragment(code("core.FocusTrap"), core.Text(" keeps keyboard focus inside a modal/dialog until it closes.")),
 					core.Fragment(code("core.Announce"), core.Text(" pushes text into a live region for screen readers, without visible UI.")),

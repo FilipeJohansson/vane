@@ -79,7 +79,7 @@ func Portal() core.Node {
 					"Portal",
 					"Render UI into another part of the DOM without leaving the current component tree.",
 				)}
-				{keyFacts(
+				{pageSummary(
 					core.Fragment(code("core.Portal"), core.Text(" renders elsewhere in the DOM while staying in the same reactive component tree.")),
 					core.Text("Escapes overflow:hidden and stacking contexts, which is why modals, tooltips, and dropdowns use it."),
 					core.Text("Signals and Effects created inside a portal are disposed exactly like any other component's."),

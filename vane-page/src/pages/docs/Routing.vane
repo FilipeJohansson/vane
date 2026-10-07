@@ -134,7 +134,7 @@ func Routing() core.Node {
 					"Routing",
 					"Components run once on mount, the previous route's effects are disposed on navigation. Real paths by default, or hash-based URLs via HashLocation.",
 				)}
-				{keyFacts(
+				{pageSummary(
 					core.Fragment(code("router.Router"), core.Text(" renders the first matching "), code("router.Route"), core.Text(" for the current path.")),
 					core.Fragment(code("router.Path()"), core.Text(" is itself a reactive signal - read it directly instead of syncing route state by hand.")),
 					core.Fragment(core.Text("Real paths by default via "), code("PathLocation"), core.Text(" - swap in "), code("HashLocation"), core.Text(" for zero server config.")),

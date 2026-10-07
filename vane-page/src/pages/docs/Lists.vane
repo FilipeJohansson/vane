@@ -124,7 +124,7 @@ func Lists() core.Node {
 					"Lists",
 					"Three ways to render a list in Vane, what each one actually costs, and when to reach for which.",
 				)}
-				{keyFacts(
+				{pageSummary(
 					core.Fragment(code("{for}"), core.Text(" + "), code("key"), core.Text(" is the recommended default. Unchanged items are not rebuilt.")),
 					core.Fragment(core.Text("Without a "), code("key"), core.Text(", the whole list rebuilds on every change. That's fine for small lists that rarely change.")),
 					core.Fragment(code("core.List[T]"), core.Text(" skips list reconciliation for field-level updates.")),

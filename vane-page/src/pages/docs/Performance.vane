@@ -35,7 +35,7 @@ func Performance() core.Node {
 					"Performance",
 					"Vane performance measured against React, Svelte, and Solid",
 				)}
-				{keyFacts(
+				{pageSummary(
 					core.Text("Vane wins or ties on partial updates and localized changes."),
 					core.Text("Vane is slower at building new DOM and has a larger payload, because of the Go/WASM boundary."),
 					core.Text("Every number is reproducible: clone the repo and run benchmarks/runner/bench.mjs."),

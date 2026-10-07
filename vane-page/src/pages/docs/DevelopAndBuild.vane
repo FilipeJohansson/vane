@@ -40,7 +40,7 @@ func DevelopAndBuild() core.Node {
 					"Develop & Build",
 					"The dev loop with vane run, production builds with vane build, and deploying dist/.",
 				)}
-				{keyFacts(
+				{pageSummary(
 					core.Fragment(code("vane run"), core.Text(" hot-reloads on save - CSS swaps live, "), code(".go"), core.Text("/"), code(".vane"), core.Text(" changes reload the page.")),
 					core.Fragment(code("vane build"), core.Text(" writes "), code("app.wasm"), core.Text(" to "), code("dist/"), core.Text(" - "), code("--release"), core.Text(" strips warnings and runs "), code("wasm-opt"), core.Text(".")),
 					core.Text("dist/ is a static bundle - deploy it to any static host."),

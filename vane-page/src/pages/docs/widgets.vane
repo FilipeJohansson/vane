@@ -45,32 +45,32 @@ func callout(kind, label string, children ...any) core.Node {
 	)
 }
 
-// keyFacts renders the "quick facts" panel most pages open with, right
+// pageSummary renders the summary panel most pages open with, right
 // below docsHeader: the handful of things worth knowing before reading the
 // full page, each item pre-built so callers can mix plain text and <code>
 // the same way docsTable cells and callout bodies already do.
-func keyFacts(items ...core.Node) core.Node {
+func pageSummary(items ...core.Node) core.Node {
 	rows := make([]core.Node, len(items))
 	for i, it := range items {
-		rows[i] = keyFactItem(it)
+		rows[i] = summaryItem(it)
 	}
 	return (
-		<div className="docs-keyfacts">
-			<span className="docs-keyfacts-title">
-				<span className="docs-keyfacts-icon" aria-hidden="true">{components.Icon("zap")}</span>
-				Key facts
+		<div className="docs-summary">
+			<span className="docs-summary-title">
+				<span className="docs-summary-icon" aria-hidden="true">{components.Icon("zap")}</span>
+				Summary
 			</span>
-			<ul className="docs-keyfacts-list">
+			<ul className="docs-summary-list">
 				{rows...}
 			</ul>
 		</div>
 	)
 }
 
-func keyFactItem(content core.Node) core.Node {
+func summaryItem(content core.Node) core.Node {
 	return (
-		<li className="docs-keyfacts-item">
-			<span className="docs-keyfacts-check" aria-hidden="true">{components.Icon("check")}</span>
+		<li className="docs-summary-item">
+			<span className="docs-summary-check" aria-hidden="true">{components.Icon("check")}</span>
 			<span>{content}</span>
 		</li>
 	)

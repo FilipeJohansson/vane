@@ -141,7 +141,7 @@ func Patterns() core.Node {
 					"Patterns",
 					"Practical recipes for problems that come up once an app grows past the basics covered elsewhere in these docs.",
 				)}
-				{keyFacts(
+				{pageSummary(
 					core.Text("Use one signal per field rather than one signal wrapping a struct, so bindings subscribe only to what they read."),
 					core.Text("A struct whose fields are each a signal behaves like separate variables."),
 					core.Text("Apply these when an app needs them. They aren't a checklist for every app."),

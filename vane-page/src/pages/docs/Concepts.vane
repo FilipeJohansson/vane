@@ -43,7 +43,7 @@ func Concepts() core.Node {
 					"Concepts",
 					"Understanding these ideas first will make the rest of the documentation much easier to follow.",
 				)}
-				{keyFacts(
+				{pageSummary(
 					core.Text("Components run once. Reactive updates come from signals, not from calling the function again."),
 					core.Fragment(core.Text("Vane compiles "), code(".vane"), core.Text(" to ordinary Go before "), code("go build"), core.Text(" runs. There is no virtual DOM or diffing.")),
 					core.Fragment(core.Text("The app has one root: "), code("core.Mount()"), core.Text(", called once.")),

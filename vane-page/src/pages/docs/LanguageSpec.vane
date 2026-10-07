@@ -29,7 +29,7 @@ func LanguageSpec() core.Node {
 					".vane Language Spec",
 					"The syntax .vane files must follow to compile.",
 				)}
-				{keyFacts(
+				{pageSummary(
 					core.Text("Valid .vane files keep compiling across minor and patch releases."),
 					core.Fragment(core.Text("A lowercase tag compiles to an HTML element ("), code("<div>"), core.Text(" → "), code(`core.El("div")`), core.Text("); uppercase is a component call.")),
 					core.Text("For a gentler introduction, see Concepts, Vane Syntax, and Components."),
