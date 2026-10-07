@@ -12,9 +12,9 @@ func App() core.Node {
 			<nav className="nav">
 				<span className="nav-brand">vane forms-and-lists</span>
 				<div className="nav-links">
-					<a href="#/">Home</a>
-					<a href="#/about">About</a>
-					<a href="#/contact">Contact</a>
+					{router.Link(router.LinkProps{To: "/"}, "Home")}
+					{router.Link(router.LinkProps{To: "/about"}, "About")}
+					{router.Link(router.LinkProps{To: "/contact"}, "Contact")}
 				</div>
 			</nav>
 		)

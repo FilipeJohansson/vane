@@ -13,7 +13,7 @@ func Home() core.Node {
 			<div className="hero">
 				<h1>vane router</h1>
 				<p>
-					Hash-based routing with typed URL params.
+					Path-based routing with typed URL params.
 					Navigate to a route, params are extracted and passed to the page.
 				</p>
 			</div>

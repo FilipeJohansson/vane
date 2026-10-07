@@ -1,5 +1,6 @@
 .nav {
-  background: var(--surface);
+  background: color-mix(in srgb, var(--bg) 78%, transparent);
+  backdrop-filter: blur(14px);
   border-bottom: 1px solid var(--border);
   padding: 0 2rem;
   height: 56px;
@@ -15,7 +16,10 @@
   font-size: 1rem;
   font-weight: 700;
   letter-spacing: 0.03em;
-  color: var(--primary);
+  background: var(--gradient-brand);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
   text-decoration: none;
 }
 
@@ -36,5 +40,5 @@
 
 .nav-links a:hover {
   color: var(--text);
-  border-bottom-color: var(--primary);
+  border-bottom-color: var(--accent);
 }

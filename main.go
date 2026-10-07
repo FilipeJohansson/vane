@@ -1433,22 +1433,33 @@ func styleCSSTemplate() string {
 	return `*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
 :root {
-  --bg: #0f1117;
-  --surface: #1e2130;
-  --surface-2: #2d3348;
-  --surface-3: #363d56;
-  --border: #3d4566;
-  --border-2: #4a5275;
+  --bg: #05070d;
+  --surface: #0d111c;
+  --surface-2: #131a2b;
+  --surface-3: #182035;
+  --border: #1f2940;
+  --border-2: #2a3654;
 
-  --text: #e2e8f0;
-  --muted: #94a3b8;
-  --hint: #64748b;
+  --text: #e6ebf5;
+  --muted: #8b96b3;
+  --hint: #7b86a8;
 
-  --primary: #00ADD8;
+  --accent: #00ADD8;
+  --accent-violet: #8b7cf6;
+  --accent-glow: rgba(0, 173, 216, 0.45);
+  --gradient-brand: linear-gradient(135deg, var(--accent) 0%, var(--accent-violet) 100%);
+  --surface-glass: rgba(19, 26, 43, 0.6);
+
+  --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --r-sm: 10px;
+  --r-md: 16px;
+  --r-pill: 999px;
+  --shadow-card: 0 20px 50px -24px rgba(0, 0, 0, 0.6);
+  --shadow-lift: 0 28px 70px -20px rgba(0, 0, 0, 0.65);
 }
 
 body {
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-family: var(--sans);
   background: var(--bg);
   color: var(--text);
   min-height: 100vh;
@@ -1471,14 +1482,18 @@ body {
   border-bottom: 1px solid var(--border);
   position: sticky;
   top: 0;
-  background: var(--bg);
+  background: color-mix(in srgb, var(--bg) 78%, transparent);
+  backdrop-filter: blur(14px);
   z-index: 10;
 }
 
 .nav-brand {
   font-weight: 700;
   font-size: 1.1rem;
-  color: var(--primary);
+  background: var(--gradient-brand);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
   text-decoration: none;
   letter-spacing: -0.01em;
 }
@@ -1498,7 +1513,7 @@ body {
 }
 
 .nav-link:hover { color: var(--text); background: var(--surface); }
-.nav-link--active { color: var(--primary); }
+.nav-link--active { color: var(--accent); }
 
 .main {
   flex: 1;
@@ -1546,7 +1561,10 @@ body {
 .greeting {
   font-size: 1.25rem;
   font-weight: 600;
-  color: var(--primary);
+  background: var(--gradient-brand);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
 }
 
 /** feature list */
@@ -1569,7 +1587,7 @@ body {
   max-width: 320px;
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--r-sm);
   color: var(--text);
   padding: 0.5rem 0.75rem;
   font-size: 0.9rem;
@@ -1577,12 +1595,12 @@ body {
   transition: border-color 0.15s;
 }
 
-.input:focus { border-color: var(--primary); }
+.input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-glow); }
 .input::placeholder { color: var(--hint); }
 
 code {
   background: var(--surface);
-  color: var(--primary);
+  color: var(--accent);
   padding: 0.15rem 0.4rem;
   border-radius: 4px;
   font-size: 0.875rem;

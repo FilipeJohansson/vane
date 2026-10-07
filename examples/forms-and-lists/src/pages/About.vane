@@ -21,7 +21,7 @@ var faqSections = []aboutSection{
 	},
 	{
 		title: "How does routing work?",
-		body:  "vane has a built-in hash router. Declare routes with router.Router and router.Route, navigate with router.Link or router.Navigate. URL params are extracted via router.UseParams.",
+		body:  "vane has a built-in router. Declare routes with router.Router and router.Route, navigate with router.Link or router.Navigate. URL params are extracted via router.UseParams.",
 	},
 	{
 		title: "Can I use CSS and static assets?",
