@@ -14,6 +14,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fix language server sync, completion and navigation bugs (#42)
 - *(deps)* Bump brace-expansion and devalue in lockfiles (#43)
 - *(deps)* Bump source-map-js in benchmark lockfiles (#44)
+- Update routing terminology from hash-based to path-based in documentation and scaffolding (#48)
 
 ## [0.6.1] - 2026-09-22
 
