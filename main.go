@@ -679,12 +679,11 @@ func cmdServe(dir, srcDir, port string, showBanner bool, gcflags, sourceURLBase 
 // it (e.g. in tests, where no watcher is running).
 //
 // Any request path that isn't "/", "/index.html", or a real file in
-// distDir falls back to index.html. The router is hash-based (see
-// core/router): the server never sees the actual route, since the
-// fragment after '#' isn't sent over HTTP, it only sees whatever real
-// path the browser was given directly (a shared link, a typo, a
-// bookmark). Without this fallback, that request hits http.FileServer's
-// bare "404 page not found" text instead of the app's own styled 404.
+// distDir falls back to index.html. The router is path-based by default (see
+// core/router), so every client-side route is a real URL the server sees on
+// a direct load, a refresh, or a shared link. Without this fallback, that
+// request hits http.FileServer's bare "404 page not found" text instead of
+// the SPA, which resolves the route itself.
 func buildDistMux(distDir, srcDir string, hub *hotreload.Hub) *http.ServeMux {
 	fileHandler := http.FileServer(http.Dir(distDir))
 	mux := http.NewServeMux()
@@ -1308,9 +1307,9 @@ import (
 func Home() core.Node {
 	return (
 		<div className="page">
-			<h1 className="page-title">Build web apps in Go.</h1>
+			<h1 className="page-title">Write UI in Go.</h1>
 			<p className="page-desc">
-				Vane compiles your Go + JSX to WebAssembly.
+				Compile straight to the DOM. Vane turns your Go + JSX-like syntax into WebAssembly.
 			</p>
 			<div className="demo">
 				<label className="demo-label" htmlFor="name-input">Try it, type your name:</label>
@@ -1349,9 +1348,9 @@ type feature struct {
 
 func About() core.Node {
 	features := []feature{
-		{"Signals", "Fine-grained reactivity. Only what changed re-renders."},
+		{"Signals", "Fine-grained reactivity. Only the DOM nodes that depend on a signal update."},
 		{"JSX in Go", "Familiar component syntax, full Go type safety."},
-		{"Router", "Hash-based SPA routing with layouts and nested routes."},
+		{"Router", "Path-based SPA routing with layouts and nested routes."},
 		{"Store", "Global state management with signals and computed values."},
 	}
 
@@ -1365,8 +1364,8 @@ func About() core.Node {
 				return nil
 			}()}
 			<p className="page-desc">
-				Vane is a reactive frontend framework for Go. Write components in Go + JSX syntax,
-				compile to WebAssembly, ship to any browser.
+				Vane is a Go-native frontend framework with fine-grained reactivity, direct DOM updates,
+				and JSX-like syntax. Compile to WebAssembly, ship to any browser.
 			</p>
 			<ul className="feature-list">
 				{for _, f := range features {
