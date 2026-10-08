@@ -4,6 +4,7 @@ import (
 	"github.com/filipejohansson/vane/core"
 
 	"vane-page/src/components"
+	"vane-page/src/seo"
 )
 
 const syntaxRuleAssignSnippet = `// ✗ won't compile
@@ -130,7 +131,7 @@ func VaneSyntax() core.Node {
 	core.Head(func() core.HeadConfig {
 		title := "Vane Syntax | Vane Docs"
 		description := "Full prop/event table, Vane syntax rules, inline for/if/switch, and reactive lists."
-		url := core.Window().Get("location").Get("origin").String() + "/vane/docs/vane-syntax"
+		url := seo.CanonicalURL("/docs/vane-syntax")
 		return core.HeadConfig{
 			Title:         title,
 			Description:   description,

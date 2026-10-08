@@ -4,6 +4,7 @@ import (
 	"github.com/filipejohansson/vane/core"
 
 	"vane-page/src/components"
+	"vane-page/src/seo"
 )
 
 const securityTextSnippet = `// Always safe, comment is never parsed as markup, even
@@ -30,7 +31,7 @@ func Security() core.Node {
 	core.Head(func() core.HeadConfig {
 		title := "Security | Vane Docs"
 		description := "Vane's default-safe rendering model, the DangerousInnerHTML escape hatch, and how URL props are handled."
-		url := core.Window().Get("location").Get("origin").String() + "/vane/docs/security"
+		url := seo.CanonicalURL("/docs/security")
 		return core.HeadConfig{
 			Title:         title,
 			Description:   description,

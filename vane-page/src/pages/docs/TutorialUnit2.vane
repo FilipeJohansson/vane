@@ -4,6 +4,7 @@ import (
 	"github.com/filipejohansson/vane/core"
 
 	"vane-page/src/components"
+	"vane-page/src/seo"
 )
 
 const tutorialStep2StoreSnippet = `//go:build js && wasm
@@ -67,7 +68,7 @@ func TutorialUnit2() core.Node {
 	core.Head(func() core.HeadConfig {
 		title := "Unit 2: Model the Data & Render the List | Vane Tutorial"
 		description := "A signal-backed Todo store and a reactive, keyed list."
-		url := core.Window().Get("location").Get("origin").String() + "/vane/docs/tutorial-2-data-model"
+		url := seo.CanonicalURL("/docs/tutorial-2-data-model")
 		return core.HeadConfig{
 			Title:         title,
 			Description:   description,

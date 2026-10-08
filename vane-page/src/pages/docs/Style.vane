@@ -4,6 +4,7 @@ import (
 	"github.com/filipejohansson/vane/core"
 
 	"vane-page/src/components"
+	"vane-page/src/seo"
 )
 
 const styleStructSnippet = `return (
@@ -46,7 +47,7 @@ func Style() core.Node {
 	core.Head(func() core.HeadConfig {
 		title := "Styles and CSS | Vane Docs"
 		description := "The core.Style struct for reactive inline styles, the static-string escape hatch, and co-located CSS files."
-		url := core.Window().Get("location").Get("origin").String() + "/vane/docs/style"
+		url := seo.CanonicalURL("/docs/style")
 		return core.HeadConfig{
 			Title:         title,
 			Description:   description,

@@ -4,6 +4,7 @@ import (
 	"github.com/filipejohansson/vane/core"
 
 	"vane-page/src/components"
+	"vane-page/src/seo"
 )
 
 const basicComponentSnippet = `func App() core.Node {
@@ -119,7 +120,7 @@ func Components() core.Node {
 	core.Head(func() core.HeadConfig {
 		title := "Components | Vane Docs"
 		description := "Building reusable UI with components, children, HTMLProps, and controller/view APIs."
-		url := core.Window().Get("location").Get("origin").String() + "/vane/docs/components"
+		url := seo.CanonicalURL("/docs/components")
 		return core.HeadConfig{
 			Title:         title,
 			Description:   description,

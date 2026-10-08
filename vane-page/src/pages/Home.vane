@@ -3,13 +3,14 @@ package pages
 import (
 	"vane-page/src/components"
 	"github.com/filipejohansson/vane/core"
+	"vane-page/src/seo"
 )
 
 func Home() core.Node {
 	core.Head(func() core.HeadConfig {
 		title := "Vane — Frontend development, the Go way."
 		description := "A Go-native frontend framework with fine-grained reactivity, direct DOM updates, and JSX-like syntax."
-		url := core.Window().Get("location").Get("origin").String() + "/vane"
+		url := seo.CanonicalURL("/")
 		return core.HeadConfig{
 			Title:         title,
 			Description:   description,

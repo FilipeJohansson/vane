@@ -5,6 +5,7 @@ import (
 	"github.com/filipejohansson/vane/core/router"
 
 	"vane-page/src/components"
+	"vane-page/src/seo"
 )
 
 const bundleSizeInspectSnippet = `vane build . --release
@@ -28,7 +29,7 @@ func BundleSize() core.Node {
 	core.Head(func() core.HeadConfig {
 		title := "Analyze Bundle Size | Vane Docs"
 		description := "Why the wasm binary is large, and how to inspect and trim it."
-		url := core.Window().Get("location").Get("origin").String() + "/vane/docs/bundle-size"
+		url := seo.CanonicalURL("/docs/bundle-size")
 		return core.HeadConfig{
 			Title:         title,
 			Description:   description,

@@ -4,6 +4,7 @@ import (
 	"github.com/filipejohansson/vane/core"
 
 	"vane-page/src/components"
+	"vane-page/src/seo"
 )
 
 const headBasicSnippet = `core.Head(func() core.HeadConfig {
@@ -42,7 +43,7 @@ func Head() core.Node {
 	core.Head(func() core.HeadConfig {
 		title := "Head Management | Vane Docs"
 		description := "core.Head updates document.title and meta tags reactively, scoped so nested components never clobber each other."
-		url := core.Window().Get("location").Get("origin").String() + "/vane/docs/head"
+		url := seo.CanonicalURL("/docs/head")
 		return core.HeadConfig{
 			Title:         title,
 			Description:   description,

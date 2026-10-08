@@ -5,6 +5,7 @@ import (
 	"github.com/filipejohansson/vane/core/router"
 
 	"vane-page/src/components"
+	"vane-page/src/seo"
 )
 
 const dabRunSnippet = `vane run`
@@ -19,7 +20,7 @@ func DevelopAndBuild() core.Node {
 	core.Head(func() core.HeadConfig {
 		title := "Develop & Build | Vane Docs"
 		description := "The dev loop with vane run, production builds with vane build, and deploying dist/."
-		url := core.Window().Get("location").Get("origin").String() + "/vane/docs/develop-and-build"
+		url := seo.CanonicalURL("/docs/develop-and-build")
 		return core.HeadConfig{
 			Title:         title,
 			Description:   description,

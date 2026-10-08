@@ -5,6 +5,7 @@ import (
 	"github.com/filipejohansson/vane/core/router"
 
 	"vane-page/src/components"
+	"vane-page/src/seo"
 )
 
 const overviewGithubHref = "https://github.com/filipejohansson/vane"
@@ -65,7 +66,7 @@ func Overview() core.Node {
 	core.Head(func() core.HeadConfig {
 		title := "Docs | Vane"
 		description := "Documentation for Vane: signals, components, Vane syntax, routing, and more."
-		url := core.Window().Get("location").Get("origin").String() + "/vane/docs"
+		url := seo.CanonicalURL("/docs")
 		return core.HeadConfig{
 			Title:         title,
 			Description:   description,

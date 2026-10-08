@@ -4,6 +4,7 @@ import (
 	"github.com/filipejohansson/vane/core"
 
 	"vane-page/src/components"
+	"vane-page/src/seo"
 )
 
 const a11yAriaSnippet = `return (
@@ -73,7 +74,7 @@ func Accessibility() core.Node {
 	core.Head(func() core.HeadConfig {
 		title := "Accessibility | Vane Docs"
 		description := "aria-*/role/tabIndex as ordinary props, core.Focus and core.FocusTrap for keyboard focus, and core.Announce for live regions."
-		url := core.Window().Get("location").Get("origin").String() + "/vane/docs/accessibility"
+		url := seo.CanonicalURL("/docs/accessibility")
 		return core.HeadConfig{
 			Title:         title,
 			Description:   description,

@@ -4,6 +4,7 @@ import (
 	"github.com/filipejohansson/vane/core"
 
 	"vane-page/src/components"
+	"vane-page/src/seo"
 )
 
 const tutorialStep3StoreSnippet = `//go:build js && wasm
@@ -82,7 +83,7 @@ func TutorialUnit3() core.Node {
 	core.Head(func() core.HeadConfig {
 		title := "Unit 3: Add New Todos | Vane Tutorial"
 		description := "A controlled form input and a store function that appends to the list."
-		url := core.Window().Get("location").Get("origin").String() + "/vane/docs/tutorial-3-add-todos"
+		url := seo.CanonicalURL("/docs/tutorial-3-add-todos")
 		return core.HeadConfig{
 			Title:         title,
 			Description:   description,

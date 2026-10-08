@@ -4,6 +4,7 @@ import (
 	"github.com/filipejohansson/vane/core"
 
 	"vane-page/src/components"
+	"vane-page/src/seo"
 )
 
 const tutorialScaffoldSnippet = `mkdir todo-app && cd todo-app
@@ -79,7 +80,7 @@ func TutorialUnit1() core.Node {
 	core.Head(func() core.HeadConfig {
 		title := "Unit 1: Scaffold the Project | Vane Tutorial"
 		description := "Create a new Vane project, confirm the dev server works, and add the tutorial's stylesheet."
-		url := core.Window().Get("location").Get("origin").String() + "/vane/docs/tutorial-1-scaffold"
+		url := seo.CanonicalURL("/docs/tutorial-1-scaffold")
 		return core.HeadConfig{
 			Title:         title,
 			Description:   description,

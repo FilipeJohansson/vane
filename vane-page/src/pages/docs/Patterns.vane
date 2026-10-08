@@ -4,6 +4,7 @@ import (
 	"github.com/filipejohansson/vane/core"
 
 	"vane-page/src/components"
+	"vane-page/src/seo"
 )
 
 const patternsCoarseSignalSnippet = `// ✗ coarse: entire object signal, every binding re-runs on any field change
@@ -120,7 +121,7 @@ func Patterns() core.Node {
 	core.Head(func() core.HeadConfig {
 		title := "Patterns | Vane Docs"
 		description := "Practical recipes: fine-grained signals, reactive lists, goroutines with cleanup, Portal's reactive boundary, and testing signal logic without a browser."
-		url := core.Window().Get("location").Get("origin").String() + "/vane/docs/patterns"
+		url := seo.CanonicalURL("/docs/patterns")
 		return core.HeadConfig{
 			Title:         title,
 			Description:   description,
