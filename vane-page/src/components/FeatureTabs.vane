@@ -349,7 +349,7 @@ func routerPanel() core.Node {
 			<div className="feature-panel-preview-col">
 				{featurePanelHeader(
 					"Router: Layouts, Params, Nested Routes",
-					"Hash-based routing with layouts, URL params, and nested routes. Components run once on mount, the previous route's effects are disposed on navigation.",
+					"Path-based routing with layouts, URL params, and nested routes. Components run once on mount, the previous route's effects are disposed on navigation.",
 					"routing",
 				)}
 				<div className="preview-frame">
