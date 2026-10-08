@@ -1,11 +1,11 @@
 <div align="center">
     <picture>
-        <img alt="Vane" src="https://filipejohansson.github.io/vane/favicon.svg" height="100">
+        <img alt="Vane" src="https://getvane.dev/favicon.svg" height="100">
     </picture>
 
 ### Vane — Frontend development, the Go way.
 
-[Get Started](https://filipejohansson.github.io/vane/docs/installation) | [Documentation](https://filipejohansson.github.io/vane/docs) | [Examples](https://github.com/FilipeJohansson/vane/tree/master/examples)
+[Get Started](https://getvane.dev/docs/installation) | [Documentation](https://getvane.dev/docs) | [Examples](https://github.com/FilipeJohansson/vane/tree/master/examples)
 
 ![Go Version](https://img.shields.io/github/go-mod/go-version/FilipeJohansson/vane) ![GitHub release](https://img.shields.io/github/v/release/FilipeJohansson/vane?color=blue&label=release) ![GitHub license](https://img.shields.io/github/license/FilipeJohansson/vane?color=green)
 </div>
@@ -164,11 +164,11 @@ vane run .
 
 `vane init <module>` scaffolds a complete Vane application in the current directory.
 
-> See the [Installation guide](https://filipejohansson.github.io/vane/docs/installation) for project structure, configuration, ports, and build options.
+> See the [Installation guide](https://getvane.dev/docs/installation) for project structure, configuration, ports, and build options.
 
 ## Built with Vane
 
-The [Vane documentation](https://filipejohansson.github.io/vane/) site is built and served with Vane itself.
+The [Vane documentation](https://getvane.dev/) site is built and served with Vane itself.
 
 Using Vane in a project? Open a PR and add it here.
 
@@ -182,9 +182,9 @@ See [tools/vscode-vane/README.md](tools/vscode-vane/README.md) for development, 
 
 ## Documentation
 
-The [Vane Docs](https://filipejohansson.github.io/vane/docs) cover concepts, components, reactivity, Vane syntax, DOM APIs, accessibility, routing, state management, error handling, and building for production.
+The [Vane Docs](https://getvane.dev/docs) cover concepts, components, reactivity, Vane syntax, DOM APIs, accessibility, routing, state management, error handling, and building for production.
 
-New to Vane? Start with the [Tutorial](https://filipejohansson.github.io/vane/docs/tutorial): build a complete todo list app step by step.
+New to Vane? Start with the [Tutorial](https://getvane.dev/docs/tutorial): build a complete todo list app step by step.
 
 ## Getting help
 

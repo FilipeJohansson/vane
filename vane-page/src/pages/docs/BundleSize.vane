@@ -76,7 +76,7 @@ func BundleSize() core.Node {
 					[][]core.Node{
 						{code("vane build"), core.Text("12.3 MB"), core.Text("—")},
 						{code("vane build --release"), core.Text("10.9 MB"), core.Text("2.9 MB")},
-						{core.Text("Live at filipejohansson.github.io/vane"), core.Text("—"), core.Text("3.0 MB (measured via browser DevTools)")},
+						{core.Text("Live at getvane.dev"), core.Text("—"), core.Text("3.0 MB (measured via browser DevTools)")},
 					},
 				)}
 				<p className="docs-p">
