@@ -195,7 +195,7 @@ New to Vane? Start with the [Tutorial](https://filipejohansson.github.io/vane/do
 
 ## Status
 
-Vane is currently pre-1.0.
+Vane 1.0 is in release candidate.
 
-The API may evolve before 1.0 as the framework matures.
+The public API is frozen unless feedback shows a real problem.
 Only the latest release is currently supported.
