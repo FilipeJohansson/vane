@@ -1,120 +1,187 @@
-# Vane
+<div align="center">
+    <picture>
+        <img alt="Vane" src="https://filipejohansson.github.io/vane/favicon.svg" height="100">
+    </picture>
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+### Vane — Frontend development, the Go way.
 
-Go WebAssembly frontend framework with JSX-like syntax and fine-grained reactivity.
+[Get Started](https://filipejohansson.github.io/vane/docs/installation) | [Documentation](https://filipejohansson.github.io/vane/docs) | [Examples](https://github.com/FilipeJohansson/vane/tree/master/examples)
 
-Write components in `.vane` files. The compiler turns JSX returns into direct DOM calls: no virtual DOM, no diffing. Each `{expr}` binding gets its own reactive Effect that updates only the affected node when a signal changes.
+![Go Version](https://img.shields.io/github/go-mod/go-version/FilipeJohansson/vane) ![GitHub release](https://img.shields.io/github/v/release/FilipeJohansson/vane?color=blue&label=release) ![GitHub license](https://img.shields.io/github/license/FilipeJohansson/vane?color=green)
+</div>
 
-## Install
+---
 
+## Write UI in Go. Compile straight to the DOM.
+
+Vane is a Go-native frontend framework for building modern web applications with fine-grained reactivity, direct DOM updates, and JSX-like syntax.
+
+Write your frontend in Go.
+Keep your types.
+Keep your tooling.
+Ship to the browser with WebAssembly.
+
+<div align="center">
+
+![Vane demo with fine-grained reactive updates](assets/vane-showcase.gif)
+
+</div>
+
+## Why Vane?
+
+<details>
+  <summary>Go-native</summary>
+  
+Build your UI using Go functions, structs, interfaces, packages, and the Go toolchain.
+
+No second language required. No JavaScript framework required.
+</details>
+
+<details>
+  <summary>No Virtual DOM</summary>
+  
+Vane does not rerender component trees or diff a virtual DOM.
+
+Reactive bindings update the DOM nodes they depend on directly.
+</details>
+
+<details>
+  <summary>Fine-grained reactivity</summary>
+  
+Signals track exactly which parts of the UI depend on them.
+
+When a signal changes, only those bindings run again.
+</details>
+
+<details>
+  <summary>Type-safe</summary>
+  
+Your application logic, components, and data remain within Go's type system.
+</details>
+
+<details>
+  <summary>Everything you need for a real app</summary>
+
+- Components
+- Signals & reactive state
+- Routing & nested layouts
+- Forms
+- Async operations
+- Shared state
+- Accessibility helpers
+- Portals
+- Error boundaries
+- Head management
+- Hot reload
+</details>
+
+## What Vane is good for
+
+Vane is designed for interactive web applications where most of the UI runs in the browser.
+
+- Single-page applications
+- Dashboards and admin panels
+- SaaS applications
+- Internal tools
+- Interactive forms and workflows
+- Real-time interfaces
+
+For content-heavy sites where server-rendered HTML and search indexing are the primary concerns, a server-rendered framework may be a better fit.
+
+## A component in Vane
+
+```go
+type todo struct {
+	id, text string
+	done     bool
+}
+
+func todoItem(t todo, onToggle func()) core.Node {
+	cls := "todo-item"
+	if t.done {
+		cls = "todo-item done"
+	}
+	return (
+		<li key={t.id} className={cls}>
+			<span onClick={func(core.MouseEvent) { onToggle() }}>{t.text}</span>
+		</li>
+	)
+}
+
+func TodoList() core.Node {
+	todos := core.NewSignal([]todo{
+		{id: "1", text: "Learn Vane", done: true},
+		{id: "2", text: "Ship something", done: false},
+	})
+
+	toggle := func(id string) {
+		list := todos.Get()
+		next := make([]todo, len(list))
+		copy(next, list)
+		for i, t := range next {
+			if t.id == id {
+				next[i].done = !t.done
+			}
+		}
+		todos.Set(next)
+	}
+
+	return (
+		<ul>
+			{for _, t := range todos.Get() {
+				todoItem(t, func() { toggle(t.id) })
+			}}
+		</ul>
+	)
+}
+```
+
+## Get started in under a minute.
+
+### Install
+
+Vane requires Go 1.25 or newer.
 ```bash
 go install github.com/filipejohansson/vane@latest
 ```
 
-## Quick start
+### Create an application
 
 ```bash
 mkdir my-app && cd my-app
 vane init github.com/you/my-app
+```
+
+### Run it
+
+```bash
 vane run .
 # open http://localhost:8080
 ```
 
-`vane init <module>` scaffolds a complete project in the current directory, using `<module>` as the `go.mod` module path: `public/index.html`, `public/wasm_exec.js`, `main.go`, `App.vane`, and starter components.
+`vane init <module>` scaffolds a complete Vane application in the current directory.
 
-```
-my-app/
-├── go.mod
-├── .gitignore
-├── public/             # static assets, copied to dist/ on every build
-│   ├── index.html
-│   ├── boot.js
-│   └── wasm_exec.js
-├── src/
-│   ├── components/     # .vane components + co-located .css
-│   └── store/          # global signals (optional)
-├── dist/               # build output (gitignored)
-│   └── app.wasm
-├── main.go             # bootstrap
-└── App.vane            # root component
-```
+> See the [Installation guide](https://filipejohansson.github.io/vane/docs/installation) for project structure, configuration, ports, and build options.
 
-```go
-// main.go
-//go:build js && wasm
+## Built with Vane
 
-package main
+The [Vane documentation](https://filipejohansson.github.io/vane/) site is built and served with Vane itself.
 
-import (
-    "github.com/filipejohansson/vane/core"
-)
-
-func main() {
-    core.Mount("root", App)
-    select {}
-}
-```
-
-## Compatibility
-
-- Go: `1.25+`
-- Browsers: current desktop versions of Chrome, Edge, Firefox, and Safari
-- TinyGo: experimental build target for smaller WASM binaries; not part of the default compatibility contract
+Using Vane in a project? Open a PR and add it here.
 
 ## Editor support
 
-VS Code extension for `.vane` files: syntax highlighting, diagnostics, hover, and go-to-definition. Install [Vane](https://marketplace.visualstudio.com/items?itemName=FilipeJohansson.vscode-vane) from the Marketplace, or search "Vane" in the Extensions view (`Ctrl+Shift+X`).
+Vane provides a VS Code extension with syntax highlighting, diagnostics, hover, and go-to-definition.
 
-To build from source instead (e.g. to try an unreleased change):
+[Install Vane from the VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=FilipeJohansson.vscode-vane)
 
-```bash
-cd tools/vscode-vane
-pnpm install
-pnpm run package                 # produces vscode-vane-<version>.vsix
-```
+See [tools/vscode-vane/README.md](tools/vscode-vane/README.md) for development, packaging, and known limitations.
 
-Or, from the repo root: `make build-vscode-extension`. Install the result with `code --install-extension vscode-vane-<version>.vsix`, or via **Install from VSIX...** in the Extensions view's `...` menu.
+## Documentation
 
-See [tools/vscode-vane/README.md](tools/vscode-vane/README.md) for features, requirements, and known limitations.
+The [Vane Docs](https://filipejohansson.github.io/vane/docs) cover concepts, components, reactivity, Vane syntax, DOM APIs, accessibility, routing, state management, error handling, and building for production.
 
-## A counter
-
-```go
-// App.vane
-package main
-
-import (
-    "github.com/filipejohansson/vane/core"
-)
-
-func App() core.Node {
-    count := core.NewSignal(0)
-
-    return (
-        <div className="card">
-            <h1>Count: {count.Get()}</h1>
-            <button onClick={func() { count.Set(count.Get() + 1) }}>+1</button>
-        </div>
-    )
-}
-```
-
-`{count.Get()}` is its own reactive binding: clicking the button updates only that text node, the `<button>` itself is never touched.
-
-## Why Vane
-
-- **No virtual DOM.** JSX compiles straight to `core.El`/`AppendChild`/etc. calls, there's nothing to diff.
-- **Fine-grained reactivity.** Every `{expr}` is its own signal-driven Effect, not a component-level re-render.
-- **Own compiler.** `.vane` → `.go` with source maps and `//line` directives, so Go compiler errors and stack traces point back at your `.vane` source.
-- **Plain Go underneath.** Components are Go functions returning `core.Node`. No new runtime to learn.
-- **Batteries included.** Router (layouts, params, nested routes), accessibility helpers (`FocusTrap`, `Announce`, first-class `aria-*`), portals, error boundaries, reactive `<head>` management, hot-reload dev server.
-
-## Docs
-
-The full docs site is at [filipejohansson.github.io/vane](https://filipejohansson.github.io/vane/docs): concepts, components, signals & reactivity, JSX syntax, refs & DOM, style, accessibility, routing, head management, portal, error handling, raw HTML, global store, do's and don'ts, and develop & build. New to Vane? Start with the [Tutorial](https://filipejohansson.github.io/vane/docs/tutorial): build a complete todo list app step by step.
-
-See [API_STABILITY.md](API_STABILITY.md) for which packages are covered by Vane's compatibility guarantees, how Deprecated/Experimental APIs are marked, and how Vane applies Semantic Versioning across the CLI, compiler, and runtime.
+New to Vane? Start with the [Tutorial](https://filipejohansson.github.io/vane/docs/tutorial): build a complete todo list app step by step.
 
 ## Getting help
 
@@ -123,28 +190,9 @@ See [API_STABILITY.md](API_STABILITY.md) for which packages are covered by Vane'
 - **Security vulnerabilities** → do not open a public issue, see [SECURITY.md](SECURITY.md).
 - Want to contribute code? See [CONTRIBUTING.md](CONTRIBUTING.md).
 
-Vane is pre-1.0.0: only the latest release is supported, there's no LTS
-branch yet, and the public API can still change before the v1.0.0
-stability milestone.
+## Status
 
-## Known limitations
+Vane is currently pre-1.0.
 
-Vane is in the `pre-v1.0.0` phase, so the API can still change before the v1.0.0 stability milestone.
-
-- **WASM binary size.** 2.5–10MB per app with the standard Go compiler, normal for Go WASM but larger than a typical JS bundle. `vane build --tinygo` cuts that to roughly a third (needs a separate TinyGo + binaryen install), at the cost of `//line`-accurate breakpoints in `vane run --debug --tinygo` (TinyGo's WASM DWARF output isn't compatible with Chrome's breakpoint engine).
-- **No SSR.** SPA-only.
-
-## Examples
-
-```bash
-go build -o vane .
-
-vane run examples/async-fetch         # goroutine + net/http + signals
-vane run examples/component-api       # Modal + Toaster via controller pattern
-vane run examples/forms-and-lists     # router, forms, validation, accordion
-vane run examples/fullstack-app       # wasm frontend + separate Go API backend, auth, dashboard, users CRUD
-vane run examples/lifecycle           # Effect patterns: post-mount, reactive, cleanup
-vane run examples/reactive-showcase   # fine-grained reactivity, computed, effects
-vane run examples/routing             # hash router, named params, 404
-vane run examples/shared-store        # global store, auth pattern
-```
+The API may evolve before 1.0 as the framework matures.
+Only the latest release is currently supported.
