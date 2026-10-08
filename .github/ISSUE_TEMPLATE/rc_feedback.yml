@@ -1,0 +1,79 @@
+name: Release candidate feedback
+description: Tell us how installing, learning or using the Vane release candidate went.
+labels: ['rc-feedback']
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for trying the release candidate. This form is for anything
+        that got in your way: an install problem, a confusing doc page, an
+        API that felt wrong, or a bug. For a plain bug with a reproduction,
+        the [bug report](https://github.com/FilipeJohansson/vane/issues/new?template=bug_report.yml)
+        form works too. Security issues: see
+        [SECURITY.md](https://github.com/FilipeJohansson/vane/security/policy).
+  - type: dropdown
+    id: category
+    attributes:
+      label: What is this about?
+      options:
+        - Installation or first run
+        - Bug
+        - Documentation was unclear or wrong
+        - API or design concern
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: goal
+    attributes:
+      label: What were you trying to do?
+      description: The app, page or task you had in mind, even if it is small.
+    validations:
+      required: true
+  - type: textarea
+    id: experience
+    attributes:
+      label: What happened, and what did you expect?
+      description: >
+        Where it got stuck, what confused you, or what felt awkward. For a
+        bug, include steps to reproduce (a minimal `.vane`/`.go` snippet or a
+        link to a repo is ideal).
+    validations:
+      required: true
+  - type: input
+    id: vane-version
+    attributes:
+      label: Vane version
+      description: Output of `vane --version`.
+      placeholder: e.g. v1.0.0-rc.1
+    validations:
+      required: true
+  - type: input
+    id: go-version
+    attributes:
+      label: Go version
+      description: Output of `go version`.
+    validations:
+      required: true
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating system
+      multiple: true
+      options:
+        - Linux
+        - macOS
+        - Windows
+    validations:
+      required: true
+  - type: input
+    id: browser
+    attributes:
+      label: Browser (if it shows up at runtime, not at build time)
+      placeholder: e.g. Chrome 130, Firefox 131, Safari 18
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant output
+      description: Compiler errors, browser console output, or `vane build`/`vane run` logs.
+      render: shell
