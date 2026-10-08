@@ -4,15 +4,17 @@ This document defines what "stable" means for Vane's public Go packages, and how
 applies [Semantic Versioning](https://semver.org/) (`MAJOR.MINOR.PATCH`) across the CLI,
 compiler, and runtime.
 
-**Status: pre-v1.0.0.** The guarantees below take effect at `v1.0.0`. Until then, any release
-may include breaking changes, in a minor or even a patch version.
+**Status: release candidate for v1.0.0.** The public API is frozen: during the release candidate,
+changes are limited to bug fixes, performance, documentation and critical developer-experience
+issues. The guarantees below take effect at `v1.0.0`. Releases before `v1.0.0` may still include
+breaking changes, in a minor or even a patch version.
 
 ## One version, three surfaces
 
 The CLI, the `.vane` compiler, and the runtime (`core` and its subpackages) share a single
 version number. One git tag — `vX.Y.Z` — is authoritative for all three.
 
-## Pre-1.0.0 (current)
+## Pre-1.0.0
 
 - **Patch** (`0.x.Y`): bug fixes, docs, tests, CI/tooling, non-breaking additions.
 - **Minor** (`0.X.0`): new features, and any breaking change.

@@ -79,32 +79,14 @@ jobs:
       - name: Build vane-page (release)
         run: ./vane build vane-page --release
 
-      # vane-page/public/index.html references its own assets (style.css,
-      # wasm_exec.js, boot.js, favicon.svg) with root-absolute paths, which
-      # is correct for the local dev server (always served at "/") and for
-      # any app deployed at its domain's root, but wrong here: this is a
-      # GitHub Pages *project* page, served under the "/vane/" sub-path
-      # instead of domain root, so those paths would otherwise resolve
-      # against https://filipejohansson.github.io/ and 404. Prefixing them
-      # at this one deploy-specific step keeps public/index.html itself
-      # correct for every other use (local dev, `vane build` in general).
-      - name: Fix asset paths for the /vane/ sub-path
-        run: |
-          sed -i \
-            -e 's|href="/favicon.svg"|href="/vane/favicon.svg"|' \
-            -e 's|href="/style.css"|href="/vane/style.css"|' \
-            -e 's|src="/wasm_exec.js"|src="/vane/wasm_exec.js"|' \
-            -e 's|src="/boot.js"|src="/vane/boot.js"|' \
-            vane-page/dist/index.html
-
-      # GitHub Pages is a static file host: a deep link like /vane/docs has
-      # no matching file, so Pages serves its own 404 before the app's
+      # GitHub Pages is a static file host: a deep link like /docs has no
+      # matching file, so Pages serves its own 404 before the app's
       # client-side router ever loads. Pages special-cases 404.html: it
       # serves that file's content (still with a 404 status) for any
       # unmatched path, so shipping a copy of index.html as 404.html boots
       # the app there too, and the router then renders the real URL from
-      # location.pathname. Must run after the asset-path fix above so the
-      # copy also has /vane/-prefixed asset paths.
+      # location.pathname. The site is served from the root of its custom
+      # domain, so index.html's root-absolute asset paths work as built.
       - name: Create 404.html fallback for client-side routing
         run: cp vane-page/dist/index.html vane-page/dist/404.html
 

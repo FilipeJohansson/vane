@@ -1,8 +1,7 @@
 # Contributing to Vane
 
-Thanks for considering a contribution. Vane is pre-1.0.0 and still shaping
-its public API, so bug reports and real-world usage feedback are as valuable
-as code.
+Thanks for considering a contribution. Vane is in release candidate for 1.0.0, so
+bug reports and real-world usage feedback are as valuable as code.
 
 ## Before you start
 
