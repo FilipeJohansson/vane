@@ -2,13 +2,14 @@ package docs
 
 import (
 	"github.com/filipejohansson/vane/core"
+	"vane-page/src/seo"
 )
 
 func LanguageSpec() core.Node {
 	core.Head(func() core.HeadConfig {
 		title := ".vane Language Spec | Vane Docs"
 		description := "The syntax .vane files must follow, and what's covered by Vane's compatibility contract."
-		url := core.Window().Get("location").Get("origin").String() + "/vane/docs/language-spec"
+		url := seo.CanonicalURL("/docs/language-spec")
 		return core.HeadConfig{
 			Title:         title,
 			Description:   description,

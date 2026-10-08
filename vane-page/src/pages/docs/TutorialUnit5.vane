@@ -4,6 +4,7 @@ import (
 	"github.com/filipejohansson/vane/core"
 
 	"vane-page/src/components"
+	"vane-page/src/seo"
 )
 
 const tutorialExampleHref = "https://github.com/filipejohansson/vane/tree/master/examples/tutorial-todo"
@@ -73,7 +74,7 @@ func TutorialUnit5() core.Node {
 	core.Head(func() core.HeadConfig {
 		title := "Unit 5: Filter by Route | Vane Tutorial"
 		description := "Three routes, one page - the URL decides what's visible."
-		url := core.Window().Get("location").Get("origin").String() + "/vane/docs/tutorial-5-filter-routes"
+		url := seo.CanonicalURL("/docs/tutorial-5-filter-routes")
 		return core.HeadConfig{
 			Title:         title,
 			Description:   description,

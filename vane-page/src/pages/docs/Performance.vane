@@ -2,8 +2,10 @@ package docs
 
 import (
 	"github.com/filipejohansson/vane/core"
+	"github.com/filipejohansson/vane/core/router"
 
 	"vane-page/src/components"
+	"vane-page/src/seo"
 )
 
 const perfRunSnippet = `git clone https://github.com/FilipeJohansson/vane
@@ -14,7 +16,7 @@ func Performance() core.Node {
 	core.Head(func() core.HeadConfig {
 		title := "Performance | Vane Docs"
 		description := "Vane performance measured against React, Svelte, and Solid."
-		url := core.Window().Get("location").Get("origin").String() + "/vane/docs/performance"
+		url := seo.CanonicalURL("/docs/performance")
 		return core.HeadConfig{
 			Title:         title,
 			Description:   description,
@@ -63,7 +65,7 @@ func Performance() core.Node {
 				<h2 className="docs-h2" id="what-each-test-does">Test setup</h2>
 				<p className="docs-p">
 					Three of the six apps are Vane, written three different ways (see{" "}
-					<a href="/vane/docs/lists">Lists</a> for what each pattern is for):{" "}
+					{router.Link(router.LinkProps{To: "/docs/lists"}, "Lists")} for what each pattern is for):{" "}
 					<code>{"{items()...}"}</code>, native <code>{"{for}"}</code>+key, and{" "}
 					<code>core.List[T]</code>. The other three are React, Svelte, and Solid.
 				</p>
@@ -148,7 +150,7 @@ func Performance() core.Node {
 					by far either way, because the raw material being compressed is the Go
 					runtime and garbage collector shipped inside <code>app.wasm</code>, not
 					something gzip can compress away. See{" "}
-					<a href="/vane/docs/bundle-size">Analyze Bundle Size</a> for the full
+					{router.Link(router.LinkProps{To: "/docs/bundle-size"}, "Analyze Bundle Size")} for the full
 					breakdown on Vane's own binary and what TinyGo buys back.
 				</p>
 				<p className="docs-p">
@@ -198,7 +200,7 @@ func Performance() core.Node {
 					Results above for the exact ratios). That's the Go runtime, its garbage
 					collector, and whatever standard-library packages the app pulls in, all shipped
 					inside that one file. See{" "}
-					<a href="/vane/docs/bundle-size">Analyze Bundle Size</a> for where those bytes
+					{router.Link(router.LinkProps{To: "/docs/bundle-size"}, "Analyze Bundle Size")} for where those bytes
 					actually go and what TinyGo buys back.
 				</p>
 				<p className="docs-p">
@@ -206,7 +208,7 @@ func Performance() core.Node {
 					Vane patterns gets used matters just as much. <code>{"{items()...}"}</code>{" "}
 					takes a plain <code>[]core.Node</code> built however the caller wants — useful
 					when the nodes come from more than one source or don't share a shape, see{" "}
-					<a href="/vane/docs/lists">Lists</a> — but that freedom has a real cost: 10-12x
+					{router.Link(router.LinkProps{To: "/docs/lists"}, "Lists")} — but that freedom has a real cost: 10-12x
 					slower than the other two patterns on anything structural. Partial update
 					(289.55ms), swap (285.80ms), and remove (288.20ms) all land in that range;
 					append (551.35ms) is the single worst number anywhere in this table.

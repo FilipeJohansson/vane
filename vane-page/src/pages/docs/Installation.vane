@@ -5,6 +5,7 @@ import (
 	"github.com/filipejohansson/vane/core/router"
 
 	"vane-page/src/components"
+	"vane-page/src/seo"
 )
 
 const installGoInstallSnippet = `go install github.com/filipejohansson/vane@latest`
@@ -20,7 +21,7 @@ func Installation() core.Node {
 	core.Head(func() core.HeadConfig {
 		title := "Installation | Vane Docs"
 		description := "Install the vane CLI, scaffold a new project, and run the dev server."
-		url := core.Window().Get("location").Get("origin").String() + "/vane/docs/installation"
+		url := seo.CanonicalURL("/docs/installation")
 		return core.HeadConfig{
 			Title:         title,
 			Description:   description,

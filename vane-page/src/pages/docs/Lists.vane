@@ -4,6 +4,7 @@ import (
 	"github.com/filipejohansson/vane/core"
 
 	"vane-page/src/components"
+	"vane-page/src/seo"
 )
 
 // The {for}+key example and the {items()...} example render the exact same
@@ -103,7 +104,7 @@ func Lists() core.Node {
 	core.Head(func() core.HeadConfig {
 		title := "Lists | Vane Docs"
 		description := "How to render lists in Vane - the {for}+key pattern to reach for by default, {items()...} for raw nodes, and core.List[T] for field-level reactive collections - with examples and the real difference between them."
-		url := core.Window().Get("location").Get("origin").String() + "/vane/docs/lists"
+		url := seo.CanonicalURL("/docs/lists")
 		return core.HeadConfig{
 			Title:         title,
 			Description:   description,

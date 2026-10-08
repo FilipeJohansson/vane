@@ -2,13 +2,14 @@ package docs
 
 import (
 	"github.com/filipejohansson/vane/core"
+	"vane-page/src/seo"
 )
 
 func CLIReference() core.Node {
 	core.Head(func() core.HeadConfig {
 		title := "CLI Reference | Vane Docs"
 		description := "Every vane command and flag: init, run, build, compile, lsp, version."
-		url := core.Window().Get("location").Get("origin").String() + "/vane/docs/cli-reference"
+		url := seo.CanonicalURL("/docs/cli-reference")
 		return core.HeadConfig{
 			Title:         title,
 			Description:   description,

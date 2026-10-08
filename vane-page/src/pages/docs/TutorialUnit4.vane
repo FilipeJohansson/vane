@@ -4,6 +4,7 @@ import (
 	"github.com/filipejohansson/vane/core"
 
 	"vane-page/src/components"
+	"vane-page/src/seo"
 )
 
 const tutorialStep4StoreSnippet = `// Toggle flips the Done state of the todo with the given id.
@@ -51,7 +52,7 @@ func TutorialUnit4() core.Node {
 	core.Head(func() core.HeadConfig {
 		title := "Unit 4: Toggle & Remove | Vane Tutorial"
 		description := "A checkbox and a remove button, each driving the store by item ID."
-		url := core.Window().Get("location").Get("origin").String() + "/vane/docs/tutorial-4-toggle-remove"
+		url := seo.CanonicalURL("/docs/tutorial-4-toggle-remove")
 		return core.HeadConfig{
 			Title:         title,
 			Description:   description,

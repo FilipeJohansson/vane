@@ -3,6 +3,7 @@ package docs
 import (
 	"github.com/filipejohansson/vane/core"
 	"github.com/filipejohansson/vane/core/router"
+	"vane-page/src/seo"
 )
 
 const corePkgURL = "https://pkg.go.dev/github.com/filipejohansson/vane/core?GOOS=js&GOARCH=wasm"
@@ -41,7 +42,7 @@ func APIReference() core.Node {
 	core.Head(func() core.HeadConfig {
 		title := "API Reference | Vane Docs"
 		description := "Curated index of Vane's public API, grouped by concept, linking to the full generated reference on pkg.go.dev."
-		url := core.Window().Get("location").Get("origin").String() + "/vane/docs/api-reference"
+		url := seo.CanonicalURL("/docs/api-reference")
 		return core.HeadConfig{
 			Title:         title,
 			Description:   description,

@@ -5,6 +5,7 @@ import (
 	"github.com/filipejohansson/vane/core/router"
 
 	"vane-page/src/components"
+	"vane-page/src/seo"
 )
 
 const dataFetchingBasicSnippet = `quote := core.NewSignal("")
@@ -65,7 +66,7 @@ func DataFetching() core.Node {
 	core.Head(func() core.HeadConfig {
 		title := "Data Fetching | Vane Docs"
 		description := "Fetch data with a goroutine and net/http, no async library or special signal type needed."
-		url := core.Window().Get("location").Get("origin").String() + "/vane/docs/data-fetching"
+		url := seo.CanonicalURL("/docs/data-fetching")
 		return core.HeadConfig{
 			Title:         title,
 			Description:   description,

@@ -7,6 +7,7 @@ import (
 	"github.com/filipejohansson/vane/core/router"
 
 	"vane-page/src/components"
+	"vane-page/src/seo"
 )
 
 // tutorialDocLink is a same-site cross-reference from tutorial prose to
@@ -102,7 +103,7 @@ func Tutorial() core.Node {
 	core.Head(func() core.HeadConfig {
 		title := "Tutorial: Build a Todo List | Vane Docs"
 		description := "A step-by-step tutorial building a real Vane app: signals, events, a reactive keyed list, and routing."
-		url := core.Window().Get("location").Get("origin").String() + "/vane/docs/tutorial"
+		url := seo.CanonicalURL("/docs/tutorial")
 		return core.HeadConfig{
 			Title:         title,
 			Description:   description,

@@ -5,6 +5,7 @@ import (
 	"github.com/filipejohansson/vane/core/router"
 
 	"vane-page/src/components"
+	"vane-page/src/seo"
 )
 
 const conceptsCounterSnippet = `func Counter() core.Node {
@@ -22,7 +23,7 @@ func Concepts() core.Node {
 	core.Head(func() core.HeadConfig {
 		title := "Concepts | Vane Docs"
 		description := "The mental model behind Vane."
-		url := core.Window().Get("location").Get("origin").String() + "/vane/docs/concepts"
+		url := seo.CanonicalURL("/docs/concepts")
 		return core.HeadConfig{
 			Title:         title,
 			Description:   description,
