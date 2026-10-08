@@ -17,8 +17,11 @@
 Vane is a Go-native frontend framework for building modern web applications with fine-grained reactivity, direct DOM updates, and JSX-like syntax.
 
 Write your frontend in Go.
+
 Keep your types.
+
 Keep your tooling.
+
 Ship to the browser with WebAssembly.
 
 <div align="center">
